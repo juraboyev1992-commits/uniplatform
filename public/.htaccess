@@ -1,0 +1,12 @@
+# SPA fallback for react-router-dom's BrowserRouter — without this, any deep link (e.g.
+# /admin/students) or a page refresh on a non-root route returns Apache's 404 instead of the app,
+# because there's no real file at that path on the server; every unmatched request must fall back
+# to index.html so the client-side router can take over.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

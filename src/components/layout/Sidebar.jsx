@@ -1,0 +1,215 @@
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { useAuth, ROLES } from '../../contexts/AuthContext';
+import {
+    LayoutDashboard,
+    BookOpen,
+    Calendar,
+    Users,
+    Award,
+    GraduationCap,
+    BarChart3,
+    FileText,
+    Settings,
+    ClipboardList,
+    Library,
+    Trophy,
+    Heart,
+    Shirt,
+    CheckSquare,
+    Scale,
+    Sparkles,
+    Rocket,
+    Target,
+    Lightbulb,
+    UserCheck,
+    Building,
+    Layers
+} from 'lucide-react';
+import { db } from '../../services/db';
+
+const Sidebar = ({ isOpen, onClose }) => {
+    const { user, hasRole } = useAuth();
+
+    const studentMenuItems = [
+        { icon: LayoutDashboard, label: 'Bosh sahifa', path: '/student/dashboard' },
+        { icon: BarChart3, label: 'Ijtimoiy faollik', path: '/student/social-activity' },
+        // Uchta alohida bo'lim ("Testlar", "Kutubxona", "Kitobxonlik testi")
+        // bittaga birlashtirildi. Ular bir-biriga shu qadar yaqin ediki,
+        // talaba qaysi biriga kirishni bilmasdi: kutubxona asarlar ro'yxati,
+        // kitobxonlik testi esa AYNAN O'SHA asarlarning testlari edi.
+        { icon: Library, label: 'Kutubxona va testlar', path: '/student/library' },
+        { icon: Calendar, label: 'Tadbirlar', path: '/student/events' },
+        { icon: Layers, label: 'Loyihalar', path: '/student/event-collections' },
+        { icon: Users, label: 'Klublar', path: '/student/clubs' },
+        // To'rtta alohida bo'lim ("Imkoniyatlar", "Stipendiyalar", "Yutuqlar va
+        // imtiyozlar", "Mening rivojlanishim") bitta jamlovchi bo'limga birlashtirildi -
+        // ular bir-birining davomi edi.
+        { icon: Trophy, label: 'Yutuq va imkoniyatlar', path: '/student/achievements' },
+        // "Davomat" emas, "Ishtirokim": bu sahifa dars davomatini ko'rsatmaydi (u
+        // HEMIS tomonida), tadbir va musobaqalardagi qatnashuvni ko'rsatadi.
+        { icon: CheckSquare, label: 'Ishtirokim', path: '/student/attendance' },
+        { icon: Shirt, label: 'Garderob', path: '/student/wardrobe' },
+    ];
+
+    const adminMenuItems = [
+        { icon: LayoutDashboard, label: 'Bosh sahifa', path: '/admin/dashboard' },
+        // 'Talabalar' menu item removed per Reytinglar refactor — the full StudentsManagement module now
+        // lives inside Reytinglar -> "Global talabalar" tab, so this no longer needs its own entry point.
+        // /admin/students itself is untouched and still resolves (App.jsx route unchanged) for anyone
+        // with an old link/bookmark.
+        { icon: Trophy, label: 'Klublar katalogi', path: '/admin/clubs-directory' },
+        { icon: Calendar, label: 'Tadbirlar', path: '/admin/events' },
+        { icon: Trophy, label: 'Musobaqalar', path: '/admin/competitions' },
+        { icon: Layers, label: "Tadbirlar to'plami", path: '/admin/event-collections' },
+        { icon: BarChart3, label: 'Ijtimoiy faollik', path: '/admin/social-activity' },
+        // Indeksning 7-mezoni. "Tadbirlar" dan alohida turadi: Ma'rifat darsi
+        // auditoriya kesimida rejalashtiriladi va davomat foizi shu doirada
+        // hisoblanadi.
+        { icon: Lightbulb, label: "Ma'rifat darslari", path: '/admin/marifat' },
+        { icon: Award, label: 'Reytinglar', path: '/admin/rankings' },
+        { icon: Trophy, label: 'Taqdirlash reestri', path: '/admin/awards' },
+        { icon: FileText, label: 'Hisobotlar', path: '/admin/reports' },
+        // "Testlar" va "Kutubxona" bittaga birlashtirildi: har asarning testi
+        // baribir testlar bo'limida sozlanardi.
+        { icon: Library, label: 'Kutubxona va testlar', path: '/admin/library' },
+        { icon: Sparkles, label: 'Iqtidorli talabalar', path: '/admin/talent' },
+        { icon: GraduationCap, label: 'Stipendiyalar', path: '/admin/scholarships' },
+        { icon: BookOpen, label: 'Akademik ko\'rsatkich', path: '/admin/academic' },
+        { icon: CheckSquare, label: 'Davomat', path: '/admin/attendance' },
+        { icon: Shirt, label: 'Do\'kon', path: '/admin/wardrobe' },
+        { icon: Settings, label: 'Sozlamalar', path: '/admin/settings' },
+    ];
+
+    const managementMenuItems = [
+        { icon: LayoutDashboard, label: 'Bosh sahifa', path: '/management/dashboard' },
+        { icon: BarChart3, label: 'Statistika', path: '/management/statistics' },
+        { icon: Users, label: 'Klublar katalogi', path: '/management/clubs-directory' },
+        { icon: Trophy, label: 'Reytinglar', path: '/management/rankings' },
+        { icon: FileText, label: 'Hisobotlar', path: '/management/reports' },
+        { icon: GraduationCap, label: 'Fakultetlar', path: '/management/faculties' },
+        { icon: Sparkles, label: 'Talent Pipeline', path: '/management/talent' },
+        { icon: Award, label: 'Stipendiyalar', path: '/management/scholarships' },
+    ];
+
+    // Tyutor menyusi ATAYLAB qisqa: uning vakolati biriktirilgan talabalar
+    // doirasi bilan cheklangan, universitet miqyosidagi bo'limlar ko'rinmaydi.
+    const tutorMenuItems = [
+        { icon: UserCheck, label: 'Ish maydoni', path: '/tutor/workspace' },
+        { icon: Lightbulb, label: "Ma'rifat darslari", path: '/tutor/marifat' },
+    ];
+
+    let menuItems = [];
+    let base = '';
+    if (hasRole(ROLES.STUDENT)) { menuItems = studentMenuItems; base = '/student'; }
+    else if (hasRole(ROLES.ADMIN)) { menuItems = adminMenuItems; base = '/admin'; }
+    else if (hasRole(ROLES.MANAGEMENT)) { menuItems = managementMenuItems; base = '/management'; }
+    else if (hasRole(ROLES.TUTOR)) { menuItems = tutorMenuItems; base = '/tutor'; }
+
+    // "Ariza baholash" - roldan qat'i nazar, faqat fakultet komissiyasiga biriktirilgan
+    // akkauntga ko'rinadi. Platformada hali "dekan" roli yo'q, shuning uchun menyu ham
+    // biriktiruv bo'yicha ochiladi (sahifaning o'zi ham xuddi shu tekshiruvni takrorlaydi).
+    const isEvaluator = user?.username ? db.isScholarshipEvaluator(user.username) : false;
+    if (base && isEvaluator) {
+        menuItems = [...menuItems, {
+            icon: Scale, label: 'Ariza baholash', path: `${base}/scholarship-evaluation`
+        }];
+    }
+
+    // "Mening shogirdlarim" - xuddi shu tamoyil: rol emas, biriktiruv hal qiladi.
+    // Mentor, tyutor va ilmiy rahbar bitta sahifani ko'radi.
+    const isMentor = user?.username ? db.isTalentMentor(user.username) : false;
+    if (base && isMentor) {
+        menuItems = [...menuItems, {
+            icon: Users, label: 'Mening shogirdlarim', path: `${base}/my-mentees`
+        }];
+    }
+
+    // "Mening yotoqxonam" - yana o'sha tamoyil. Yotoqxona mudiri uchun alohida
+    // rol ochilmadi: mavjud akkaunt yotoqxonaga biriktiriladi.
+    const isDormLead = user?.username ? db.isDormResponsible(user.username) : false;
+    if (base && isDormLead) {
+        menuItems = [...menuItems, {
+            icon: Building, label: 'Mening yotoqxonam', path: `${base}/my-dormitory`
+        }];
+    }
+
+    return (
+        <>
+            {/* Mobile Overlay */}
+            {isOpen && (
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
+                    onClick={onClose}
+                />
+            )}
+
+            {/* Sidebar */}
+            <aside
+                className={`
+          fixed lg:sticky top-0 left-0 h-screen bg-white border-r border-gray-200 z-40
+          transition-transform duration-300 ease-in-out
+          ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          w-64 flex flex-col
+        `}
+            >
+                {/* Sidebar Header - only visible on mobile */}
+                <div className="lg:hidden p-4 border-b border-gray-200">
+                    <div className="flex items-center">
+                        <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center shadow-md">
+                            <span className="text-white font-bold text-xl">U</span>
+                        </div>
+                        <div className="ml-3">
+                            <h1 className="text-lg font-bold gradient-text">UniPlatform</h1>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Navigation */}
+                <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+                    {menuItems.map((item) => (
+                        <NavLink
+                            key={item.path}
+                            to={item.path}
+                            onClick={() => onClose && onClose()}
+                            className={({ isActive }) =>
+                                `flex items-center px-4 py-3 rounded-lg transition-all duration-200 group ${isActive
+                                    ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md'
+                                    : 'text-gray-700 hover:bg-gray-100'
+                                }`
+                            }
+                        >
+                            {({ isActive }) => (
+                                <>
+                                    <item.icon
+                                        className={`w-5 h-5 mr-3 ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-primary-500'
+                                            }`}
+                                    />
+                                    <span className="font-medium">{item.label}</span>
+                                </>
+                            )}
+                        </NavLink>
+                    ))}
+                </nav>
+
+                {/* Sidebar Footer */}
+                <div className="p-4 border-t border-gray-200">
+                    <div className="bg-gradient-to-br from-primary-50 to-primary-100 rounded-lg p-4">
+                        <div className="flex items-center mb-2">
+                            <Heart className="w-5 h-5 text-primary-500 mr-2" />
+                            <span className="font-semibold text-primary-900">Yordam kerakmi?</span>
+                        </div>
+                        <p className="text-sm text-primary-700 mb-3">
+                            Savollaringiz bo'lsa, biz bilan bog'laning
+                        </p>
+                        <button className="w-full bg-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors">
+                            Qo'llab-quvvatlash
+                        </button>
+                    </div>
+                </div>
+            </aside>
+        </>
+    );
+};
+
+export default Sidebar;

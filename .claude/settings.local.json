@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-Command chromium-cli -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command npx -ErrorAction SilentlyContinue)",
+      "PowerShell(npm run build 2>&1)",
+      "PowerShell(Test-Path \"node_modules\\\\playwright\"; Test-Path \"node_modules\\\\.bin\\\\playwright.cmd\"; \\(Get-Command npx\\).Source)",
+      "PowerShell(node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d-------------------------------------------------------------------------Std-uchun-Kodlar-Besh-tashabbus-platforma-uniplatform\\\\61a371ba-4682-4f53-986a-ff392cc5d52c\\\\scratchpad\\\\verify-rankings.mjs\")",
+      "PowerShell(node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d-------------------------------------------------------------------------Std-uchun-Kodlar-Besh-tashabbus-platforma-uniplatform\\\\61a371ba-4682-4f53-986a-ff392cc5d52c\\\\scratchpad\\\\verify-migration.mjs\")",
+      "PowerShell(node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d-------------------------------------------------------------------------Std-uchun-Kodlar-Besh-tashabbus-platforma-uniplatform\\\\61a371ba-4682-4f53-986a-ff392cc5d52c\\\\scratchpad\\\\verify-competitions.mjs\")",
+      "PowerShell(node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d-------------------------------------------------------------------------Std-uchun-Kodlar-Besh-tashabbus-platforma-uniplatform\\\\61a371ba-4682-4f53-986a-ff392cc5d52c\\\\scratchpad\\\\verify-competitions.mjs\" 2>&1)",
+      "PowerShell(node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d-------------------------------------------------------------------------Std-uchun-Kodlar-Besh-tashabbus-platforma-uniplatform\\\\61a371ba-4682-4f53-986a-ff392cc5d52c\\\\scratchpad\\\\verify-question-breakdown.mjs\")",
+      "PowerShell(node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d-------------------------------------------------------------------------Std-uchun-Kodlar-Besh-tashabbus-platforma-uniplatform\\\\61a371ba-4682-4f53-986a-ff392cc5d52c\\\\scratchpad\\\\verify-round-grouping.mjs\")",
+      "PowerShell(node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d-------------------------------------------------------------------------Std-uchun-Kodlar-Besh-tashabbus-platforma-uniplatform\\\\61a371ba-4682-4f53-986a-ff392cc5d52c\\\\scratchpad\\\\verify-round-grouping-e2e.mjs\")",
+      "PowerShell(node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d-------------------------------------------------------------------------Std-uchun-Kodlar-Besh-tashabbus-platforma-uniplatform\\\\61a371ba-4682-4f53-986a-ff392cc5d52c\\\\scratchpad\\\\verify-question-columns.mjs\")",
+      "PowerShell(node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d-------------------------------------------------------------------------Std-uchun-Kodlar-Besh-tashabbus-platforma-uniplatform\\\\61a371ba-4682-4f53-986a-ff392cc5d52c\\\\scratchpad\\\\verify-configurable-rounds.mjs\")",
+      "PowerShell(node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d-------------------------------------------------------------------------Std-uchun-Kodlar-Besh-tashabbus-platforma-uniplatform\\\\61a371ba-4682-4f53-986a-ff392cc5d52c\\\\scratchpad\\\\verify-scoring-fix.mjs\")",
+      "PowerShell(npm run build)",
+      "PowerShell(node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d-------------------------------------------------------------------------Std-uchun-Kodlar-Besh-tashabbus-platforma-uniplatform\\\\61a371ba-4682-4f53-986a-ff392cc5d52c\\\\scratchpad\\\\verify-new-engines.mjs\")",
+      "PowerShell(node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d-------------------------------------------------------------------------Std-uchun-Kodlar-Besh-tashabbus-platforma-uniplatform\\\\61a371ba-4682-4f53-986a-ff392cc5d52c\\\\scratchpad\\\\verify-wizard.mjs\")",
+      "PowerShell(node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d-------------------------------------------------------------------------Std-uchun-Kodlar-Besh-tashabbus-platforma-uniplatform\\\\61a371ba-4682-4f53-986a-ff392cc5d52c\\\\scratchpad\\\\verify-club-migration.mjs\")",
+      "PowerShell(node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d-------------------------------------------------------------------------Std-uchun-Kodlar-Besh-tashabbus-platforma-uniplatform\\\\61a371ba-4682-4f53-986a-ff392cc5d52c\\\\scratchpad\\\\verify-calendar.mjs\")"
+    ]
+  }
+}
