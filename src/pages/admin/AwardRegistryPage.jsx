@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Trophy, Search, Download, ShieldX, ExternalLink, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Trophy, Search, Download, ShieldX, ExternalLink, Eye, Gift, GraduationCap, Layers } from 'lucide-react';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Modal from '../../components/common/Modal';
@@ -8,6 +9,7 @@ import AwardAnalyticsTab from '../../components/admin/AwardAnalyticsTab';
 import { db } from '../../services/db';
 import { useTabParam } from '../../hooks/useTabParam';
 import { useAuth } from '../../contexts/AuthContext';
+import { exportRowsToExcel } from '../../utils/exportToExcel';
 import {
     DOCUMENT_TYPES, DOCUMENT_GROUPS, DOCUMENT_STATUS,
     getDocumentType, getDocumentTypeLabel, PROTOCOL_STATUS
@@ -35,7 +37,8 @@ const StatCard = ({ label, value, hint }) => (
 
 const AwardRegistryPage = () => {
     const { user } = useAuth();
-    const [tab, setTab] = useTabParam(['registry', 'analytics'], 'registry');
+    const navigate = useNavigate();
+    const [tab, setTab] = useTabParam(['registry', 'scholarships', 'clubs', 'incentives', 'prizes', 'analytics'], 'registry');
     const [version, setVersion] = useState(0);
     const [filters, setFilters] = useState({ search: '', group: '', documentType: '', status: '', faculty: '' });
     const [detail, setDetail] = useState(null);
@@ -120,15 +123,19 @@ const AwardRegistryPage = () => {
                 Reestr - qidirish va hujjat topish. Tahlil - reestrdan savol
                 so'rash: qaysi daraja, qaysi fakultet, qanday dinamika. Ilgari
                 ikkinchisi umuman yo'q edi. */}
-            <div className="flex border-b border-gray-200 gap-6">
+            <div className="flex border-b border-gray-200 gap-6 overflow-x-auto">
                 {[
-                    { id: 'registry', label: 'Reestr' },
+                    { id: 'registry', label: 'Diplom / Sertifikat' },
+                    { id: 'scholarships', label: 'Stipendiya / Grant' },
+                    { id: 'clubs', label: 'Klublar reestri' },
+                    { id: 'incentives', label: "Rag'bat puli" },
+                    { id: 'prizes', label: 'Mukofotlar' },
                     { id: 'analytics', label: 'Tahlil' },
                 ].map(t => (
                     <button
                         key={t.id}
                         onClick={() => setTab(t.id)}
-                        className={`pb-3 font-bold text-sm border-b-2 transition-all ${
+                        className={`pb-3 font-bold text-sm border-b-2 transition-all whitespace-nowrap ${
                             tab === t.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-900'
                         }`}
                     >
@@ -138,6 +145,10 @@ const AwardRegistryPage = () => {
             </div>
 
             {tab === 'analytics' && <AwardAnalyticsTab />}
+            {tab === 'scholarships' && <ScholarshipRecipientsTab />}
+            {tab === 'clubs' && <ClubCertificatesTab />}
+            {tab === 'incentives' && <RecognitionRegistryTab kind="incentive" onManage={() => navigate('/admin/incentive-awards')} />}
+            {tab === 'prizes' && <RecognitionRegistryTab kind="prize" onManage={() => navigate('/admin/incentive-awards')} />}
 
             {tab === 'registry' && (
             <>
@@ -344,6 +355,253 @@ const AwardRegistryPage = () => {
                     </div>
                 )}
             </Modal>
+        </div>
+    );
+};
+
+// Yangi tablarning barchasida bir xil qidiruv+fakultet filtr paneli - asosiy
+// "Reestr" tabidagi filtr qatori bilan bir xil uslubda (ATAYLAB - tanish tajriba).
+const RegistryFilterBar = ({ search, onSearch, searchPlaceholder, faculty, onFaculty, facultyOptions, extra }) => (
+    <Card className="p-4">
+        <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[220px]">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                    value={search}
+                    onChange={e => onSearch(e.target.value)}
+                    placeholder={searchPlaceholder}
+                    className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm"
+                />
+            </div>
+            {facultyOptions && (
+                <select value={faculty} onChange={e => onFaculty(e.target.value)}
+                    className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white">
+                    <option value="">Barcha fakultetlar</option>
+                    {facultyOptions.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+            )}
+            {extra}
+        </div>
+    </Card>
+);
+
+// --- Stipendiya / Grant oluvchilar - mavjud stipendiya moduli ustidan o'qish (dublikat emas) ---
+const ScholarshipRecipientsTab = () => {
+    const allRows = useMemo(() => db.getScholarshipRecipients(), []);
+    const [search, setSearch] = useState('');
+    const [faculty, setFaculty] = useState('');
+    const facultyOptions = useMemo(() => [...new Set(allRows.map(r => r.faculty).filter(Boolean))].sort(), [allRows]);
+    const rows = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return allRows.filter(r =>
+            (!q || r.fullName.toLowerCase().includes(q) || (r.grantTitle || '').toLowerCase().includes(q)) &&
+            (!faculty || r.faculty === faculty)
+        );
+    }, [allRows, search, faculty]);
+    const exportXlsx = () => exportRowsToExcel(rows.map((r, i) => ({
+        '#': i + 1, 'F.I.Sh.': r.fullName, Fakultet: r.faculty || '', Grant: r.grantTitle || '',
+        Miqdor: r.amount || '', Sana: (r.approvedAt || '').slice(0, 10),
+    })), { sheetName: 'Stipendiya', fileName: `stipendiya_grant_${new Date().toISOString().slice(0, 10)}.xlsx` });
+
+    return (
+        <div className="space-y-4">
+            <RegistryFilterBar
+                search={search} onSearch={setSearch} searchPlaceholder="F.I.Sh. yoki grant nomi..."
+                faculty={faculty} onFaculty={setFaculty} facultyOptions={facultyOptions}
+            />
+            <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-500">{rows.length} nafar tasdiqlangan stipendiya/grant oluvchi</p>
+                <Button variant="outline" size="sm" icon={Download} onClick={exportXlsx}>Excel</Button>
+            </div>
+            <Card padding={false}>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-gray-400 uppercase">
+                            <tr>
+                                <th className="p-3 w-10">№</th><th className="p-3">F.I.Sh.</th><th className="p-3">Fakultet</th>
+                                <th className="p-3">Grant</th><th className="p-3">Miqdor</th><th className="p-3">Sana</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                            {rows.length === 0 ? (
+                                <tr><td colSpan={6} className="p-10 text-center text-gray-400">Tasdiqlangan grant oluvchi topilmadi.</td></tr>
+                            ) : rows.map((r, i) => (
+                                <tr key={r.id} className="hover:bg-slate-50/70">
+                                    <td className="p-3 text-gray-400 font-bold">{i + 1}</td>
+                                    <td className="p-3 font-semibold text-gray-800">{r.fullName}</td>
+                                    <td className="p-3 text-gray-600">{r.faculty || '—'}</td>
+                                    <td className="p-3 text-gray-600">{r.grantTitle || '—'}</td>
+                                    <td className="p-3 text-gray-600">{r.amount || '—'}</td>
+                                    <td className="p-3 text-gray-500">{(r.approvedAt || '').slice(0, 10)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+        </div>
+    );
+};
+
+// --- Ro'yxatdan o'tgan klublar reestri - mavjud klub ro'yxatga olish moduli ustidan o'qish ---
+const ClubCertificatesTab = () => {
+    const allRows = useMemo(() => db.getIssuedClubCertificates(), []);
+    const [search, setSearch] = useState('');
+    const rows = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return allRows.filter(r => !q
+            || r.clubName.toLowerCase().includes(q)
+            || (r.registryNumber || '').toLowerCase().includes(q)
+            || (r.certificateNumber || '').toLowerCase().includes(q));
+    }, [allRows, search]);
+    const exportXlsx = () => exportRowsToExcel(rows.map((r, i) => ({
+        '#': i + 1, Klub: r.clubName, "Ro'yxat raqami": r.registryNumber, 'Guvohnoma raqami': r.certificateNumber || '',
+        Sana: (r.issuedAt || '').slice(0, 10),
+    })), { sheetName: 'Klublar', fileName: `klublar_reestri_${new Date().toISOString().slice(0, 10)}.xlsx` });
+
+    return (
+        <div className="space-y-4">
+            <RegistryFilterBar search={search} onSearch={setSearch} searchPlaceholder="Klub nomi yoki ro'yxat raqami..." />
+            <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-500">{rows.length} ta ro'yxatdan o'tgan klub</p>
+                <Button variant="outline" size="sm" icon={Download} onClick={exportXlsx}>Excel</Button>
+            </div>
+            <Card padding={false}>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-gray-400 uppercase">
+                            <tr>
+                                <th className="p-3 w-10">№</th><th className="p-3">Klub</th><th className="p-3">Ro'yxat raqami</th>
+                                <th className="p-3">Guvohnoma raqami</th><th className="p-3">Sana</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                            {rows.length === 0 ? (
+                                <tr><td colSpan={5} className="p-10 text-center text-gray-400">Ro'yxatdan o'tgan klub topilmadi.</td></tr>
+                            ) : rows.map((r, i) => (
+                                <tr key={r.clubId} className="hover:bg-slate-50/70">
+                                    <td className="p-3 text-gray-400 font-bold">{i + 1}</td>
+                                    <td className="p-3 font-semibold text-gray-800">{r.clubName}</td>
+                                    <td className="p-3 font-mono text-[10px] text-gray-500">{r.registryNumber}</td>
+                                    <td className="p-3 font-mono text-[10px] text-gray-500">{r.certificateNumber || '—'}</td>
+                                    <td className="p-3 text-gray-500">{(r.issuedAt || '').slice(0, 10)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+        </div>
+    );
+};
+
+// --- Rag'bat puli / Mukofot reestri - tasdiqlangan yozuvlar, talaba pasportidagi haqiqiy
+// JSHSHIR/passport/to'lov shakli bilan birlashtirilgan (qayta kiritilmagan). ---
+const RecognitionRegistryTab = ({ kind, onManage }) => {
+    const allRows = useMemo(() => db.getApprovedRecognitionRegistry(kind), [kind]);
+    const isIncentive = kind === 'incentive';
+    const [search, setSearch] = useState('');
+    const [faculty, setFaculty] = useState('');
+    const [activityTitle, setActivityTitle] = useState('');
+    const facultyOptions = useMemo(() => [...new Set(allRows.map(r => r.faculty).filter(Boolean))].sort(), [allRows]);
+    const activityOptions = useMemo(() => [...new Set(allRows.map(r => r.activityTitle).filter(Boolean))].sort(), [allRows]);
+    const rows = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return allRows.filter(r =>
+            (!q || r.fullName.toLowerCase().includes(q)
+                || (r.activityTitle || '').toLowerCase().includes(q)
+                || (isIncentive ? '' : (r.prizeTitle || '')).toLowerCase().includes(q)) &&
+            (!faculty || r.faculty === faculty) &&
+            (!activityTitle || r.activityTitle === activityTitle)
+        );
+    }, [allRows, search, faculty, activityTitle, isIncentive]);
+    const exportXlsx = () => exportRowsToExcel(rows.map((r, i) => ({
+        'T/r': i + 1, 'F.I.Sh.': r.fullName, Fakulteti: r.faculty || '', Ishtiroki: r.participationDescription || '',
+        ...(isIncentive
+            ? { "Rag'batlantirish miqdori": r.amount || '' }
+            : { Mukofot: r.prizeTitle || '' }),
+        "Davlat granti yoki to'lov-kontrakt": r.paymentForm || '', 'Passport ma\'lumoti': r.passportNumber || '', JSHIR: r.jshshir || '',
+    })), { sheetName: isIncentive ? "Rag'bat puli" : 'Mukofotlar', fileName: `${isIncentive ? 'ragbat_puli' : 'mukofotlar'}_${new Date().toISOString().slice(0, 10)}.xlsx` });
+
+    // Screenshotdagi rasmiy jadval kabi - faoliyat sarlavhasi bo'yicha guruhlangan.
+    const groups = useMemo(() => {
+        const map = new Map();
+        rows.forEach(r => {
+            const key = r.activityTitle || "Bog'lanmagan";
+            if (!map.has(key)) map.set(key, []);
+            map.get(key).push(r);
+        });
+        return Array.from(map.entries());
+    }, [rows]);
+
+    return (
+        <div className="space-y-4">
+            <RegistryFilterBar
+                search={search} onSearch={setSearch}
+                searchPlaceholder={`F.I.Sh., tanlov${isIncentive ? '' : ' yoki mukofot nomi'}...`}
+                faculty={faculty} onFaculty={setFaculty} facultyOptions={facultyOptions}
+                extra={activityOptions.length > 0 && (
+                    <select value={activityTitle} onChange={e => setActivityTitle(e.target.value)}
+                        className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white">
+                        <option value="">Barcha tanlovlar</option>
+                        {activityOptions.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                )}
+            />
+            <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-500">{rows.length} nafar tasdiqlangan {isIncentive ? 'rag\'bat puli' : 'mukofot'} oluvchi</p>
+                <div className="flex gap-2">
+                    <Button variant="outline" size="sm" icon={Gift} onClick={onManage}>Taklif qilish / tasdiqlash</Button>
+                    <Button variant="outline" size="sm" icon={Download} onClick={exportXlsx}>Excel</Button>
+                </div>
+            </div>
+            {groups.length === 0 ? (
+                <Card className="p-10 text-center text-gray-400">Tasdiqlangan yozuv topilmadi.</Card>
+            ) : (
+                // Rasmiy hujjat kabi BITTA uzluksiz jadval - musobaqa nomi to'liq kenglikda
+                // ajratuvchi qator sifatida chiqadi, tartib raqami bo'limlar orasida ham
+                // to'xtamay davom etadi (jadval tuzish tabidagi bilan bir xil ko'rinish).
+                <Card padding={false}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-50 text-gray-400 uppercase">
+                                <tr>
+                                    <th className="p-3 w-10">T/r</th><th className="p-3">F.I.Sh.</th><th className="p-3">Fakulteti</th>
+                                    <th className="p-3">Ishtiroki</th><th className="p-3">{isIncentive ? 'Miqdori' : 'Mukofot'}</th>
+                                    <th className="p-3">To'lov shakli</th><th className="p-3">Passport</th><th className="p-3">JSHIR</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                                {(() => {
+                                    let counter = 0;
+                                    return groups.map(([title, groupRows]) => (
+                                        <React.Fragment key={title}>
+                                            <tr>
+                                                <td colSpan={8} className="p-2.5 bg-indigo-50 text-center font-bold text-indigo-800">{title}</td>
+                                            </tr>
+                                            {groupRows.map(r => {
+                                                counter += 1;
+                                                return (
+                                                    <tr key={r.id} className="hover:bg-slate-50/70">
+                                                        <td className="p-3 text-gray-400 font-bold">{counter}</td>
+                                                        <td className="p-3 font-semibold text-gray-800">{r.fullName}</td>
+                                                        <td className="p-3 text-gray-600">{r.faculty || '—'}</td>
+                                                        <td className="p-3 text-gray-600">{r.participationDescription || '—'}</td>
+                                                        <td className="p-3 text-gray-600 font-semibold">{isIncentive ? (r.amount || '—') : (r.prizeTitle || '—')}</td>
+                                                        <td className="p-3 text-gray-500">{r.paymentForm || '—'}</td>
+                                                        <td className="p-3 text-gray-500">{r.passportNumber || '—'}</td>
+                                                        <td className="p-3 text-gray-500">{r.jshshir || '—'}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </React.Fragment>
+                                    ));
+                                })()}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+            )}
         </div>
     );
 };

@@ -67,6 +67,7 @@ import EventCollectionsPage from './pages/admin/EventCollectionsPage';
 import EventCollectionDetailPage from './pages/admin/EventCollectionDetailPage';
 import EventCollectionsListPage from './pages/student/EventCollectionsListPage';
 import EventCollectionDetailStudentPage from './pages/student/EventCollectionDetailStudentPage';
+import IncentiveAwardsPage from './pages/admin/IncentiveAwardsPage';
 
 
 // Protected Route Component
@@ -204,6 +205,7 @@ const AppRouter = () => {
                                 <Route path="competitions/:id" element={<CompetitionWorkspacePage />} />
                                 <Route path="event-collections" element={<EventCollectionsListPage />} />
                                 <Route path="event-collections/:id" element={<EventCollectionDetailStudentPage />} />
+                                <Route path="incentive-awards" element={<IncentiveAwardsPage />} />
                                 <Route path="profile" element={<ProfilePage />} />
                                 <Route path="notifications" element={<NotificationList />} />
                                 <Route path="*" element={<Navigate to="/student/dashboard" replace />} />
@@ -268,6 +270,7 @@ const AppRouter = () => {
                                 <Route path="academic" element={<AcademicRecordsPage />} />
                                 <Route path="talent" element={<TalentModulePage />} />
                                 <Route path="awards" element={<AwardRegistryPage />} />
+                                <Route path="incentive-awards" element={<IncentiveAwardsPage />} />
                                 <Route path="settings" element={<SettingsPage />} />
                                 <Route path="profile" element={<ProfilePage />} />
                                 <Route path="notifications" element={<NotificationList />} />

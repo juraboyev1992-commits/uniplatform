@@ -2605,6 +2605,23 @@ const buildDimensionRows = (flatRows, config, keyOf, totalOf, { includeTeamPlace
 const mapTurScheduleFromSupabase = (row) => ({ ...row.data, id: row.id, competitionId: row.competition_id });
 const mapJudgeRoleFromSupabase = (row) => ({ ...row.data, id: row.id, competitionId: row.competition_id });
 const mapDebatePenaltyFromSupabase = (row) => ({ ...row.data, id: row.id, competitionId: row.competition_id });
+const mapStudentRecognitionFromSupabase = (row) => ({
+    id: row.id, kind: row.kind, activityType: row.activity_type, activityId: row.activity_id,
+    activityTitle: row.activity_title, studentId: row.student_id, source: row.source, place: row.place,
+    participationDescription: row.participation_description, amount: row.amount, prizeTitle: row.prize_title,
+    status: row.status, proposedBy: row.proposed_by, proposedAt: row.proposed_at,
+    reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at, reviewComment: row.review_comment,
+});
+const studentRecognitionTableError = (error) => {
+    const message = String(error?.message || '');
+    if (/relation .*student_recognitions.* does not exist/i.test(message)) {
+        return new Error(
+            "Rag'bat/mukofot reestri jadvali topilmadi. Supabase SQL Editor da "
+            + '`supabase/student_recognitions.sql` ni bir marta ishga tushiring.'
+        );
+    }
+    return error;
+};
 
 // membersCount is deliberately NOT a value trusted from the `clubs` row - it's derived fresh from
 // the real membership rows on every sync, so it can never drift and a plain member (who can't write
@@ -2623,7 +2640,7 @@ const syncCoreDataFromSupabase = async () => {
     const [
         coreRes, venueRes, schRes, testRes, poydevorRes, marifatRes, culturalRes,
         caResSingle, sdocRes, cjrRes, sportRes, housRes, passportRes, talentRes,
-        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes
+        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes
     ] = await Promise.all([
         Promise.all([
             supabase.from('clubs').select('*'),
@@ -2742,7 +2759,8 @@ const syncCoreDataFromSupabase = async () => {
             supabase.from('event_collections').select('*'),
             supabase.from('event_collection_items').select('*'),
             supabase.from('tutor_group_assignments').select('*')
-        ])
+        ]),
+        supabase.from('student_recognitions').select('*')
     ]);
 
     const [
@@ -3240,6 +3258,19 @@ const syncCoreDataFromSupabase = async () => {
         dbData.eventCollectionItems = (eciRows || []).map(mapEventCollectionItemFromSupabase);
         dbData.tutorGroupAssignments = (tgaRows || []).map(mapTutorGroupAssignmentFromSupabase);
         dbData.eventCollectionsBackendReady = true;
+    }
+
+    // Rag'bat puli / mukofot reestri - alohida SQL fayl (supabase/student_recognitions.sql).
+    const { data: recRows, error: recErr } = recognitionRes;
+    if (recErr) {
+        console.warn(
+            "[rag'bat/mukofot reestri] jadval o'qilmadi - supabase/student_recognitions.sql ishga tushirilganmi?",
+            recErr
+        );
+        dbData.studentRecognitionsBackendReady = false;
+    } else {
+        dbData.studentRecognitions = (recRows || []).map(mapStudentRecognitionFromSupabase);
+        dbData.studentRecognitionsBackendReady = true;
     }
 
     saveDB(dbData);
@@ -15820,6 +15851,149 @@ export const db = {
     recalculateEventCollection: async (collectionId) => {
         await db.syncCoreDataFromSupabase();
         return db.getEventCollectionAnalytics(collectionId);
+    },
+
+    // ========================================================================
+    // TALABALARNI RAG'BATLANTIRISH VA MUKOFOTLASH REESTRI
+    //
+    // Oqim: Musobaqada ishtirok -> bayonnoma -> diplom/sertifikat -> shu yerda
+    // rag'bat puli/mukofot. Koordinator/tyutor/admin TAKLIF qiladi (pending),
+    // admin TASDIQLAYDI - shundagina rasmiy reestrga (Taqdirlash reestri
+    // sahifasidagi tab) kiradi.
+    // ========================================================================
+
+    isStudentRecognitionsBackendReady: () => getDB().studentRecognitionsBackendReady !== false,
+
+    // Bitta faoliyat (musobaqa) uchun tizim AVTOMATIK aniqlagan g'oliblar - lekin faqat
+    // shunga tegishli DARAJALI DIPLOM/SERTIFIKAT allaqachon BERILGAN (documents.status ===
+    // 'issued') bo'lsa. Oqim: ishtirok -> bayonnoma -> diplom/sertifikat -> shundan KEYIN
+    // rag'bat puli. Shuning uchun manba getLeaderboard emas, `documents` jadvalining o'zi -
+    // hujjat hali chiqarilmagan bo'lsa (loyiha/tasdiqlash bosqichida bo'lsa ham), bu yerda
+    // umuman ko'rinmaydi, UI "qo'lda kiritish" rejimida qoladi.
+    getAutoDetectedWinners: (activityType, activityId, { placesUpTo = 3 } = {}) => {
+        const dbData = getDB();
+        const issuedDiplomas = (dbData.documents || []).filter(d =>
+            d.sourceType === activityType && d.sourceId === activityId && d.status === 'issued' &&
+            d.place != null && d.place <= placesUpTo && getDocumentType(d.documentType)?.group === 'diploma'
+        );
+        const rows = [];
+        issuedDiplomas.forEach(d => {
+            if (d.isTeam && (d.members || []).length > 0) {
+                d.members.forEach(m => {
+                    if (!m.userId) return;
+                    rows.push({
+                        studentId: m.userId, fullName: m.fullName, faculty: m.faculty,
+                        place: d.place, isTeam: true, teamName: d.teamName || d.recipientName,
+                        participationDescription: `${d.place}-o'rin (${d.teamName || d.recipientName} jamoasi)`,
+                    });
+                });
+            } else if (d.recipientId) {
+                rows.push({
+                    studentId: d.recipientId, fullName: d.recipientName, faculty: d.faculty,
+                    place: d.place, isTeam: false, teamName: null,
+                    participationDescription: `${d.place}-o'rin`,
+                });
+            }
+        });
+        return rows.sort((a, b) => a.place - b.place);
+    },
+
+    getStudentRecognitions: ({ kind = null, status = null, activityId = null } = {}) =>
+        (getDB().studentRecognitions || [])
+            .filter(r => (!kind || r.kind === kind) && (!status || r.status === status) && (!activityId || r.activityId === activityId))
+            .sort((a, b) => new Date(b.proposedAt || 0) - new Date(a.proposedAt || 0)),
+
+    proposeStudentRecognition: async ({
+        kind, activityType = null, activityId = null, activityTitle = null, studentId,
+        source = 'manual', place = null, participationDescription = null, amount = null,
+        prizeTitle = null, proposedBy,
+    }) => {
+        const id = 'srec_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        const { error } = await supabase.from('student_recognitions').insert({
+            id, kind, activity_type: activityType, activity_id: activityId, activity_title: activityTitle,
+            student_id: studentId, source, place, participation_description: participationDescription,
+            amount, prize_title: prizeTitle, status: 'pending', proposed_by: proposedBy,
+        });
+        if (error) throw studentRecognitionTableError(error);
+        await db.syncCoreDataFromSupabase();
+    },
+
+    // Faqat o'zi taklif qilgan, hali 'pending' bo'lgan yozuvni o'chira oladi (RLS shuni ta'minlaydi).
+    deleteStudentRecognitionProposal: async (id) => {
+        const { error } = await supabase.from('student_recognitions').delete().eq('id', id);
+        if (error) throw studentRecognitionTableError(error);
+        await db.syncCoreDataFromSupabase();
+    },
+
+    // Faqat admin - security definer RPC ichida tekshiriladi (SQL faylda).
+    reviewStudentRecognition: async ({ id, status, reviewedBy, comment = null }) => {
+        const { error } = await supabase.rpc('review_student_recognition', {
+            p_id: id, p_status: status, p_reviewed_by: reviewedBy, p_comment: comment,
+        });
+        if (error) throw studentRecognitionTableError(error);
+        await db.syncCoreDataFromSupabase();
+    },
+
+    // --- Tasdiqlangan reestrlar (Taqdirlash reestri sahifasidagi tablar uchun) ---
+    // Har biri talabaning haqiqiy pasport ma'lumotlari (JSHSHIR/passport/to'lov shakli)
+    // bilan BIRLASHTIRILADI - qayta kiritilmaydi, mavjud manbadan o'qiladi
+    // (getStudentPassportRaw - rasmiy hujjat, shuning uchun filtrlanmagan holda).
+    getApprovedRecognitionRegistry: (kind) => {
+        const dbData = getDB();
+        const studentById = new Map(db.getMockStudents().map(s => [s.id, s]));
+        const profileById = new Map(db.getSyncedProfiles().map(p => [p.id, p]));
+        return (dbData.studentRecognitions || [])
+            .filter(r => r.kind === kind && r.status === 'approved')
+            .map(r => {
+                const student = studentById.get(r.studentId) || profileById.get(r.studentId) || {};
+                const passport = db.getStudentPassportRaw(r.studentId);
+                const sections = passport?.sections || {};
+                return {
+                    ...r,
+                    fullName: student.fullName || r.studentId,
+                    faculty: student.faculty || null,
+                    course: student.course ?? null,
+                    group: student.group || null,
+                    jshshir: sections['identity.jshshir'] || null,
+                    passportNumber: sections['identity.passport'] || null,
+                    paymentForm: sections['education.paymentForm'] || null,
+                };
+            })
+            .sort((a, b) => new Date(b.reviewedAt || 0) - new Date(a.reviewedAt || 0));
+    },
+
+    // --- Stipendiya/grant oluvchilar (mavjud stipendiya moduli ustidan o'qish, dublikat emas) ---
+    getScholarshipRecipients: () => {
+        const dbData = getDB();
+        const grantById = new Map((dbData.scholarshipGrants || []).map(g => [g.id, g]));
+        const studentById = new Map(db.getMockStudents().map(s => [s.id, s]));
+        const profileById = new Map(db.getSyncedProfiles().map(p => [p.id, p]));
+        return (dbData.scholarshipApplications || [])
+            .filter(a => a.status === 'approved')
+            .map(a => {
+                const student = studentById.get(a.studentId) || profileById.get(a.studentId) || {};
+                const grant = grantById.get(a.grantId) || {};
+                return {
+                    id: a.id, studentId: a.studentId, fullName: student.fullName || a.studentId,
+                    faculty: student.faculty || a.faculty || null, grantTitle: grant.title || a.grantTitle || null,
+                    amount: grant.amount || null, approvedAt: a.updatedAt || a.submittedAt || null,
+                };
+            });
+    },
+
+    // --- Ro'yxatdan o'tgan klublar reestri (mavjud klub ro'yxatga olish moduli ustidan o'qish) ---
+    getIssuedClubCertificates: () => {
+        const dbData = getDB();
+        return (dbData.clubs || [])
+            .filter(c => !!c.registryNumber)
+            .map(c => {
+                const cert = (dbData.clubCertificates || []).find(cc => cc.clubId === c.id && cc.status !== 'revoked');
+                return {
+                    clubId: c.id, clubName: c.name, registryNumber: c.registryNumber,
+                    certificateNumber: cert?.certificateNumber || null, issuedAt: cert?.issuedAt || c.registeredAt || null,
+                    issuedBy: cert?.issuedBy || null, status: cert?.status || (c.registryNumber ? 'registered' : null),
+                };
+            });
     },
 
     // ADMIN UTILS

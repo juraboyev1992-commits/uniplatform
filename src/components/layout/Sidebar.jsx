@@ -24,7 +24,8 @@ import {
     Lightbulb,
     UserCheck,
     Building,
-    Layers
+    Layers,
+    Gift
 } from 'lucide-react';
 import { db } from '../../services/db';
 
@@ -42,6 +43,10 @@ const Sidebar = ({ isOpen, onClose }) => {
         { icon: Calendar, label: 'Tadbirlar', path: '/student/events' },
         { icon: Layers, label: 'Loyihalar', path: '/student/event-collections' },
         { icon: Users, label: 'Klublar', path: '/student/clubs' },
+        // Klub koordinatorlari uchun - g'oliblarni rag'bat puliga taklif qilish.
+        // Oddiy talabaga ham ko'rinadi (mavjud konvensiya - Klublar kabi), lekin
+        // sahifaning o'zi faqat koordinator boshqargan musobaqalarni ko'rsatadi.
+        { icon: Gift, label: "Rag'bat va mukofot", path: '/student/incentive-awards' },
         // To'rtta alohida bo'lim ("Imkoniyatlar", "Stipendiyalar", "Yutuqlar va
         // imtiyozlar", "Mening rivojlanishim") bitta jamlovchi bo'limga birlashtirildi -
         // ular bir-birining davomi edi.
@@ -69,6 +74,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         { icon: Lightbulb, label: "Ma'rifat darslari", path: '/admin/marifat' },
         { icon: Award, label: 'Reytinglar', path: '/admin/rankings' },
         { icon: Trophy, label: 'Taqdirlash reestri', path: '/admin/awards' },
+        { icon: Gift, label: "Rag'bat va mukofot", path: '/admin/incentive-awards' },
         { icon: FileText, label: 'Hisobotlar', path: '/admin/reports' },
         // "Testlar" va "Kutubxona" bittaga birlashtirildi: har asarning testi
         // baribir testlar bo'limida sozlanardi.
