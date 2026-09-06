@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth, ROLES } from './contexts/AuthContext';
 import DashboardLayout from './components/layout/DashboardLayout';
 import LoginPage from './pages/auth/LoginPage';
@@ -70,9 +70,19 @@ import EventCollectionDetailStudentPage from './pages/student/EventCollectionDet
 import IncentiveAwardsPage from './pages/admin/IncentiveAwardsPage';
 
 
+// Qaysi panelga kirmoqchi bo'lgan bo'lsa - o'sha panelning kirish sahifasi.
+// Xodim `/admin/awards` havolasini ochsa, talaba sahifasiga emas, `/admin` ga tushadi.
+const loginPathFor = (pathname) => {
+    if (pathname.startsWith('/admin')) return '/admin';
+    if (pathname.startsWith('/management')) return '/rahbariyat';
+    if (pathname.startsWith('/tutor')) return '/tyutor';
+    return '/';
+};
+
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
     const { isAuthenticated, user, loading } = useAuth();
+    const location = useLocation();
 
     if (loading) {
         return (
@@ -83,7 +93,11 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     }
 
     if (!isAuthenticated) {
-        return <Navigate to="/login" replace />;
+        // Asosiy kirish sahifasi "/" - talabalar uchun; xodim o'z sahifasiga
+        // yo'naltiriladi. Ochmoqchi bo'lgan manzil `?redirect=` da saqlanadi -
+        // kirgandan keyin aynan o'sha sahifa ochiladi.
+        const target = encodeURIComponent(location.pathname + location.search);
+        return <Navigate to={`${loginPathFor(location.pathname)}?redirect=${target}`} replace />;
     }
 
     if (allowedRoles && !allowedRoles.includes(user?.role)) {
@@ -98,9 +112,10 @@ const AppRouter = () => {
     const { isAuthenticated, user } = useAuth();
     const [searchParams] = useSearchParams();
 
-    // Redirect to appropriate dashboard based on role
+    // Redirect to appropriate dashboard based on role.
+    // Kirilmagan bo'lsa - asosiy sahifa ("/", talabalar uchun kirish/ro'yxatdan o'tish).
     const getDefaultRoute = () => {
-        if (!isAuthenticated) return '/login';
+        if (!isAuthenticated) return '/';
 
         switch (user?.role) {
             case ROLES.STUDENT:
@@ -112,7 +127,8 @@ const AppRouter = () => {
             case ROLES.TUTOR:
                 return '/tutor/workspace';
             default:
-                return '/login';
+                // Noma'lum/berilmagan rol - panelga o'tkazilmaydi, kirish sahifasida qoladi.
+                return '/';
         }
     };
 
@@ -128,13 +144,38 @@ const AppRouter = () => {
 
     return (
         <Routes>
-            {/* Public Routes */}
+            {/* KIRISH SAHIFALARI - har rol uchun alohida manzil.
+                Bu faqat KIRISH NUQTASI, huquq emas: rol har doim bazadagi
+                `profiles.role` dan olinadi, shuning uchun /admin sahifasidan
+                kirgan talaba ham baribir talaba paneliga tushadi. */}
             <Route
-                path="/login"
+                path="/"
                 element={
-                    isAuthenticated ? <Navigate to={getRedirectTarget()} replace /> : <LoginPage />
+                    isAuthenticated ? <Navigate to={getRedirectTarget()} replace /> : <LoginPage variant="student" />
                 }
             />
+            <Route
+                path="/admin"
+                element={
+                    isAuthenticated ? <Navigate to={getRedirectTarget()} replace /> : <LoginPage variant="admin" />
+                }
+            />
+            <Route
+                path="/rahbariyat"
+                element={
+                    isAuthenticated ? <Navigate to={getRedirectTarget()} replace /> : <LoginPage variant="management" />
+                }
+            />
+            <Route
+                path="/tyutor"
+                element={
+                    isAuthenticated ? <Navigate to={getRedirectTarget()} replace /> : <LoginPage variant="tutor" />
+                }
+            />
+            {/* Eski manzil saqlanadi - havola va xatcho'plar buzilmasin. */}
+            <Route path="/login" element={<Navigate to="/" replace />} />
+
+            {/* Public Routes */}
             {/* "Live ekran" public view (spec §11) — no auth, read-only, meant for a projector tab */}
             <Route path="/live/:competitionId" element={<CompetitionLiveScreenPage />} />
             {/* Public musobaqa/tadbir info+registration page — the "Ulashish" share link's real
@@ -341,8 +382,7 @@ const AppRouter = () => {
                 }
             />
 
-            {/* Default Route */}
-            <Route path="/" element={<Navigate to={getDefaultRoute()} replace />} />
+            {/* Topilmagan manzil - roliga qarab o'z paneliga, kirilmagan bo'lsa asosiy sahifaga. */}
             <Route path="*" element={<Navigate to={getDefaultRoute()} replace />} />
         </Routes>
     );
