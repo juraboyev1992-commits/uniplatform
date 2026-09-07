@@ -21,11 +21,12 @@ import VolunteeringScalePanel from '../../components/admin/VolunteeringScalePane
 import CulturalVisitsPanel from '../../components/admin/CulturalVisitsPanel';
 import SportTeamsPanel from '../../components/sport/SportTeamsPanel';
 import DormitoriesPanel from '../../components/admin/DormitoriesPanel';
+import UserAccountsPanel from '../../components/admin/UserAccountsPanel';
 import { db } from '../../services/db';
 import { useTabParam } from '../../hooks/useTabParam';
 
 const SETTINGS_TAB_IDS = [
-    'general', 'scoring', 'social-activity', 'notifications', 'venues', 'theme', 'data',
+    'general', 'users', 'scoring', 'social-activity', 'notifications', 'venues', 'theme', 'data',
 ];
 
 const SettingsPage = () => {
@@ -194,6 +195,7 @@ const SettingsPage = () => {
 
     const tabs = [
         { id: 'general', label: 'Umumiy', icon: Settings },
+        { id: 'users', label: 'Foydalanuvchilar', icon: Shield },
         { id: 'scoring', label: 'Ball tizimi', icon: BarChart3 },
         { id: 'social-activity', label: 'Ijtimoiy faollik', icon: Award },
         { id: 'notifications', label: 'Bildirishnomalar', icon: Bell },
@@ -245,6 +247,10 @@ const SettingsPage = () => {
 
                 {/* Content */}
                 <div className="flex-1 space-y-6">
+                    {/* Foydalanuvchi akkauntlari - o'z-o'zidan ro'yxatdan o'tish yopilgan,
+                        akkauntni admin shu yerdan yaratadi va rolni belgilaydi. */}
+                    {activeTab === 'users' && <UserAccountsPanel />}
+
                     {/* General Settings */}
                     {activeTab === 'general' && (
                         <Card className="p-6 border-none bg-white/80">

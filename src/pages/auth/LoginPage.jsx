@@ -21,7 +21,11 @@ const VARIANTS = {
     student: {
         title: 'UniPlatform',
         subtitle: 'Universitet Boshqaruv Tizimi',
-        allowSignup: true,
+        // O'z-o'zidan ro'yxatdan o'tish YOPILGAN: akkauntni administrator yaratadi
+        // (Sozlamalar -> Foydalanuvchilar) va login/parolni foydalanuvchiga beradi.
+        // Qayta ochish kerak bo'lsa - shu qiymatni `true` qilish kifoya, signUp
+        // oqimi va formasi joyida turibdi.
+        allowSignup: false,
         icon: null,
         badge: null,
         shell: 'bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700',
@@ -194,7 +198,9 @@ const LoginPage = ({ variant = 'student' }) => {
 
                     {!cfg.allowSignup && (
                         <p className="mt-5 text-center text-xs text-gray-400">
-                            Xodim akkaunti universitet administratori tomonidan beriladi.
+                            {variant === 'student'
+                                ? "Akkaunt universitet ma'muriyati tomonidan beriladi. Login yoki parolni bilmasangiz, mas'ul xodimga murojaat qiling."
+                                : 'Xodim akkaunti universitet administratori tomonidan beriladi.'}
                         </p>
                     )}
                 </div>

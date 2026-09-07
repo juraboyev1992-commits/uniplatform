@@ -2612,6 +2612,17 @@ const mapStudentRecognitionFromSupabase = (row) => ({
     status: row.status, proposedBy: row.proposed_by, proposedAt: row.proposed_at,
     reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at, reviewComment: row.review_comment,
 });
+const userManagementError = (error) => {
+    const message = String(error?.message || '');
+    if (/function .*admin_(create_user|set_user_role|reset_user_password).* does not exist/i.test(message)) {
+        return new Error(
+            "Foydalanuvchi boshqaruvi funksiyalari topilmadi. Supabase SQL Editor da "
+            + '`supabase/admin_user_management.sql` ni bir marta ishga tushiring.'
+        );
+    }
+    return error;
+};
+
 const studentRecognitionTableError = (error) => {
     const message = String(error?.message || '');
     if (/relation .*student_recognitions.* does not exist/i.test(message)) {
@@ -15994,6 +16005,42 @@ export const db = {
                     issuedBy: cert?.issuedBy || null, status: cert?.status || (c.registryNumber ? 'registered' : null),
                 };
             });
+    },
+
+    // ========================================================================
+    // FOYDALANUVCHI AKKAUNTLARINI BOSHQARISH (faqat admin)
+    //
+    // O'z-o'zidan ro'yxatdan o'tish yopilgan - akkauntni admin yaratadi.
+    // Yaratish/rol berish/parol almashtirish `security definer` RPC'lar orqali
+    // (supabase/admin_user_management.sql), chunki brauzerdagi `anon` kalit
+    // foydalanuvchi yarata olmaydi va `service_role` kalitini mijoz kodiga
+    // qo'yish mumkin emas. Har bir RPC ichida `is_platform_admin()` tekshiriladi.
+    // ========================================================================
+
+    getAllUserAccounts: () => (getDB().realProfiles || [])
+        .slice()
+        .sort((a, b) => String(a.username || '').localeCompare(String(b.username || ''))),
+
+    adminCreateUser: async ({ username, password, fullName = '', role = 'TALABA' }) => {
+        const { data, error } = await supabase.rpc('admin_create_user', {
+            p_username: username, p_password: password, p_full_name: fullName, p_role: role,
+        });
+        if (error) throw userManagementError(error);
+        await db.syncCoreDataFromSupabase();
+        return data;
+    },
+
+    adminSetUserRole: async (userId, role) => {
+        const { error } = await supabase.rpc('admin_set_user_role', { p_user_id: userId, p_role: role });
+        if (error) throw userManagementError(error);
+        await db.syncCoreDataFromSupabase();
+    },
+
+    adminResetUserPassword: async (userId, password) => {
+        const { error } = await supabase.rpc('admin_reset_user_password', {
+            p_user_id: userId, p_password: password,
+        });
+        if (error) throw userManagementError(error);
     },
 
     // ADMIN UTILS
