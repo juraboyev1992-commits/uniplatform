@@ -101,8 +101,10 @@ begin
     values (v_id, v_uname, coalesce(p_full_name, ''))
     on conflict (id) do nothing;
 
+    -- `profiles.role` - enum (`user_role`), matn o'zgaruvchidan o'zlashtirish uchun
+    -- aniq konvertatsiya shart (matn LITERALI o'zi konvert bo'ladi, o'zgaruvchi esa yo'q).
     update public.profiles
-       set role      = p_role,
+       set role      = p_role::user_role,
            username  = v_uname,
            full_name = coalesce(nullif(p_full_name, ''), full_name)
      where id = v_id;
@@ -130,7 +132,7 @@ begin
         raise exception 'O''z rolingizni o''zgartira olmaysiz';
     end if;
 
-    update public.profiles set role = p_role where id = p_user_id;
+    update public.profiles set role = p_role::user_role where id = p_user_id;
 end $$;
 
 -- ---------------------------------------------------------------------------
