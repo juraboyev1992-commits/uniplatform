@@ -20,8 +20,13 @@ import {
 // o'z sarlavhasini yashiradi. Tab kaliti ATAYLAB `jarayon`: reestr sahifasi bilan yonma-yon
 // turadi va ikkalasi standart `?tab=` kalitini talashib qolmasligi kerak.
 const IncentiveAwardsPage = ({ embedded = false }) => {
-    const { user, hasClubRole } = useAuth();
+    const { user, hasClubRole, isClubManager } = useAuth();
     const isAdmin = user?.role === 'ADMINISTRATOR';
+    // Menyudan yashirish YETARLI EMAS: manzilni to'g'ridan-to'g'ri yozib ochish mumkin.
+    // Bu ko'rinish darajasidagi to'siq, haqiqiy chegara esa baribir serverda
+    // (student_recognitions RLS va security definer funksiyalari) - lekin vakolati
+    // yo'q talabaga bo'sh jadval ko'rsatgandan ko'ra sababni aytgan ma'qul.
+    const canUse = isAdmin || isClubManager;
     const [tab, setTab] = useTabParam(['propose', 'builder', 'pending'], 'propose', 'jarayon');
     const [version, setVersion] = useState(0);
     const bump = () => setVersion(v => v + 1);
@@ -216,18 +221,40 @@ const IncentiveAwardsPage = ({ embedded = false }) => {
                 </Card>
             )}
 
+            {/* Vakolati yo'q foydalanuvchiga bo'sh jadval emas, SABAB ko'rsatiladi. */}
+            {!canUse && (
+                <Card className="p-8 text-center">
+                    <Gift className="w-10 h-10 text-gray-300 mx-auto" />
+                    <p className="font-bold text-gray-800 mt-3">Bu bo'lim klub koordinatorlari uchun</p>
+                    <p className="text-sm text-gray-500 mt-1 max-w-md mx-auto">
+                        Rag'bat puli va mukofotga faqat klub koordinatori o'zi boshqargan musobaqa
+                        g'oliblarini taklif qila oladi. Sizda hozircha bunday vakolat yo'q.
+                    </p>
+                </Card>
+            )}
+
+            {/* "Jadval tuzish" — rasmiy rag'bat jadvalini bir necha musobaqadan yig'ish
+                vositasi, uni ADMIN to'ldiradi. Koordinatorning ishi g'olibni taklif qilish
+                va o'z takliflarining holatini kuzatish, shuning uchun unga bu tab ko'rsatilmaydi:
+                ochib qo'yish "men ham to'ldirishim kerakmi?" degan savol tug'dirardi. */}
+            {canUse && (
             <div className="flex border-b border-gray-200 gap-6">
-                {[['propose', 'Taklif qilish'], ['builder', 'Jadval tuzish'], ['pending', `Kutilayotgan (${pending.length})`]].map(([id, label]) => (
+                {[
+                    ['propose', 'Taklif qilish'],
+                    ...(isAdmin ? [['builder', 'Jadval tuzish']] : []),
+                    ['pending', `Kutilayotgan (${pending.length})`]
+                ].map(([id, label]) => (
                     <button key={id} onClick={() => setTab(id)}
                         className={`pb-3 font-bold text-sm border-b-2 transition-all ${tab === id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-900'}`}>
                         {label}
                     </button>
                 ))}
             </div>
+            )}
 
             {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl p-3">{error}</p>}
 
-            {tab === 'propose' && (
+            {canUse && tab === 'propose' && (
                 <div className="space-y-6">
                     <div className="flex bg-gray-100 rounded-2xl p-1 w-fit">
                         {Object.entries(RECOGNITION_KIND_LABELS).map(([k, l]) => (
@@ -328,7 +355,7 @@ const IncentiveAwardsPage = ({ embedded = false }) => {
                 </div>
             )}
 
-            {tab === 'builder' && (
+            {canUse && isAdmin && tab === 'builder' && (
                 <div className="space-y-4">
                     <Card className="space-y-4">
                         <div>
@@ -442,7 +469,7 @@ const IncentiveAwardsPage = ({ embedded = false }) => {
                 </div>
             )}
 
-            {tab === 'pending' && (
+            {canUse && tab === 'pending' && (
                 <Card padding={false}>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">

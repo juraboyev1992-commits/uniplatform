@@ -130,6 +130,15 @@ export const AuthProvider = ({ children }) => {
         return roles.includes(membership.role);
     };
 
+    // Foydalanuvchi ISTALGAN klubda koordinatormi? Klub koordinatorligi ROL emas - u TALABA
+    // rolining ustidagi klub a'zoligi, shuning uchun `user.role` dan bilib bo'lmaydi.
+    //
+    // Nima uchun kerak: rag'bat taklifi kabi bo'limlar aynan shu vakolatga bog'liq. Ilgari
+    // ular menyuda HAMMA talabaga ko'rinardi va vakolati yo'q talaba ochganda bo'sh sahifa
+    // bilan qolardi - nima uchun bo'shligi ham tushuntirilmasdi.
+    const isClubManager = user?.role === ROLES.ADMIN
+        || clubRoles.some(m => ['coordinator', 'head_coordinator'].includes(m.role));
+
     // Refresh memberships (call this after joining/leaving a club)
     const refreshClubRoles = async () => {
         if (user) {
@@ -147,6 +156,7 @@ export const AuthProvider = ({ children }) => {
         hasRole,
         hasAnyRole,
         hasClubRole,
+        isClubManager,
         refreshClubRoles,
         isAuthenticated: !!user,
         loading
