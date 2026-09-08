@@ -32,6 +32,16 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
     // (registerForActivity) — default the captain's own choice to it so the input doesn't start below
     // a value that would just get rejected on submit.
     const [minTeamSize, setMinTeamSize] = useState(activity.teamMinSize || 2);
+    // Tashkilotchi belgilagan eng kam hajm. `useState` yuqorida FAQAT BIR MARTA
+    // ishlaydi - agar panel `activity` to'liq yuklanmasidan oldin chizilgan
+    // bo'lsa, maydon 2 bo'lib qotib qolardi va keyin yuborishda serverda rad
+    // etilardi. Kapitan esa 5 kishi qo'shib turib "jamoa kamida 4 kishi bo'lsin"
+    // xabarini ko'rar, xato qayerdaligini topolmasdi. Shu sabab qiymat
+    // ma'lum bo'lgan zahoti ko'tariladi.
+    const teamFloor = Math.max(2, Number(activity.teamMinSize) || 2);
+    useEffect(() => {
+        setMinTeamSize(v => Math.max(Number(v) || 2, teamFloor));
+    }, [teamFloor]);
     const [pickerValue, setPickerValue] = useState(null);
     const [chosenMode, setChosenMode] = useState(null); // for registrationType 'both': 'individual'|'team'
     // 'new' = today's invite-by-invite flow (unchanged); 'existing' = attach an already-real team the
@@ -146,7 +156,9 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
                 participantType: 'team',
                 teamName: teamName.trim(),
                 invitedUserIds: invitees.map(s => s.id),
-                minTeamSize: Math.min(minTeamSize, invitees.length + 1),
+                // Pastki chegara HAR DOIM saqlanadi. Ilgari faqat `Math.min`
+                // bor edi va u qiymatni pasaytirar, natijada server rad etardi.
+                minTeamSize: Math.max(teamFloor, Math.min(minTeamSize, invitees.length + 1)),
                 attachments: attachment ? [attachment] : []
             });
             setTeamName(''); setInvitees([]);
@@ -513,12 +525,29 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
                                 <label className="block text-[11px] font-bold text-gray-500 uppercase mb-1">Minimal jamoa hajmi (kapitan bilan)</label>
                                 <input
                                     type="number"
-                                    min={activity.teamMinSize || 2}
-                                    max={Math.max(invitees.length + 1, activity.teamMinSize || 2)}
+                                    min={teamFloor}
+                                    max={Math.max(invitees.length + 1, teamFloor)}
                                     className="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm"
                                     value={minTeamSize}
-                                    onChange={e => setMinTeamSize(Number(e.target.value) || (activity.teamMinSize || 2))}
+                                    onChange={e => setMinTeamSize(Number(e.target.value) || teamFloor)}
                                 />
+                                {/* Maydonning MA'NOSI va TALABI yozib qo'yiladi. Bu maydon
+                                    a'zolar soni emas - "necha kishi qabul qilsa jamoam
+                                    faollashadi" degani, va aynan shu farq tushunilmagani
+                                    uchun xato adashtirardi. */}
+                                <p className="text-[11px] text-gray-400 mt-1">
+                                    Necha kishi taklifni qabul qilsa, jamoa faollashadi.
+                                    {activity.teamMinSize ? ` Tashkilotchi eng kam ${activity.teamMinSize} kishini talab qiladi.` : ''}
+                                </p>
+                                {/* Taklif qilinganlar chegaradan kam bo'lsa - jamoa hech qachon
+                                    faollashmaydi. Buni YUBORISHDAN OLDIN aytish kerak, keyin emas. */}
+                                {invitees.length + 1 < teamFloor && (
+                                    <p className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mt-2">
+                                        Hozir {invitees.length + 1} kishi (siz bilan). Jamoa faollashishi uchun
+                                        kamida {teamFloor} kishi kerak — yana {teamFloor - invitees.length - 1} ta a'zo qo'shing
+                                        yoki ular taklif kodi bilan qo'shilsin.
+                                    </p>
+                                )}
                             </div>
                             {isFull && activity.waitlistEnabled && (
                                 <p className="text-[11px] text-amber-600 font-semibold px-1">Joy to'lgan — jamoangiz navbatga qo'shiladi</p>

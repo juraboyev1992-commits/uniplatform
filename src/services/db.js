@@ -6150,7 +6150,16 @@ export const db = {
         // below the admin's real floor, so admin's "Jamoa min. hajmi" was purely decorative. Now a
         // captain can't set a personal threshold under the admin's configured minimum.
         if (options.participantType === 'team' && activity.teamMinSize && options.minTeamSize && options.minTeamSize < activity.teamMinSize) {
-            throw new Error(`Jamoa kamida ${activity.teamMinSize} kishidan iborat bo'lishi kerak`);
+            // Xabar QAYSI MAYDON xato ekanini aniq aytadi. Ilgari u shunchaki
+            // "Jamoa kamida N kishidan iborat bo'lishi kerak" derdi va bu
+            // adashtirardi: kapitan 5 kishi qo'shib turib shu xabarni ko'rar,
+            // a'zolar soni yetarli bo'lgani uchun nima noto'g'ri ekanini
+            // topolmasdi. Aslida gap butunlay boshqa maydonda edi.
+            throw new Error(
+                `"Minimal jamoa hajmi" ${options.minTeamSize} qilib qo'yilgan, lekin tashkilotchi eng kam ` +
+                `${activity.teamMinSize} kishini talab qiladi. A'zolar soni yetarli — faqat shu maydonni ` +
+                `${activity.teamMinSize} yoki undan katta qiling.`
+            );
         }
 
         // Proactive platform-wide team-name uniqueness check - the REAL db.createTeam (the authoritative
