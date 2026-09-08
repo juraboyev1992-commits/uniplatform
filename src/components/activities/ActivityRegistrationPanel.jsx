@@ -107,6 +107,27 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
         [activity.id, activityType, refreshKey]
     );
     const registeredCount = registrations.filter(r => r.status === 'registered').length;
+    // Ism yechuvchi: yozuvlarda faqat `userId` (login) turadi, ekranda esa
+    // F.I.Sh. kerak - mas'ul odam loginlar ro'yxatidan kimligini topa olmaydi.
+    // IKKALA ro'yxatdan qidiriladi. Haqiqiy Supabase akkauntlari sintetik 550
+    // talabadan ALOHIDA hovuzda turadi (db.getSyncedProfiles izohiga qarang) -
+    // faqat getMockStudents() ga qaralsa, aynan haqiqiy odamning ismi topilmay,
+    // ekranda login ko'rinib qolardi.
+    const nameOf = useMemo(() => {
+        const byId = new Map(db.getMockStudents().map(s => [s.id, s.fullName]));
+        db.getSyncedProfiles().forEach(p => {
+            if (p.username && p.fullName) byId.set(p.username, p.fullName);
+        });
+        return (id) => byId.get(id) || id;
+    }, [refreshKey]);
+    // Bekor qilinganlar chiqarilmaydi; navbatdagilar QOLADI - mas'ul joy
+    // bo'shaganda kim kutayotganini ko'rishi kerak.
+    const staffRoster = useMemo(
+        () => registrations
+            .filter(r => r.status !== 'cancelled')
+            .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)),
+        [registrations]
+    );
     const myRegistration = user ? registrations.find(r => r.userId === user.username && r.status !== 'cancelled') : null;
     const myPendingInvite = user
         ? registrations.find(r => (r.teamMembers || []).some(m => m.userId === user.username && m.status === 'pending'))
@@ -677,6 +698,71 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
                             ))}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* KIM RO'YXATDAN O'TGAN — mas'ul uchun.
+                Ilgari bu ro'yxat umuman chizilmasdi: panelda faqat SON turardi
+                ("5 ta ro'yxatdan o'tgan"), ismlar esa hech qayerda ko'rinmasdi.
+                Jamoa esa bundan ham yomon holatda edi - u davomat ro'yxatiga
+                faqat TASDIQLANGANDAN keyin tushadi (getEventAttendanceRoster:
+                `if (!r.teamConfirmedAt || !r.realTeamId) return`), ya'ni a'zolar
+                taklifni qabul qilmaguncha jamoa mas'ul uchun butunlay
+                ko'rinmas edi - go'yo hech kim ro'yxatdan o'tmagandek.
+                Aynan shu holat "jamoa adminga ko'rinmayapti" bo'lib chiqqan. */}
+            {canOverride && staffRoster.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                    <h4 className="text-[11px] font-bold text-gray-500 uppercase">
+                        Ro'yxatdan o'tganlar ({staffRoster.length})
+                    </h4>
+                    {staffRoster.map(r => {
+                        const isTeam = r.participantType === 'team';
+                        const accepted = (r.teamMembers || []).filter(m => m.status === 'accepted').length + 1;
+                        const need = r.minTeamSize || 0;
+                        return (
+                            <div key={r.id} className="border border-gray-100 rounded-xl px-3 py-2 space-y-1.5">
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <span className="text-sm font-semibold text-gray-800">
+                                        {isTeam
+                                            ? (r.teamName || 'Nomsiz jamoa')
+                                            : (r.participantSnapshot?.fullName || nameOf(r.userId))}
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                        {r.status === 'waitlisted' && <Badge size="sm" variant="warning">Navbatda</Badge>}
+                                        {isTeam && (r.teamConfirmedAt
+                                            ? <Badge size="sm" variant="success">Jamoa tasdiqlangan</Badge>
+                                            : <Badge size="sm" variant="default">Kutilmoqda: {accepted}/{need || '?'}</Badge>)}
+                                        {!isTeam && r.status === 'registered' && <Badge size="sm" variant="success">Ro'yxatda</Badge>}
+                                        {r.addedByOverride && <Badge size="sm" variant="warning">Override</Badge>}
+                                    </div>
+                                </div>
+                                {isTeam && (
+                                    <div className="text-[11px] text-gray-500 space-y-0.5">
+                                        <div className="flex items-center justify-between">
+                                            <span>{r.participantSnapshot?.fullName || nameOf(r.userId)}</span>
+                                            <Badge size="sm" variant="success">Sardor</Badge>
+                                        </div>
+                                        {(r.teamMembers || []).map(m => (
+                                            <div key={m.userId} className="flex items-center justify-between">
+                                                <span>{nameOf(m.userId)}</span>
+                                                <Badge size="sm" variant={m.status === 'accepted' ? 'success' : m.status === 'declined' ? 'danger' : 'default'}>
+                                                    {m.status === 'accepted' ? 'Qabul qildi' : m.status === 'declined' ? 'Rad etdi' : 'Kutilmoqda'}
+                                                </Badge>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {/* Nima yetishmayotgani AYTIB QO'YILADI - mas'ul "nega
+                                    davomatda yo'q" degan savolga javobni shu yerdan topsin. */}
+                                {isTeam && !r.teamConfirmedAt && (
+                                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-2 py-1">
+                                        Jamoa hali tasdiqlanmagan — {need > accepted ? `yana ${need - accepted} kishi qabul qilishi kerak` : 'tasdiqlanish kutilmoqda'}.
+                                        Shu sababli a'zolari davomat ro'yxatida chiqmaydi.
+                                    </p>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>
