@@ -90,7 +90,7 @@ const AdminDashboard = () => {
     );
 
     // "Faollik dinamikasi" — real 6-month sum of socialScoreTransactions points (the actual ledger every
-    // student's Ijtimoiy faollik skori is built from), not a placeholder curve.
+    // student's Ijtimoiy faollik skoring is built from), not a placeholder curve.
     const activityTrend = useMemo(() => {
         const now = new Date();
         const months = [];

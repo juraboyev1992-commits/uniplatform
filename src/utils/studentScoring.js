@@ -1,6 +1,6 @@
 import { SOCIAL_APPLICATION_STATUS } from '../services/db';
 
-// "Talaba Analitik Skori (TAS)" — 0-1000 ballik kompozit ko'rsatkich. U ikkita ekranda
+// "Talaba Analitik Skoring (TAS)" — 0-1000 ballik kompozit ko'rsatkich. U ikkita ekranda
 // ko'rsatiladi (admin panelidagi talaba kartochkasi — StudentsManagement.jsx, va talabaning
 // o'z "Mening profilim" sahifasi) va ikkalasi ham AYNAN bir xil raqamni ko'rsatishi shart —
 // shuning uchun hisob shu yagona faylda turadi.
@@ -34,22 +34,22 @@ export const GPA_MAX = 5;
 // kartochkasi ham, talaba profili ham AYNAN bir xil izohni ko'rsatishi kerak.
 export const TAS_DIMENSIONS = [
     {
-        key: 'academic', field: 'academicScore', label: 'Akademik skori', max: 400, dot: 'bg-indigo-600',
+        key: 'academic', field: 'academicScore', label: 'Akademik skoring', max: 400, dot: 'bg-indigo-600',
         info: "O'quv ko'rsatkichi. Barcha semestrlar bo'yicha o'rtacha GPA olinadi va 400 ballik shkalaga keltiriladi.",
         formula: "(o'rtacha GPA ÷ 5) × 400"
     },
     {
-        key: 'social', field: 'socialFaollikScore', label: 'Ijtimoiy faollik skori', max: 300, dot: 'bg-emerald-500',
+        key: 'social', field: 'socialFaollikScore', label: 'Ijtimoiy faollik skoring', max: 300, dot: 'bg-emerald-500',
         info: 'Ijtimoiy faollik arizalari bo\'yicha yig\'ilgan ball. Faqat TASDIQLANGAN arizalar hisobga olinadi; har bir mezon o\'z maksimumidan oshmaydi.',
         formula: "(yig'ilgan ball ÷ mezonlar maksimumi) × 300"
     },
     {
-        key: 'leadership', field: 'leadershipScore', label: 'Liderlik skori', max: 150, dot: 'bg-amber-500',
+        key: 'leadership', field: 'leadershipScore', label: 'Liderlik skoring', max: 150, dot: 'bg-amber-500',
         info: 'Klublardagi faol rasmiy lavozimlar (koordinator, yordamchi koordinator va boshqalar). Tugagan lavozimlar hisoblanmaydi.',
         formula: 'faol lavozim soni × 50 (eng ko\'pi 150)'
     },
     {
-        key: 'reliability', field: 'reliabilityScore', label: 'Ishonchlilik skori', max: 150, dot: 'bg-blue-500',
+        key: 'reliability', field: 'reliabilityScore', label: 'Ishonchlilik skoring', max: 150, dot: 'bg-blue-500',
         info: 'Tadbir va musobaqalardagi davomat. Belgilangan davomat yozuvlarining necha foizida talaba haqiqatan qatnashgani.',
         formula: '(davomat foizi ÷ 100) × 150'
     }

@@ -149,10 +149,10 @@ const RankingsPage = () => {
             'Kurs': r.student.course,
             'TAS (jami)': r.tas.total,
             'Daraja': r.tas.tier,
-            'Akademik skori': r.tas.academicScore,
-            "Ijtimoiy faollik skori": r.tas.socialFaollikScore,
-            'Liderlik skori': r.tas.leadershipScore,
-            'Ishonchlilik skori': r.tas.reliabilityScore
+            'Akademik skoring': r.tas.academicScore,
+            "Ijtimoiy faollik skoring": r.tas.socialFaollikScore,
+            'Liderlik skoring': r.tas.leadershipScore,
+            'Ishonchlilik skoring': r.tas.reliabilityScore
         }));
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(rows);

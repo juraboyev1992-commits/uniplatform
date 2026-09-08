@@ -110,7 +110,7 @@ const ProfilePage = () => {
                 </div>
             </Card>
 
-            {/* Skoring — Talaba Analitik Skori (TAS), student-only, additive. Same computeStudentTAS
+            {/* Skoring — Talaba Analitik Skoring (TAS), student-only, additive. Same computeStudentTAS
                 function StudentsManagement.jsx's admin modal uses for this same student id, so the two
                 surfaces always agree on the numbers. */}
             {isStudent && tas && (
@@ -144,7 +144,7 @@ const ProfilePage = () => {
                                 </div>
                             </div>
                             <div className="min-w-0">
-                                <h4 className="font-bold text-sm">Talaba Analitik Skori (TAS)</h4>
+                                <h4 className="font-bold text-sm">Talaba Analitik Skoring (TAS)</h4>
                                 <p className="text-xs text-white/70 mt-1 leading-relaxed">
                                     TAS — talabaning akademik muvaffaqiyati, ijtimoiy faolligi, liderlik salohiyati va intizomiy ishonchliligini kompleks baholaydigan analitik ko'rsatkich.
                                 </p>

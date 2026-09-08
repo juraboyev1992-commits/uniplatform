@@ -431,7 +431,7 @@ const StudentsManagement = () => {
                             </div>
                         </div>
 
-                        {/* Skoring — Talaba Analitik Skori (TAS). Additive: sits above the existing
+                        {/* Skoring — Talaba Analitik Skoring (TAS). Additive: sits above the existing
                             "Score Overview"/"11 mezon" sections below, which are untouched.
                             data-html2canvas-ignore keeps this header row (and the button itself) out of
                             the exported PDF — html2canvas skips any element carrying that attribute,
@@ -467,7 +467,7 @@ const StudentsManagement = () => {
                                     </div>
                                 </div>
                                 <div className="min-w-0">
-                                    <h4 className="font-bold text-gray-900 text-sm">Talaba Analitik Skori (TAS)</h4>
+                                    <h4 className="font-bold text-gray-900 text-sm">Talaba Analitik Skoring (TAS)</h4>
                                     <p className="text-xs text-gray-500 mt-1 leading-relaxed">
                                         Talabaning akademik muvaffaqiyati, ijtimoiy faolligi, liderlik salohiyati va intizomiy ishonchliligini kompleks baholaydigan analitik ko'rsatkich.
                                     </p>
@@ -485,8 +485,8 @@ const StudentsManagement = () => {
 
                             {/* Label+value+bar rows at full card width — a donut used to sit beside this
                                 list (matching the TAS card's gauge), but it squeezed the text column down
-                                to the point that longer labels ("Ijtimoiy faollik skori", "Ishonchlilik
-                                skori") got truncated/hard to read. Dropped in favor of the same clearer,
+                                to the point that longer labels ("Ijtimoiy faollik skoring", "Ishonchlilik
+                                skoring") got truncated/hard to read. Dropped in favor of the same clearer,
                                 full-width layout ProfilePage.jsx's own Skoring section already uses. */}
                             <div className="bg-gray-50 rounded-2xl p-5">
                                 <p className="text-xs font-bold text-gray-700 mb-3">Skor tarkibi</p>
