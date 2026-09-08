@@ -707,7 +707,7 @@ const StudentIndexRoster = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {rows.map(({ student, index, evidence, confirmed, needsConfirm }) => {
+                            {rows.map(({ student, index, evidence, confirmed, needsConfirm, tas }) => {
                                 const pendingDocs = evidence.filter(e => e.status === 'pending').length;
                                 const active = student.id === detailId;
                                 return (

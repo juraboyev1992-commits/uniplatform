@@ -1565,12 +1565,16 @@ const TournamentScoring = ({
                                     {/* Search Bar */}
                                     <div className="relative">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                        <input 
-                                            type="text" 
+                                        {/* Ilgari `onChange` ichida `setCurrentPage(1)` ham chaqirilardi,
+                                            lekin bu ko'rinishdan sahifalash olib tashlangan (pastdagi
+                                            izohga qarang) va o'sha funksiya endi mavjud emas edi —
+                                            qidiruv maydoniga yozilishi bilan sahifa yiqilardi. */}
+                                        <input
+                                            type="text"
                                             className="w-full pl-10 pr-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:bg-white"
                                             placeholder="Qidiruv... Ism yoki Jamoa nomi"
                                             value={searchQuery}
-                                            onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                                            onChange={e => setSearchQuery(e.target.value)}
                                         />
                                     </div>
 
