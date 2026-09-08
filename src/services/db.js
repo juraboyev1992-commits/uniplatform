@@ -6565,6 +6565,101 @@ export const db = {
         return updated;
     },
 
+    // TO'LMAGAN JAMOANI HAL QILISH — ro'yxat yopilgandan keyin.
+    //
+    // MUAMMO: taklif qilinganlar javob bermasa, jamoa TASDIQLANMAY qolardi va
+    // uni hech narsa qo'yib yubormasdi (navbat taklifi 24 soatda o'zi tugaydi,
+    // bunda esa muddat umuman yo'q edi). Natijada bo'sh jamoa JOYNI band qilib
+    // turardi: `maxParticipants` hisobida sanaladi, ya'ni boshqa odam yozila
+    // olmasdi va navbatdagi ko'tarilmasdi. Tadbir o'tib ketgandan keyin ham
+    // o'sha yerda osilib qolaverardi - o'chmasdi, arxivga ham tushmasdi.
+    //
+    // QARORNI IKKI TOMONGA AJRATADI:
+    //   qabul qilganlar tashkilotchi belgilagan eng kam songa YETSA -> jamoa
+    //       tasdiqlanadi va qatnashadi. Kapitan o'z chegarasini tashkilotchi
+    //       talabidan YUQORI qo'ygan bo'lishi mumkin; muddat tugaganda esa
+    //       to'g'ri o'lchov tashkilotchining talabi bo'ladi, kapitanning
+    //       shaxsiy niyati emas.
+    //   YETMASA -> yozuv bekor qilinadi, joy bo'shaydi, navbatdagi ko'tariladi.
+    //
+    // Har ikki holatda ham SABAB BILAN xabar boradi: jimgina yo'qolgan
+    // ro'yxat odamni tadbir kuni kutilmagan holatda qoldiradi.
+    //
+    // Vaqt bo'yicha emas, KO'RILGANDA ishlaydi (`promoteFromWaitlist` bilan bir
+    // xil naqsh): loyihada fon vazifasi yo'q, shuning uchun faoliyat sahifasi
+    // ochilganda bir marta chaqiriladi.
+    settleStalledTeams: async (activityId, activityType) => {
+        const dbData = getDB();
+        const list = activityType === 'competition' ? dbData.competitions : dbData.events;
+        const activity = (list || []).find(a => a.id === activityId);
+        if (!activity) return { confirmed: 0, cancelled: 0 };
+
+        // FAQAT ro'yxat yopilgandan keyin. Ochiq turganda a'zolar hali javob
+        // berishlari mumkin - erta bekor qilish ularning huquqini olib qo'yardi.
+        const startDateTime = activityType === 'competition'
+            ? combineDateTime(activity.startDate, activity.startTime)
+            : activity.date;
+        if (isRegistrationOpen(activity, startDateTime)) return { confirmed: 0, cancelled: 0 };
+
+        const stalled = (dbData.registrations || []).filter(r =>
+            r.activityId === activityId && r.activityType === activityType &&
+            r.participantType === 'team' && r.status !== 'cancelled' && !r.teamConfirmedAt
+        );
+        if (stalled.length === 0) return { confirmed: 0, cancelled: 0 };
+
+        const floor = Math.max(2, Number(activity.teamMinSize) || 2);
+        const activityTitle = activity.title || activity.name || '';
+        let confirmed = 0;
+        let cancelled = 0;
+
+        for (const reg of stalled) {
+            const accepted = (reg.teamMembers || []).filter(m => m.status === 'accepted').length + 1;
+            const teamLabel = reg.teamName || 'Jamoa';
+            try {
+                if (accepted >= floor) {
+                    await updateRegistrationInSupabase(reg.id, { teamConfirmedAt: new Date().toISOString() });
+                    const teamParticipant = await db._materializeTeamFromRegistration(reg, accepted);
+                    if (activityType === 'competition') await db.registerParticipant(activityId, teamParticipant, reg.userId);
+                    else await db.registerForEvent(activityId, teamParticipant, reg.userId);
+                    await updateRegistrationInSupabase(reg.id, { realTeamId: teamParticipant.id });
+                    confirmed++;
+                    await addNotificationToSupabase({
+                        userId: reg.userId, type: 'success', title: 'Jamoa tasdiqlandi',
+                        message: `Ro'yxat yopildi. "${teamLabel}" ${accepted} a'zo bilan qatnashadi — ${activityTitle}.`,
+                        refId: activityId, refType: activityType,
+                    });
+                } else {
+                    await updateRegistrationInSupabase(reg.id, { status: 'cancelled' });
+                    cancelled++;
+                    // Kapitanga ham, javob bermaganlarga ham. A'zo o'zi
+                    // javobsiz qoldirgani uchun jamoa qatnashmayotganini
+                    // bilishi kerak - aks holda sabab noma'lum bo'lib qoladi.
+                    const tell = [reg.userId, ...(reg.teamMembers || [])
+                        .filter(m => m.status === 'pending').map(m => m.userId)];
+                    for (const uid of [...new Set(tell)]) {
+                        await addNotificationToSupabase({
+                            userId: uid, type: 'warning', title: 'Jamoa to\'lmadi',
+                            message: `"${teamLabel}" ${accepted}/${floor} a'zo bilan qoldi, shuning uchun `
+                                + `${activityTitle} uchun ro'yxatdan o'tish bekor qilindi.`,
+                            refId: activityId, refType: activityType,
+                        });
+                    }
+                }
+            } catch (e) {
+                // Bitta jamoadagi xato qolganlarini to'xtatmasligi kerak.
+                console.warn('Jamoa holati hal qilinmadi:', reg.id, e.message);
+            }
+        }
+
+        await syncCoreDataFromSupabase();
+        // Joy bo'shadi - navbatdagini shu zahoti ko'tarish kerak, aks holda
+        // bo'shagan joy tadbirgacha bo'sh yotardi.
+        if (cancelled > 0 && activity.waitlistEnabled) {
+            await db.promoteFromWaitlist(activityId, activityType);
+        }
+        return { confirmed, cancelled };
+    },
+
     // Admin/Management/club-coordinator "Qo'lda qo'shish" - bypasses the registration window entirely
     // (that's the point of an override) but still requires a reason and always leaves an audit trail.
     overrideAddParticipant: async (activityId, activityType, studentId, reason, addedByUserId) => {

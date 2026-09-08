@@ -96,9 +96,16 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
     // Lazy waitlist-promotion evaluation — same on-read idea as isRegistrationOpen, just triggered once
     // whenever this panel mounts (e.g. the activity's detail modal opens), not on a real timer.
     useEffect(() => {
-        if (activity.waitlistEnabled) {
-            db.promoteFromWaitlist(activity.id, activityType).then(() => setRefreshKey(k => k + 1));
-        }
+        // Tartib muhim: avval to'lmagan jamoalar hal qilinadi (ro'yxat yopilgan
+        // bo'lsa), keyin navbat ko'tariladi - aks holda bekor qilingan jamoadan
+        // bo'shagan joy shu yurishda ishlatilmay qolardi. `settleStalledTeams`
+        // ro'yxat hali ochiq bo'lsa hech narsa qilmaydi.
+        db.settleStalledTeams(activity.id, activityType)
+            .then(() => activity.waitlistEnabled
+                ? db.promoteFromWaitlist(activity.id, activityType)
+                : null)
+            .then(() => setRefreshKey(k => k + 1))
+            .catch(e => console.warn('Ro\'yxat holati yangilanmadi:', e.message));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -120,12 +127,13 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
         });
         return (id) => byId.get(id) || id;
     }, [refreshKey]);
-    // Bekor qilinganlar chiqarilmaydi; navbatdagilar QOLADI - mas'ul joy
-    // bo'shaganda kim kutayotganini ko'rishi kerak.
+    // HAMMASI ko'rsatiladi, bekor qilinganlar ham - faqat belgisi bilan.
+    // Sabab: to'lmagan jamoa muddat tugagach avtomatik bekor qilinadi
+    // (db.settleStalledTeams), va agar u ro'yxatdan jimgina yo'qolib qolsa,
+    // mas'ul "jamoa qayerga ketdi" degan savol bilan qolardi - ya'ni bu
+    // ro'yxat qo'shilishidan oldingi holatga qaytardik.
     const staffRoster = useMemo(
-        () => registrations
-            .filter(r => r.status !== 'cancelled')
-            .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)),
+        () => [...registrations].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)),
         [registrations]
     );
     const myRegistration = user ? registrations.find(r => r.userId === user.username && r.status !== 'cancelled') : null;
@@ -719,20 +727,22 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
                         const isTeam = r.participantType === 'team';
                         const accepted = (r.teamMembers || []).filter(m => m.status === 'accepted').length + 1;
                         const need = r.minTeamSize || 0;
+                        const isCancelled = r.status === 'cancelled';
                         return (
-                            <div key={r.id} className="border border-gray-100 rounded-xl px-3 py-2 space-y-1.5">
+                            <div key={r.id} className={`border rounded-xl px-3 py-2 space-y-1.5 ${isCancelled ? 'border-gray-100 bg-gray-50 opacity-70' : 'border-gray-100'}`}>
                                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                                    <span className="text-sm font-semibold text-gray-800">
+                                    <span className={`text-sm font-semibold ${isCancelled ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
                                         {isTeam
                                             ? (r.teamName || 'Nomsiz jamoa')
                                             : (r.participantSnapshot?.fullName || nameOf(r.userId))}
                                     </span>
                                     <div className="flex items-center gap-1.5">
-                                        {r.status === 'waitlisted' && <Badge size="sm" variant="warning">Navbatda</Badge>}
-                                        {isTeam && (r.teamConfirmedAt
+                                        {isCancelled && <Badge size="sm" variant="danger">Bekor qilindi</Badge>}
+                                        {!isCancelled && r.status === 'waitlisted' && <Badge size="sm" variant="warning">Navbatda</Badge>}
+                                        {!isCancelled && isTeam && (r.teamConfirmedAt
                                             ? <Badge size="sm" variant="success">Jamoa tasdiqlangan</Badge>
                                             : <Badge size="sm" variant="default">Kutilmoqda: {accepted}/{need || '?'}</Badge>)}
-                                        {!isTeam && r.status === 'registered' && <Badge size="sm" variant="success">Ro'yxatda</Badge>}
+                                        {!isCancelled && !isTeam && r.status === 'registered' && <Badge size="sm" variant="success">Ro'yxatda</Badge>}
                                         {r.addedByOverride && <Badge size="sm" variant="warning">Override</Badge>}
                                     </div>
                                 </div>
@@ -754,10 +764,16 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
                                 )}
                                 {/* Nima yetishmayotgani AYTIB QO'YILADI - mas'ul "nega
                                     davomatda yo'q" degan savolga javobni shu yerdan topsin. */}
-                                {isTeam && !r.teamConfirmedAt && (
+                                {isTeam && !r.teamConfirmedAt && !isCancelled && (
                                     <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-2 py-1">
                                         Jamoa hali tasdiqlanmagan — {need > accepted ? `yana ${need - accepted} kishi qabul qilishi kerak` : 'tasdiqlanish kutilmoqda'}.
                                         Shu sababli a'zolari davomat ro'yxatida chiqmaydi.
+                                        Ro'yxat yopilguncha to'lmasa, avtomatik bekor qilinadi va joy bo'shaydi.
+                                    </p>
+                                )}
+                                {isTeam && isCancelled && (
+                                    <p className="text-[11px] text-gray-500">
+                                        Ro'yxat yopilganda jamoa to'lmagani uchun bekor qilindi — joy bo'shatildi.
                                     </p>
                                 )}
                             </div>
