@@ -36,6 +36,7 @@ import StudentIndexRoster from './StudentIndexRoster';
 import { useAuth } from '../../contexts/AuthContext';
 import { db, SOCIAL_APPLICATION_STATUS } from '../../services/db';
 import { SOCIAL_REVIEWER_ROLES, PAGINATION } from '../../constants/index.js';
+import { useTabParam } from '../../hooks/useTabParam';
 
 const TABS = [
     { id: 'talabalar', label: 'Talabalar' },
@@ -45,6 +46,7 @@ const TABS = [
     { id: 'ball-tarixi', label: 'Ball tarixi' },
     { id: 'audit', label: 'Audit' }
 ];
+const TAB_IDS = TABS.map(t => t.id);
 
 const STATUS_META = {
     Pending: { label: 'Kutilmoqda', variant: 'primary' },
@@ -132,9 +134,14 @@ const useApplicationsTable = (applications, { lockedStatuses = null } = {}) => {
     };
 };
 
-const SocialActivityManagement = () => {
+// `embedded` — sahifa "Ijtimoiy faollik va reyting" bo'limi ichida chizilganda o'z sarlavhasini
+// yashiradi (ActivityAndRankingsPage.jsx allaqachon sarlavha bergan), tab qatori esa qoladi.
+const SocialActivityManagement = ({ embedded = false }) => {
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState('talabalar');
+    // Tab MANZILDA turadi: ilgari `useState` edi, ya'ni brauzerning "orqaga" tugmasi tabni
+    // qaytarmay butun bo'limdan chiqarib yuborardi. Kalit `jarayon` — bu sahifa boshqa
+    // tab guruhlari bilan yonma-yon turadi va ular bir-birini bosib ketmasligi kerak.
+    const [activeTab, setActiveTab] = useTabParam(TAB_IDS, 'talabalar', 'jarayon');
     const [applications, setApplications] = useState([]);
     const [auditLogs, setAuditLogs] = useState([]);
 
@@ -365,14 +372,18 @@ const SocialActivityManagement = () => {
     return (
         <div className="space-y-6 font-sans">
             {/* Header + tab nav */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <div>
-                    <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
-                        <TrendingUp className="w-7 h-7 text-indigo-600" />
-                        Ijtimoiy Faollik Boshqaruvi
-                    </h1>
-                    <p className="text-sm text-gray-500 mt-1">Arizalar, tasdiqlash, monitoring, ball tarixi va audit — yagona boshqaruv maydonida</p>
-                </div>
+            <div className={`flex flex-col md:flex-row md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 ${embedded ? 'justify-start' : 'justify-between'}`}>
+                {/* Birlashtirilgan bo'lim ichida sarlavha ikki marta chiqmasin — uni tashqi
+                    sahifa (ActivityAndRankingsPage.jsx) allaqachon bergan. */}
+                {!embedded && (
+                    <div>
+                        <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
+                            <TrendingUp className="w-7 h-7 text-indigo-600" />
+                            Ijtimoiy Faollik Boshqaruvi
+                        </h1>
+                        <p className="text-sm text-gray-500 mt-1">Arizalar, tasdiqlash, monitoring, ball tarixi va audit — yagona boshqaruv maydonida</p>
+                    </div>
+                )}
 
                 <div className="flex flex-wrap bg-slate-100 p-1.5 rounded-xl gap-1 self-start md:self-auto">
                     {TABS.map(tab => (

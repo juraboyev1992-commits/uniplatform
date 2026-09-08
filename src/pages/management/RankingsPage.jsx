@@ -118,7 +118,11 @@ const LeaderKpiCard = ({ icon: Icon, tone, title, name, avgTas, growthPct, footL
 
 const RANKING_TAB_IDS = ['faculty', 'course', 'students', 'clubs', 'category'];
 
-const RankingsPage = () => {
+// `embedded` — admin panelida bu sahifa "Ijtimoiy faollik va reyting" bo'limining "Tahlil"
+// guruhi sifatida chiziladi va o'z sarlavhasini yashiradi. Rahbariyat panelida esa u
+// hozirgidek MUSTAQIL sahifa bo'lib qolaveradi (u yerda "Ijtimoiy faollik" bo'limi yo'q),
+// shuning uchun komponentning o'zi ikkala holatda ham ishlashi kerak.
+const RankingsPage = ({ embedded = false }) => {
     const [activeTab, setActiveTab] = useTabParam(RANKING_TAB_IDS, 'faculty');
 
     // "Oxirgi yangilanish" — real render timestamp (no server "last updated" concept in a client-only
@@ -173,14 +177,19 @@ const RankingsPage = () => {
         <div className="space-y-6 pb-10">
             {/* Header */}
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Reytinglar</h1>
-                    <p className="text-gray-500 text-lg mt-1">Talabalar, kurslar, fakultetlar va klublar reytingi</p>
-                </div>
+                {/* Birlashtirilgan bo'lim ichida sarlavha tashqi sahifada turadi — bu yerda
+                    takrorlanmaydi, lekin "manba"/"oxirgi yangilanish" belgilari qoladi:
+                    ular raqamlarning qayerdan kelgani va qachonligini aytadi. */}
+                {!embedded && (
+                    <div>
+                        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Reytinglar</h1>
+                        <p className="text-gray-500 text-lg mt-1">Talabalar, kurslar, fakultetlar va klublar reytingi</p>
+                    </div>
+                )}
                 <div className="flex flex-wrap gap-2">
                     <div className="px-4 py-2 bg-emerald-50 rounded-xl">
                         <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-700"><CheckCircle2 size={13} /> Real ma'lumot asosida</p>
-                        <p className="text-[10px] text-emerald-600/80 mt-0.5">Manba: socialScoreTransactions + computeStudentTAS</p>
+                        <p className="text-[10px] text-emerald-600/80 mt-0.5">Manba: rasmiy ijtimoiy faollik indeksi + akademik yozuv + davomat</p>
                     </div>
                     <div className="px-4 py-2 bg-gray-50 rounded-xl">
                         <p className="flex items-center gap-1.5 text-xs font-bold text-gray-600"><Clock size={13} /> Oxirgi yangilanish</p>

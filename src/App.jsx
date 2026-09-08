@@ -21,6 +21,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import TestManagement from './components/admin/TestManagement';
 import EventManagement from './components/admin/EventManagement';
 import SocialActivityManagement from './components/admin/SocialActivityManagement';
+import ActivityAndRankingsPage from './pages/admin/ActivityAndRankingsPage';
 import MarifatLessonsPage from './pages/admin/MarifatLessonsPage';
 import TutorWorkspacePage from './pages/tutor/TutorWorkspacePage';
 
@@ -291,11 +292,16 @@ const AppRouter = () => {
                                     Ikkala manzil ham ishlaydi - eski havolalar
                                     (`/admin/tests?reading=...`) buzilmasin. */}
                                 <Route path="tests" element={<TestManagement />} />
-                                <Route path="social-activity" element={<SocialActivityManagement />} />
+                                {/* "Ijtimoiy faollik" va "Reytinglar" bitta bo'limga birlashtirildi
+                                    (ikkalasi bir xil narsani o'lchardi, hatto talabalar ro'yxati ham
+                                    ikki nusxada edi). Eski `/admin/rankings` manzili pastda saqlanib
+                                    qolgan - u yangi bo'limning "Tahlil" guruhiga yo'naltiradi, shunda
+                                    saqlab qo'yilgan havolalar va eski xatcho'plar buzilmaydi. */}
+                                <Route path="social-activity" element={<ActivityAndRankingsPage />} />
                                 {/* 7-mezon: Ma'rifat darslari auditoriya kesimida
                                     rejalashtiriladi, shuning uchun tadbirlardan alohida. */}
                                 <Route path="marifat" element={<MarifatLessonsPage />} />
-                                <Route path="rankings" element={<RankingsPage />} />
+                                <Route path="rankings" element={<Navigate to="/admin/social-activity?bolim=tahlil" replace />} />
                                 <Route path="reports" element={<ReportingModule />} />
                                 <Route path="library" element={<TestManagement />} />
                                 <Route path="scholarships" element={<ScholarshipManagement />} />

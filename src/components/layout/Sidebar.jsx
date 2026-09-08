@@ -67,12 +67,15 @@ const Sidebar = ({ isOpen, onClose }) => {
         { icon: Calendar, label: 'Tadbirlar', path: '/admin/events' },
         { icon: Trophy, label: 'Musobaqalar', path: '/admin/competitions' },
         { icon: Layers, label: "Tadbirlar to'plami", path: '/admin/event-collections' },
-        { icon: BarChart3, label: 'Ijtimoiy faollik', path: '/admin/social-activity' },
+        // "Ijtimoiy faollik" va "Reytinglar" bitta bo'lim bo'ldi: ikkalasi bir xil
+        // narsani o'lchardi va har birida alohida talabalar ro'yxati bor edi, ya'ni
+        // admin bitta talaba haqida ikki xil ballni ikki sahifada ko'rardi. Ichida
+        // ikkita guruh: "Ish jarayoni" va "Tahlil" (ActivityAndRankingsPage.jsx).
+        { icon: BarChart3, label: 'Ijtimoiy faollik va reyting', path: '/admin/social-activity' },
         // Indeksning 7-mezoni. "Tadbirlar" dan alohida turadi: Ma'rifat darsi
         // auditoriya kesimida rejalashtiriladi va davomat foizi shu doirada
         // hisoblanadi.
         { icon: Lightbulb, label: "Ma'rifat darslari", path: '/admin/marifat' },
-        { icon: Award, label: 'Reytinglar', path: '/admin/rankings' },
         { icon: Trophy, label: 'Taqdirlash reestri', path: '/admin/awards' },
         { icon: Gift, label: "Rag'bat va mukofot", path: '/admin/incentive-awards' },
         { icon: FileText, label: 'Hisobotlar', path: '/admin/reports' },
