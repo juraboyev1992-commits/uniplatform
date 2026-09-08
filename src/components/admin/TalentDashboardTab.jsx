@@ -28,7 +28,10 @@ const FUNNEL = [
     { key: 'won', label: "G'olib", color: 'bg-emerald-500' },
 ];
 
-const TalentDashboardTab = ({ rows, version, busy, user, run }) => {
+// `onOpenFaculty` / `onOpenMentor` - kartochka bosilganda tegishli tabga o'tkazadi.
+// Raqamni ko'rgan odamning keyingi savoli har doim "kimlar?" bo'ladi; ilgari u kerakli
+// tabni topib, keyin filtrni qo'lda qo'yishi kerak edi.
+const TalentDashboardTab = ({ rows, version, busy, user, run, onOpenFaculty, onOpenMentor }) => {
     const data = useMemo(() => {
         const enriched = rows.map(r => {
             const idp = db.getTalentIdp(r.profile.studentId);
@@ -195,7 +198,13 @@ const TalentDashboardTab = ({ rows, version, busy, user, run }) => {
                 <Card title="Fakultetlar kesimi" className="p-0 overflow-hidden">
                     <div className="p-5 space-y-3">
                         {data.faculties.map(f => (
-                            <div key={f.faculty} className="space-y-1.5">
+                            <button
+                                key={f.faculty}
+                                type="button"
+                                onClick={() => onOpenFaculty?.(f.faculty)}
+                                title={`${f.faculty} talabalarini ochish`}
+                                className="w-full text-left space-y-1.5 rounded-xl p-2 -m-2 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            >
                                 <div className="flex justify-between items-baseline gap-3">
                                     <span className="text-sm font-bold text-gray-800 truncate">{f.faculty}</span>
                                     <span className="text-xs text-gray-500 whitespace-nowrap">
@@ -213,7 +222,7 @@ const TalentDashboardTab = ({ rows, version, busy, user, run }) => {
                                     O'rtacha Talent Score: {f.avgScore} / {TALENT_SCORE_MAX}
                                     {f.gradeA > 0 && ` · ${f.gradeA} ta yuqori salohiyat`}
                                 </p>
-                            </div>
+                            </button>
                         ))}
                     </div>
                 </Card>
@@ -235,7 +244,13 @@ const TalentDashboardTab = ({ rows, version, busy, user, run }) => {
                             </p>
                         )}
                         {data.mentors.map(m => (
-                            <div key={m.personId} className="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-xl">
+                            <button
+                                key={m.personId}
+                                type="button"
+                                onClick={() => onOpenMentor?.(m.personId)}
+                                title={`${nameOf(m.personId)} biriktirgan talabalarni ochish`}
+                                className="w-full text-left flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            >
                                 <div className="min-w-0">
                                     <p className="text-sm font-bold text-gray-900 truncate">{nameOf(m.personId)}</p>
                                     <div className="flex flex-wrap gap-1 mt-0.5">
@@ -264,7 +279,7 @@ const TalentDashboardTab = ({ rows, version, busy, user, run }) => {
                                         <p className="text-[9px] uppercase font-bold tracking-wider text-gray-400">nisbat</p>
                                     </div>
                                 </div>
-                            </div>
+                            </button>
                         ))}
                     </div>
                 </Card>

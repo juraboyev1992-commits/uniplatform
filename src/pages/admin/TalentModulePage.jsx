@@ -116,6 +116,15 @@ const TalentModulePage = ({ embedded = false, tab: tabProp, onTabChange }) => {
     const [q, setQ] = useState('');
     const [programFilter, setProgramFilter] = useState('all');
     const [facultyFilter, setFacultyFilter] = useState('all');
+    // Dashboard'dagi mentor kartochkasi bosilganda "Biriktirishlar" tabi shu odamning
+    // shogirdlariga qisqartiriladi. Filtr tabning o'zida emas, shu yerda turadi -
+    // chunki uni boshqa tab (dashboard) o'rnatadi.
+    const [assignmentFocus, setAssignmentFocus] = useState(null);
+
+    // Dashboard kartochkalaridan tegishli tabga o'tish. Filtr HAM qo'yiladi, aks holda
+    // foydalanuvchi to'g'ri tabga tushib, keyin qidiruvni qo'lda takrorlashi kerak edi.
+    const openFacultyStudents = (faculty) => { setFacultyFilter(faculty); setTab('students'); };
+    const openMentorAssignments = (personId) => { setAssignmentFocus(personId); setTab('assignments'); };
 
     const filtered = useMemo(() => {
         const needle = q.trim().toLowerCase();
@@ -254,7 +263,8 @@ const TalentModulePage = ({ embedded = false, tab: tabProp, onTabChange }) => {
 
             {/* ============ DASHBOARD ============ */}
             {tab === 'dashboard' && (
-                <TalentDashboardTab rows={rows} version={version} busy={busy} user={user} run={run} />
+                <TalentDashboardTab rows={rows} version={version} busy={busy} user={user} run={run}
+                    onOpenFaculty={openFacultyStudents} onOpenMentor={openMentorAssignments} />
             )}
 
             {/* ============ TALABALAR ============ */}
@@ -409,6 +419,8 @@ const TalentModulePage = ({ embedded = false, tab: tabProp, onTabChange }) => {
                     rows={rows}
                     assignableUsers={assignableUsers}
                     busy={busy}
+                    focusPerson={assignmentFocus}
+                    onClearFocus={() => setAssignmentFocus(null)}
                     onAssign={(studentId, personId, role) => run(
                         () => db.assignTalentPerson({ studentId, personId, role, by: user?.username }),
                         'Biriktirildi'
@@ -679,7 +691,7 @@ const SuggestionsTab = ({ faculties, busy, version, onEnroll }) => {
 // ---------------------------------------------------------------------------
 // BIRIKTIRISHLAR
 // ---------------------------------------------------------------------------
-const AssignmentsTab = ({ rows, assignableUsers, busy, onAssign, onEnd }) => {
+const AssignmentsTab = ({ rows, assignableUsers, busy, onAssign, onEnd, focusPerson, onClearFocus }) => {
     const [roleFilter, setRoleFilter] = useState('all');
     const [pending, setPending] = useState({});   // studentId::role -> username
 
@@ -690,10 +702,30 @@ const AssignmentsTab = ({ rows, assignableUsers, busy, onAssign, onEnd }) => {
         return (username) => map.get(username) || username;
     }, [assignableUsers]);
 
-    const missing = rows.filter(r => r.assignments.length < 3);
+    // Dashboard'dan kelingan bo'lsa - faqat shu mas'ulning shogirdlari.
+    const visibleRows = focusPerson
+        ? rows.filter(r => (r.assignments || []).some(a => a.personId === focusPerson))
+        : rows;
+
+    const missing = visibleRows.filter(r => r.assignments.length < 3);
 
     return (
         <div className="space-y-5">
+            {focusPerson && (
+                <div className="flex items-center justify-between gap-3 p-3 bg-violet-100 border border-violet-200 rounded-2xl">
+                    <p className="text-sm font-bold text-violet-900">
+                        Faqat <span className="underline">{nameOf(focusPerson)}</span> biriktirgan talabalar
+                        <span className="font-normal text-violet-700"> ({visibleRows.length} ta)</span>
+                    </p>
+                    <button
+                        type="button"
+                        onClick={onClearFocus}
+                        className="px-3 py-1.5 rounded-lg bg-white border border-violet-300 text-xs font-bold text-violet-800 hover:bg-violet-50"
+                    >
+                        Filtrni olib tashlash
+                    </button>
+                </div>
+            )}
             <div className="flex items-start gap-3 p-4 bg-violet-50 border border-violet-100 rounded-2xl">
                 <Info className="w-5 h-5 text-violet-500 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-violet-800">
@@ -720,7 +752,7 @@ const AssignmentsTab = ({ rows, assignableUsers, busy, onAssign, onEnd }) => {
                         Dasturda talaba yo'q
                     </Card>
                 )}
-                {rows.map(r => (
+                {visibleRows.map(r => (
                     <Card key={r.profile.id}>
                         <div className="flex flex-col lg:flex-row justify-between gap-4">
                             <div className="min-w-0">
