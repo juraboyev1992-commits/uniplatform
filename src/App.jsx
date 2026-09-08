@@ -4,7 +4,7 @@ import { AuthProvider, useAuth, ROLES } from './contexts/AuthContext';
 import DashboardLayout from './components/layout/DashboardLayout';
 import LoginPage from './pages/auth/LoginPage';
 import StudentDashboard from './pages/student/StudentDashboard';
-import SocialActivityIndex from './pages/student/SocialActivityIndex';
+import MyActivityAndScoringPage from './pages/student/MyActivityAndScoringPage';
 import TestsModule from './components/student/TestsModule';
 import LibraryModule from './components/student/LibraryModule';
 import ReadingModule from './components/student/ReadingModule';
@@ -198,7 +198,10 @@ const AppRouter = () => {
                         <DashboardLayout>
                             <Routes>
                                 <Route path="dashboard" element={<StudentDashboard />} />
-                                <Route path="social-activity" element={<SocialActivityIndex />} />
+                                {/* Talabaning ikkala bali bitta bo'limda, tab bilan: rasmiy indeks
+                                    va umumiy skoring (TAS). TAS ilgari "Mening profilim" ichida,
+                                    menyuda ko'rinmaydigan joyda turardi. */}
+                                <Route path="social-activity" element={<MyActivityAndScoringPage />} />
                                 {/* KUTUBXONA VA TESTLAR - bitta bo'lim, uchta tab.
                                     Ilgari uchta alohida bo'lim edi va talaba qaysi
                                     biriga kirishni bilmasdi (izohi

@@ -34,7 +34,9 @@ const Sidebar = ({ isOpen, onClose }) => {
 
     const studentMenuItems = [
         { icon: LayoutDashboard, label: 'Bosh sahifa', path: '/student/dashboard' },
-        { icon: BarChart3, label: 'Ijtimoiy faollik', path: '/student/social-activity' },
+        // Talabaning ikkala bali shu yerda: rasmiy indeks va umumiy skoring (TAS).
+        // TAS ilgari "Mening profilim" sahifasida, menyuda ko'rinmaydigan joyda edi.
+        { icon: BarChart3, label: 'Faollik va skoring', path: '/student/social-activity' },
         // Uchta alohida bo'lim ("Testlar", "Kutubxona", "Kitobxonlik testi")
         // bittaga birlashtirildi. Ular bir-biriga shu qadar yaqin ediki,
         // talaba qaysi biriga kirishni bilmasdi: kutubxona asarlar ro'yxati,
