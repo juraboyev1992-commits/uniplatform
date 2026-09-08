@@ -97,11 +97,37 @@ const studentQueues = (db, user) => {
     const me = user?.username;
     if (!me) return [];
     const mine = safe(() => db.getSocialApplications().filter(a => a.studentId === me));
+    const regs = safe(() => db.getAllRegistrations().filter(r => r.status !== 'cancelled'));
+
+    // MENGA kelgan, javob kutayotgan jamoa takliflari. Bu aynan navbatning
+    // ta'rifiga to'g'ri keladi: mendan harakat kutilyapti va men uni qila olaman.
+    const teamInvites = regs.flatMap(r => {
+        const m = (r.teamMembers || []).find(x => x.userId === me && x.status === 'pending');
+        return m ? [{ id: r.id, invitedAt: m.invitedAt || r.createdAt }] : [];
+    });
+
+    // MEN SARDOR bo'lgan, hali to'lmagan jamoalar. Sana - oxirgi javob vaqti:
+    // shu sabab kimdir qabul qilsa yoki rad etsa raqam QAYTA chiqadi. Agar
+    // sana ro'yxatdan o'tgan kun bo'lganida, sardor bir marta ko'rgach badge
+    // butunlay yo'qolib, jamoasi jimgina to'lmay qolardi.
+    const myPendingTeams = regs
+        .filter(r => r.userId === me && r.participantType === 'team' && !r.teamConfirmedAt)
+        .map(r => {
+            const answered = (r.teamMembers || []).map(m => m.respondedAt).filter(Boolean).sort();
+            return { id: r.id, changedAt: answered[answered.length - 1] || r.createdAt };
+        });
+
     return [
         q('my_returned', '/student/social-activity', '/student/social-activity?bolim=indeks',
             "Qaytarilgan arizalaringiz",
             mine.filter(a => a.status === SOCIAL_APPLICATION_STATUS.RETURNED),
             at('reviewedAt', 'submittedAt')),
+
+        q('team_invites', '/student/events', '/student/events',
+            'Jamoa takliflari', teamInvites, at('invitedAt')),
+
+        q('my_team_pending', '/student/events', '/student/events',
+            "To'lmagan jamoangiz", myPendingTeams, at('changedAt')),
     ];
 };
 

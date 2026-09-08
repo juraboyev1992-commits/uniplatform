@@ -18,12 +18,17 @@ import { useAuth } from '../../contexts/AuthContext';
 const TYPE_ICON = {
     waitlist_offer: <AlertCircle className="text-amber-500" size={24} />,
     team_invite: <Users className="text-indigo-500" size={24} />,
-    success: <CheckCircle className="text-emerald-500" size={24} />
+    success: <CheckCircle className="text-emerald-500" size={24} />,
+    // Diqqat talab qiladigan, lekin xato bo'lmagan xabar - masalan a'zo
+    // jamoa taklifini rad etdi. Busiz u oddiy ko'k "ma'lumot" bo'lib
+    // ko'rinar, ya'ni sardor uni e'tiborsiz o'tkazib yuborishi mumkin edi.
+    warning: <AlertCircle className="text-amber-500" size={24} />
 };
 const TYPE_BG = {
     waitlist_offer: 'bg-amber-50',
     team_invite: 'bg-indigo-50',
-    success: 'bg-emerald-50'
+    success: 'bg-emerald-50',
+    warning: 'bg-amber-50'
 };
 
 const formatRelativeTime = (iso) => {

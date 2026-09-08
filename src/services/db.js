@@ -6214,14 +6214,26 @@ export const db = {
 
         const created = await insertRegistrationToSupabase(registration);
         if (isTeam) {
+            const activityTitle = activity.title || activity.name || '';
             for (const m of created.teamMembers) {
                 await addNotificationToSupabase({
                     userId: m.userId,
                     type: 'team_invite',
                     title: 'Jamoaga taklif',
-                    message: `Sizni "${created.teamName || 'jamoa'}" jamoasiga taklif qilishdi.`,
-                    refId: created.id,
-                    refType: 'registration'
+                    // Xabar TADBIR NOMINI ham aytadi: "sizni jamoaga taklif
+                    // qilishdi" degan xabar qaysi tadbir haqida ekanini
+                    // aytmasa, talaba nimaga rozi bo'layotganini bilmaydi.
+                    message: `Sizni "${created.teamName || 'jamoa'}" jamoasiga taklif qilishdi`
+                        + (activityTitle ? ` — ${activityTitle}.` : '.')
+                        + ' Taklifni qabul qilishingiz kutilmoqda.',
+                    // `refId` FAOLIYATNI ko'rsatadi, ro'yxat yozuvini emas.
+                    // Ilgari bu yerda `refType: 'registration'` turardi, lekin
+                    // `notificationLink` da bunday tur umuman yo'q edi - ya'ni
+                    // xabar bosilganda HECH NARSA bo'lmasdi va talaba qabul
+                    // qilish tugmasini o'zi qidirib topishga majbur edi.
+                    // Faoliyat sahifasida esa taklif va tugma allaqachon bor.
+                    refId: activityId,
+                    refType: activityType,
                 });
             }
         }
@@ -6359,6 +6371,33 @@ export const db = {
             else await db.registerForEvent(reg.activityId, teamParticipant, reg.userId);
             await updateRegistrationInSupabase(registrationId, { realTeamId: teamParticipant.id });
         }
+
+        // SARDORGA xabar. Ilgari u hech narsa olmasdi: jamoasi to'ldimi yoki
+        // kimdir rad etdimi - buni bilish uchun o'zi tadbir sahifasini ochib
+        // ko'rishi kerak edi. Taklif yuborib qo'yib unutish esa juda oson, va
+        // o'shanda jamoa jimgina faollashmay qolardi.
+        try {
+            const responderName = generateMockStudents().find(s => s.id === userId)?.fullName
+                || db.getSyncedProfiles().find(p => p.username === userId)?.fullName
+                || userId;
+            const teamLabel = reg.teamName || 'jamoangiz';
+            await addNotificationToSupabase({
+                userId: reg.userId,
+                type: shouldMaterialize ? 'success' : (accept ? 'info' : 'warning'),
+                title: shouldMaterialize ? 'Jamoa tasdiqlandi' : 'Jamoa taklifiga javob',
+                message: shouldMaterialize
+                    ? `"${teamLabel}" to'ldi — ${acceptedCount} a'zo. Jamoa ro'yxatga qo'shildi.`
+                    : `${responderName} ${accept ? 'taklifni qabul qildi' : 'taklifni rad etdi'}. `
+                      + `"${teamLabel}": ${acceptedCount}/${reg.minTeamSize || '?'} a'zo.`,
+                refId: reg.activityId,
+                refType: reg.activityType,
+            });
+        } catch (e) {
+            // Xabar ketmagani javobni bekor qilmasligi kerak - a'zoning
+            // qarori asosiy ish, xabar qo'shimcha.
+            console.warn('Sardorga xabar yuborilmadi:', e.message);
+        }
+
         await syncCoreDataFromSupabase();
         return (getDB().registrations || []).find(r => r.id === registrationId);
     },
