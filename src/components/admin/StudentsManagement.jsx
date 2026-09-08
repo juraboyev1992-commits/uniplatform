@@ -44,7 +44,9 @@ const StudentsManagement = () => {
     // ichida qaytaradi - shu qiymatlarni qayta so'ramaymiz, 550 ta talaba uchun ikkinchi marta
     // o'qish behuda. Kitob/test kabi og'ir ko'rsatkichlar esa faqat kartochka ochilganda
     // hisoblanadi (quyidagi selectedStudentDetail).
-    const allStudents = useMemo(() => {
+    // `withCachedReads`: ichkarida ~550 talaba × o'nlab `db.getX()` chaqiruvi bor va har biri
+    // kesh bo'lmasa butun bazani qayta JSON.parse qilardi. Blok sof o'qishdan iborat.
+    const allStudents = useMemo(() => db.withCachedReads(() => {
         return db.getMockStudents().map((s, i) => {
             const tas = computeStudentTAS(db, s.id);
             const src = tas.sources;
@@ -78,7 +80,7 @@ const StudentsManagement = () => {
                 tasTotal: tas.total
             };
         });
-    }, []);
+    }), []);
 
     // Kartochka ochilgandagina hisoblanadigan og'ir ko'rsatkichlar. Ijtimoiy faollik indeksi 11 ta
     // mezonni alohida hisoblaydi, kitobxonlik esa barcha testlarni skanerlaydi - buni 550 ta talaba

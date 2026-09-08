@@ -16,7 +16,7 @@ const isStudentActive = (db, studentId) =>
 // per-group aggregator below (faculty/course/club/category) takes these same rows rather than `db`
 // directly, so RankingsPage.jsx can compute this once (in its own useMemo) and hand it to all four tabs
 // instead of recomputing computeStudentTAS for all ~550 students four separate times.
-export const getStudentTasRows = (db) => {
+export const getStudentTasRows = (db) => db.withCachedReads(() => {
     const students = db.getMockStudents();
     const allRegs = db.getAllRegistrations() || [];
     const participationsByStudent = new Map();
@@ -33,7 +33,10 @@ export const getStudentTasRows = (db) => {
         isActive: isStudentActive(db, student.id),
         participations: participationsByStudent.get(student.id) || 0
     }));
-};
+    // `withCachedReads`: bu blok ~550 ta talabani hisoblaydi va har bir talaba uchun o'nlab
+    // `db.getX()` chaqiriladi. Kesh bo'lmasa ularning HAR BIRI butun bazani qayta JSON.parse
+    // qilardi. Ichida yozish yo'q - faqat o'qish, shuning uchun keshlash xavfsiz.
+});
 
 // Every TEAM-type competition assigns its score to the team as a whole (one competitionScores row per
 // team per round — true for correct_answer/quiz_mixed/criteria_based/single_score alike; match_play/

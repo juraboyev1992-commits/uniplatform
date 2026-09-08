@@ -180,9 +180,9 @@ export const TasSourceList = ({ tas }) => {
         {
             label: 'Ijtimoiy faollik',
             value: s.criteriaMax > 0
-                ? `${s.criteriaEarned} / ${s.criteriaMax} ball · tasdiqlangan arizalar`
+                ? `Rasmiy indeks ${s.socialIndexTotal} / ${s.socialIndexMax} · ${s.socialCriteriaTotal} mezondan ${s.socialCriteriaScored} tasi`
                 : null,
-            missing: 'Ijtimoiy faollik mezonlari sozlanmagan'
+            missing: 'Rasmiy indeksning ijtimoiy mezonlari hali hisoblanmagan'
         },
         {
             label: 'Liderlik',

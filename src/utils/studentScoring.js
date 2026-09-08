@@ -1,4 +1,17 @@
 import { SOCIAL_APPLICATION_STATUS } from '../services/db';
+import { computeSocialActivityIndex } from './socialActivityScoring';
+
+// TAS ijtimoiy o'lchovi RASMIY INDEKSdan olinadi (186-son buyruq metodikasi), o'zining alohida
+// hisobidan emas. Ilgari ikki qatlam ikki xil manbadan hisoblanardi: indeks 11 mezonni haqiqiy
+// yozuvlardan, TAS esa tasdiqlangan arizalar balini mezonlar maksimumiga bo'lib. Natijada bitta
+// talaba haqida ikki xil ijtimoiy faollik raqami chiqardi va qaysi biri to'g'ri ekani noma'lum edi.
+//
+// Bu uch mezon ATAYLAB chiqarib tashlanadi - ular TAS'ning O'Z o'lchovlari:
+//   ACADEMIC   -> TAS "Akademik skoring" (GPA)
+//   CLUBS      -> TAS "Liderlik skoring" (klub lavozimlari)
+//   ATTENDANCE -> TAS "Ishonchlilik skoring" (davomat)
+// Ularni qoldirish bitta natijani ikki marta sanash bo'lardi.
+const TAS_SOCIAL_EXCLUDED_CRITERIA = ['ACADEMIC', 'CLUBS', 'ATTENDANCE'];
 
 // "Talaba Analitik Skoring (TAS)" — 0-1000 ballik kompozit ko'rsatkich. U ikkita ekranda
 // ko'rsatiladi (admin panelidagi talaba kartochkasi — StudentsManagement.jsx, va talabaning
@@ -40,8 +53,8 @@ export const TAS_DIMENSIONS = [
     },
     {
         key: 'social', field: 'socialFaollikScore', label: 'Ijtimoiy faollik skoring', max: 300, dot: 'bg-emerald-500',
-        info: 'Ijtimoiy faollik arizalari bo\'yicha yig\'ilgan ball. Faqat TASDIQLANGAN arizalar hisobga olinadi; har bir mezon o\'z maksimumidan oshmaydi.',
-        formula: "(yig'ilgan ball ÷ mezonlar maksimumi) × 300"
+        info: "Rasmiy ijtimoiy faollik indeksining (186-son buyruq) ijtimoiy mezonlari. Akademik, klub va davomat mezonlari bu yerga kirmaydi — ular TAS'ning alohida o'lchovlari.",
+        formula: "(hisoblangan mezonlar bali ÷ o'sha mezonlar maksimumi) × 300"
     },
     {
         key: 'leadership', field: 'leadershipScore', label: 'Liderlik skoring', max: 150, dot: 'bg-amber-500',
@@ -97,7 +110,7 @@ const buildRecommendations = (scores) => {
 // bir xil ko'rsatiladi, chunki ikkisi ham bir xil kamchilikni ko'radi.
 const MISSING_REASON = {
     academic: "GPA kiritilmagan (HEMIS yoki qo'lda)",
-    social: 'Ijtimoiy faollik mezonlari sozlanmagan',
+    social: 'Rasmiy indeksning birorta ijtimoiy mezoni hali hisoblanmagan',
     reliability: 'Davomat belgilanmagan'
 };
 
@@ -121,9 +134,17 @@ export const buildTasDimensionDetail = (tas, key) => {
             steps.push({ label: 'Hisob', value: `(${s.averageGpa} ÷ ${GPA_MAX}) × ${dim.max} = ${value}` });
         }
     } else if (key === 'social') {
-        steps.push({ label: 'Manba', value: 'Tasdiqlangan ijtimoiy faollik arizalari' });
-        steps.push({ label: "Yig'ilgan ball", value: s.criteriaMax > 0 ? `${s.criteriaEarned} ball` : null });
-        steps.push({ label: 'Mezonlar maksimumi', value: s.criteriaMax > 0 ? `${s.criteriaMax} ball` : null });
+        steps.push({ label: 'Manba', value: 'Rasmiy ijtimoiy faollik indeksi (186-son buyruq)' });
+        steps.push({ label: 'Indeksning yakuniy bali', value: `${s.socialIndexTotal} / ${s.socialIndexMax}` });
+        steps.push({
+            label: 'Hisobga olingan mezonlar',
+            value: s.socialCriteriaTotal > 0
+                ? `${s.socialCriteriaTotal} tadan ${s.socialCriteriaScored} tasi`
+                : null
+        });
+        // Qaysi mezon qancha bergani ochiq yoziladi - "186 ball qayerdan chiqdi" savoliga
+        // yagona to'liq javob shu.
+        s.socialCriteriaNames.forEach(name => steps.push({ label: '·', value: name }));
         if (s.criteriaMax > 0) {
             steps.push({ label: 'Hisob', value: `(${s.criteriaEarned} ÷ ${s.criteriaMax}) × ${dim.max} = ${value}` });
         }
@@ -159,25 +180,26 @@ export const computeStudentTAS = (db, studentId) => {
         ? null
         : Math.round((Math.min(averageGpa, GPA_MAX) / GPA_MAX) * 400);
 
-    // --- 2. Ijtimoiy faollik: tasdiqlangan arizalar bo'yicha yig'ilgan ball / mezonlar maksimumi.
-    // Har mezon o'z maksimumida CHEKLANADI — bitta mezondan ortiqcha yig'ilgan ball boshqasining
-    // bo'shligini yopib ketmasligi kerak.
+    // --- 2. Ijtimoiy faollik: RASMIY INDEKSning ijtimoiy mezonlari (yuqoridagi izohga qarang).
+    //
+    // Maxrajga faqat HISOBLANGAN mezonlar kiradi. Ma'lumoti yo'q mezonning maksimumini maxrajga
+    // qo'shish talabani o'zi aybdor bo'lmagan bo'shliq uchun jazolagan bo'lardi — "hali kiritilmagan"
+    // va "bajarmagan" bir xil emas.
+    const socialIndex = computeSocialActivityIndex(db, studentId);
+    const socialCriteria = socialIndex.criteria.filter(c => !TAS_SOCIAL_EXCLUDED_CRITERIA.includes(c.key));
+    const scoredSocial = socialCriteria.filter(c => c.points != null);
+    const criteriaEarned = scoredSocial.length > 0
+        ? Math.round(scoredSocial.reduce((sum, c) => sum + c.points, 0) * 10) / 10
+        : null;
+    const criteriaMax = scoredSocial.reduce((sum, c) => sum + c.maxPoints, 0);
+    const social = criteriaEarned == null || criteriaMax === 0
+        ? null
+        : Math.round((criteriaEarned / criteriaMax) * 300);
+
     const socialCategories = db.getSocialCriteriaCategories().filter(c => c.isActive && !c.isArchived);
-    const criteriaMax = socialCategories.reduce((sum, c) => sum + (c.maxPoints || 0), 0);
     const approvedApps = db.getSocialApplications()
         .filter(a => a.studentId === studentId && a.status === SOCIAL_APPLICATION_STATUS.APPROVED)
         .sort((a, b) => new Date(b.reviewedAt || b.submittedAt) - new Date(a.reviewedAt || a.submittedAt));
-
-    const earnedByCriteria = new Map();
-    approvedApps.forEach(a => {
-        earnedByCriteria.set(a.criteriaKey, (earnedByCriteria.get(a.criteriaKey) || 0) + (a.pointsAwarded || 0));
-    });
-    // Mezon ro'yxati bo'sh bo'lsa maxraj yo'q — ball hisoblanmaydi (null). Mezonlar bor-u talaba
-    // hech narsa yig'magan bo'lsa bu HAQIQIY 0, null emas.
-    const criteriaEarned = criteriaMax > 0
-        ? socialCategories.reduce((sum, c) => sum + Math.min(earnedByCriteria.get(c.key) || 0, c.maxPoints || 0), 0)
-        : null;
-    const social = criteriaEarned == null ? null : Math.round((criteriaEarned / criteriaMax) * 300);
 
     // --- 3. Liderlik: haqiqiy faol klub lavozimlari (bu o'lchov avvaldan ham real edi).
     // Lavozim yo'qligi — ma'lumot yetishmasligi emas, haqiqiy 0.
@@ -225,6 +247,13 @@ export const computeStudentTAS = (db, studentId) => {
         sources: {
             averageGpa,
             criteriaEarned, criteriaMax,
+            // Rasmiy indeksning o'zi (0-100) - ekranlarda TAS yonida ko'rsatiladi, shunda
+            // foydalanuvchi ikkala raqamning bir manbadan ekanini ko'radi.
+            socialIndexTotal: socialIndex.total,
+            socialIndexMax: socialIndex.maxTotal,
+            socialCriteriaScored: scoredSocial.length,
+            socialCriteriaTotal: socialCriteria.length,
+            socialCriteriaNames: scoredSocial.map(c => `${c.name}: ${c.points}/${c.maxPoints}`),
             activePositions,
             // Portfel baribir yuqorida o'qildi — a'zolik sonini shu yerdan uzatamiz, chaqiruvchi
             // ekranlar 550 ta talaba uchun getStudentPortfolio'ni ikkinchi marta chaqirmasin.

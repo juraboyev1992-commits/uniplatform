@@ -1602,7 +1602,10 @@ const initialData = {
     .forEach(arr => arr.forEach((record, idx) => { record.displayNumber = idx + 1; }));
 
 // Internal helper to get/set full DB
-const getDB = () => {
+// DIQQAT: bu funksiya butun bazani localStorage'dan o'qib JSON.parse qiladi va
+// migratsiyalarni yuritadi. U kodda 500 dan ortiq joyda chaqiriladi, shuning uchun
+// TO'G'RIDAN-TO'G'RI chaqirilmaydi - pastdagi `getDB()` orqali chaqiriladi.
+const loadDB = () => {
     const raw = localStorage.getItem(DB_KEY);
     if (!raw) {
         localStorage.setItem(DB_KEY, JSON.stringify(initialData));
@@ -1893,8 +1896,40 @@ const getDB = () => {
     return parsed;
 };
 
+// O'QISH KESHI — faqat `withCachedReads()` ichida yoqiladi, boshqa vaqtda `getDB()`
+// avvalgidek har safar yangi nusxa o'qiydi.
+//
+// Nega kerak: bitta talabaning rasmiy ijtimoiy faollik indeksi ~30 ta `db.getX()`
+// chaqiradi, ularning HAR BIRI butun bazani qayta JSON.parse qiladi. 550 ta talaba
+// uchun bu ~16 000 marta parse degani - sahifa muzlab qoladi.
+//
+// Nega global kesh EMAS: kodning ba'zi joylari `getDB()` natijasini o'zgartirib,
+// `saveDB()` chaqirmaydi - hozir bunday o'zgarish keyingi o'qishda o'z-o'zidan
+// yo'qoladi. Doimiy kesh o'sha o'zgarishlarni xotirada saqlab qolib, butun ilova
+// bo'ylab sezilmas xatolar keltirib chiqarardi. Shuning uchun kesh faqat SOF O'QISH
+// bloklarida, qisqa muddatga yoqiladi va blok tugashi bilan majburan tozalanadi.
+let readCache = null;
+
+const getDB = () => readCache || loadDB();
+
+// Ichida faqat O'QISH bo'lgan blokni o'rab, baza bir marta o'qilishini ta'minlaydi.
+// Ichida yozish (saveDB yoki db.setX) BO'LMASLIGI kerak - aks holda keshdagi nusxa
+// bilan diskdagi nusxa ajralib ketadi.
+const withCachedReads = (fn) => {
+    // Ichma-ich chaqirilsa tashqi blok keshini buzmaymiz.
+    if (readCache) return fn();
+    readCache = loadDB();
+    try {
+        return fn();
+    } finally {
+        readCache = null;
+    }
+};
+
 const saveDB = (data) => {
     localStorage.setItem(DB_KEY, JSON.stringify(data));
+    // Ochiq o'qish bloki bo'lsa, u endi eskirgan - keyingi o'qish diskdan bo'lsin.
+    readCache = null;
 };
 
 // Ish kunlari: shanba, yakshanba va sozlamadagi bayram kunlari o'tkazib
@@ -3489,6 +3524,10 @@ const maybeAutoAdvance = async (dbData, grant, stageIndex, group, stage) => {
 };
 
 export const db = {
+    // Ko'p talabani birdaniga hisoblaydigan ekranlar uchun: `db.withCachedReads(() => ...)`
+    // ichida baza bir marta o'qiladi. FAQAT sof o'qish bloklarini o'rash mumkin -
+    // ichida yozish bo'lmasligi kerak (batafsil izoh funksiya ta'rifi yonida).
+    withCachedReads,
     // Exposed so AuthContext.jsx can populate the clubs/memberships mirror once a session resolves
     // (before that, dbData.clubs/memberships fall back to whatever fresh-install seed shipped -
     // harmless, since a signed-out visitor never mutates anything real).
