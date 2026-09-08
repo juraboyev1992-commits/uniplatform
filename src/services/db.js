@@ -6565,6 +6565,119 @@ export const db = {
         return updated;
     },
 
+    // TALABANING JAMOA BO'YICHA OCHIQ HOLATLARI — bitta manba.
+    //
+    // To'rt joy shu bir xil ma'lumotga tayanadi: kalendardagi belgi, bosh
+    // sahifadagi kartochka, menyudagi raqam va faoliyat sahifasidagi ro'yxat.
+    // Har biri o'zicha hisoblaganida, ular bir-biridan chetga chiqib ketardi -
+    // kalendarda belgi turib, kartochkada ko'rinmasligi mumkin edi.
+    //
+    // `daysLeft` - ro'yxat YOPILISHIGA qolgan kun. Muddat qo'yilmagan bo'lsa
+    // faoliyat boshlanishi olinadi: amalda o'shanda ham ro'yxat yopiladi.
+    getTeamAttention: (username) => {
+        if (!username) return { asCaptain: [], asInvitee: [] };
+        const dbData = getDB();
+        const now = Date.now();
+        const DAY = 24 * 60 * 60 * 1000;
+
+        const open = (dbData.registrations || []).filter(r =>
+            r.participantType === 'team' && r.status !== 'cancelled' && !r.teamConfirmedAt
+        );
+
+        const shape = (r) => {
+            const list = r.activityType === 'competition' ? dbData.competitions : dbData.events;
+            const activity = (list || []).find(a => a.id === r.activityId);
+            if (!activity) return null;
+            const startsAt = r.activityType === 'competition'
+                ? combineDateTime(activity.startDate, activity.startTime)
+                : activity.date;
+            const deadline = activity.registrationClosesAt || startsAt;
+            const ms = deadline ? new Date(deadline).getTime() - now : null;
+            const pending = (r.teamMembers || []).filter(m => m.status === 'pending');
+            return {
+                registrationId: r.id,
+                activityId: r.activityId,
+                activityType: r.activityType,
+                activityTitle: activity.title || activity.name || '',
+                teamName: r.teamName || null,
+                accepted: (r.teamMembers || []).filter(m => m.status === 'accepted').length + 1,
+                need: r.minTeamSize || 0,
+                inviteCode: r.inviteCode || null,
+                pendingMembers: pending,
+                // `null` - muddat noma'lum. Bu 0 emas: "muddat yo'q" va
+                // "muddat bugun" butunlay boshqa narsa va ularni aralashtirsak
+                // ekranda qizil belgi asossiz chiqib ketardi.
+                daysLeft: ms == null ? null : Math.floor(ms / DAY),
+            };
+        };
+
+        const asCaptain = open
+            .filter(r => r.userId === username)
+            .map(shape)
+            .filter(x => x && x.need > x.accepted);
+
+        const asInvitee = open
+            .filter(r => (r.teamMembers || []).some(m => m.userId === username && m.status === 'pending'))
+            .map(shape)
+            .filter(Boolean);
+
+        return { asCaptain, asInvitee };
+    },
+
+    // SARDOR JAVOB BERMAGANLARNI TURTADI.
+    //
+    // Shu paytgacha sardor jamoasi to'lmaganini BILAR, lekin ilovada hech
+    // narsa qila olmasdi: xabar kelardi, ro'yxat ko'rinardi, tugma yo'q edi.
+    // Yagona yo'l - ilovadan tashqarida (Telegram, og'zaki) eslatish.
+    //
+    // KUNIGA BIR MARTA. Cheklov `notifications` jadvalining o'zidan
+    // hisoblanadi - yangi ustun qo'shilmaydi. Busiz sardor tugmani ketma-ket
+    // bosib, a'zoni bezovta qilib qo'yishi mumkin edi va eslatma o'z
+    // ta'sirini yo'qotardi.
+    nudgePendingTeamMembers: async (registrationId, actingUsername) => {
+        const dbData = getDB();
+        const reg = (dbData.registrations || []).find(r => r.id === registrationId);
+        if (!reg) throw new Error("Ro'yxatga olish topilmadi");
+        if (reg.userId !== actingUsername) throw new Error('Faqat jamoa sardori eslatma yubora oladi');
+        if (reg.teamConfirmedAt) throw new Error('Jamoa allaqachon tasdiqlangan');
+
+        const list = reg.activityType === 'competition' ? dbData.competitions : dbData.events;
+        const activity = (list || []).find(a => a.id === reg.activityId);
+        const title = activity ? (activity.title || activity.name || '') : '';
+        const teamLabel = reg.teamName || 'jamoa';
+        const NUDGE_TITLE = 'Jamoa taklifi — eslatma';
+        const DAY = 24 * 60 * 60 * 1000;
+
+        const pending = (reg.teamMembers || []).filter(m => m.status === 'pending');
+        if (pending.length === 0) return { sent: 0, skipped: 0 };
+
+        const recent = new Set(
+            (dbData.notifications || [])
+                .filter(n => n.title === NUDGE_TITLE && n.refId === reg.activityId
+                    && n.createdAt && (Date.now() - new Date(n.createdAt).getTime()) < DAY)
+                .map(n => n.userId)
+        );
+
+        let sent = 0;
+        let skipped = 0;
+        for (const m of pending) {
+            if (recent.has(m.userId)) { skipped++; continue; }
+            try {
+                await addNotificationToSupabase({
+                    userId: m.userId, type: 'team_invite', title: NUDGE_TITLE,
+                    message: `Sardor eslatmoqda: "${teamLabel}" jamoasiga taklifingiz javobsiz`
+                        + (title ? ` — ${title}.` : '.'),
+                    refId: reg.activityId, refType: reg.activityType,
+                });
+                sent++;
+            } catch (e) {
+                console.warn('Eslatma yuborilmadi:', m.userId, e.message);
+            }
+        }
+        if (sent > 0) await syncCoreDataFromSupabase();
+        return { sent, skipped };
+    },
+
     // TO'LMAGAN JAMOANI HAL QILISH — ro'yxat yopilgandan keyin.
     //
     // MUAMMO: taklif qilinganlar javob bermasa, jamoa TASDIQLANMAY qolardi va
