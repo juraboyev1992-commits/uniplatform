@@ -16072,6 +16072,31 @@ export const db = {
     // qo'yish mumkin emas. Har bir RPC ichida `is_platform_admin()` tekshiriladi.
     // ========================================================================
 
+    // --- ISH NAVBATI: "o'qildi" belgilari ---
+    //
+    // Menyudagi qizil raqam JAMI ishni emas, YANGI ishni ko'rsatadi: foydalanuvchi
+    // tegishli tabni ochgach raqam yo'qoladi, yangi ariza kelsa qaytadan chiqadi.
+    // Shuning uchun har bir navbat uchun "oxirgi marta qachon ko'rilgan" saqlanadi
+    // va undan keyin kelgan yozuvlargina sanaladi (utils/workQueue.js).
+    //
+    // Jami son bo'lim ichida baribir ko'rinib turadi - ya'ni ish unutilmaydi,
+    // badge faqat "yangi nima bor" degan savolga javob beradi.
+    //
+    // QURILMA bo'yicha saqlanadi: "o'qildi" shaxsiy holat va uni serverga yozish
+    // uchun alohida jadval kerak bo'lardi. Boshqa qurilmada raqam qaytadan chiqadi.
+    getQueueSeenAt: (username) => ((getDB().queueSeen || {})[username] || {}),
+
+    markQueueSeen: (username, keys) => {
+        if (!username || !keys || keys.length === 0) return;
+        const dbData = getDB();
+        dbData.queueSeen = dbData.queueSeen || {};
+        const mine = { ...(dbData.queueSeen[username] || {}) };
+        const now = new Date().toISOString();
+        keys.forEach(k => { mine[k] = now; });
+        dbData.queueSeen[username] = mine;
+        saveDB(dbData);
+    },
+
     getAllUserAccounts: () => (getDB().realProfiles || [])
         .slice()
         .sort((a, b) => String(a.username || '').localeCompare(String(b.username || ''))),

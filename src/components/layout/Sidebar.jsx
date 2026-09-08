@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useMemo } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth, ROLES } from '../../contexts/AuthContext';
 import {
     LayoutDashboard,
@@ -28,9 +28,20 @@ import {
     Gift
 } from 'lucide-react';
 import { db } from '../../services/db';
+import { getMenuBadges } from '../../utils/workQueue';
 
 const Sidebar = ({ isOpen, onClose }) => {
     const { user, hasRole, isClubManager } = useAuth();
+    const location = useLocation();
+
+    // Menyudagi qizil raqamlar. JAMI ish emas, YANGI ish soni: foydalanuvchi tegishli
+    // tabni ochgach raqam yo'qoladi (utils/workQueue.js dagi "o'qildi" modeli).
+    // Manzil o'zgarganda qayta hisoblanadi - shu bilan bo'limga kirilgach raqam
+    // darhol so'nadi.
+    const badges = useMemo(
+        () => db.withCachedReads(() => getMenuBadges(db, user, { isClubManager })),
+        [user, isClubManager, location.pathname, location.search]
+    );
 
     const studentMenuItems = [
         { icon: LayoutDashboard, label: 'Bosh sahifa', path: '/student/dashboard' },
@@ -206,6 +217,18 @@ const Sidebar = ({ isOpen, onClose }) => {
                                             }`}
                                     />
                                     <span className="font-medium">{item.label}</span>
+                                    {/* Nol bo'lsa umuman chizilmaydi - "0" yozib qo'yish
+                                        e'tiborni behuda tortadi. */}
+                                    {badges[item.path] > 0 && (
+                                        <span
+                                            className={`ml-auto shrink-0 min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-[11px] font-black text-center ${
+                                                isActive ? 'bg-white text-red-600' : 'bg-red-500 text-white'
+                                            }`}
+                                            title={`${badges[item.path]} ta yangi ish`}
+                                        >
+                                            {badges[item.path] > 99 ? '99+' : badges[item.path]}
+                                        </span>
+                                    )}
                                 </>
                             )}
                         </NavLink>
