@@ -69,7 +69,7 @@ const StudentTasPanel = ({ studentId, displayName }) => {
                 </div>
 
                 <div className="bg-white/80 rounded-3xl p-5 border border-gray-100">
-                    <p className="text-xs font-bold text-gray-700 mb-2">Skor tarkibi</p>
+                    <p className="text-xs font-bold text-gray-700 mb-2">Skoring tarkibi</p>
                     <TasBreakdownRows tas={tas} />
                 </div>
             </div>
@@ -80,7 +80,7 @@ const StudentTasPanel = ({ studentId, displayName }) => {
                 o'lchov qaysi yozuvdan chiqqani ko'rsatiladi: talaba o'z balini tekshira
                 oladi va nima yetishmayotganini ko'radi. */}
             <div className="bg-white/80 rounded-3xl p-5 border border-gray-100">
-                <p className="text-xs font-bold text-gray-700 mb-3">Skor manbalari</p>
+                <p className="text-xs font-bold text-gray-700 mb-3">Skoring manbalari</p>
                 <TasSourceList tas={tas} />
                 {tas.pending.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-gray-100">

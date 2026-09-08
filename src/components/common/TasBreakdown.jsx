@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Info, ChevronDown } from 'lucide-react';
 import { TAS_DIMENSIONS, TAS_MAX_TOTAL, GPA_MAX, buildTasDimensionDetail } from '../../utils/studentScoring';
 
-// TAS kartochkasining ikkita bloki — "Skor tarkibi" va "Skor manbalari". Ikkala ekranda
+// TAS kartochkasining ikkita bloki — "Skoring tarkibi" va "Skoring manbalari". Ikkala ekranda
 // (admin panelidagi talaba kartochkasi va talabaning o'z profili) bir xil ko'rinishi shart,
 // ayniqsa "ma'lumot yo'q" holati: bitta ekranda "—", boshqasida "0" chiqsa, xuddi shu talaba
 // haqida ikki xil xulosa chiqadi. Shuning uchun qatorlar shu yerda, bitta joyda chiziladi.
@@ -165,7 +165,7 @@ export const TasBreakdownRows = ({ tas }) => {
     );
 };
 
-// "Skor manbalari" — har bir o'lchov qaysi haqiqiy yozuvdan chiqqani. Ilgari bu joyda 6 oylik
+// "Skoring manbalari" — har bir o'lchov qaysi haqiqiy yozuvdan chiqqani. Ilgari bu joyda 6 oylik
 // "Skor dinamikasi" grafigi turardi, lekin TAS suratlari saqlanmagani uchun u chiziq oxirgi
 // baldan orqaga qarab O'YLAB TOPILARDI. Grafik o'rniga tekshirsa bo'ladigan manba ro'yxati:
 // "365/400" raqamining qayerdan kelgani ko'rinib turadi.

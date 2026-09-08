@@ -514,7 +514,7 @@ const StudentsManagement = () => {
                                 skoring") got truncated/hard to read. Dropped in favor of the same clearer,
                                 full-width layout ProfilePage.jsx's own Skoring section already uses. */}
                             <div className="bg-gray-50 rounded-2xl p-5">
-                                <p className="text-xs font-bold text-gray-700 mb-3">Skor tarkibi</p>
+                                <p className="text-xs font-bold text-gray-700 mb-3">Skoring tarkibi</p>
                                 <TasBreakdownRows tas={selectedStudent.tas} />
                             </div>
                         </div>
@@ -526,7 +526,7 @@ const StudentsManagement = () => {
                                 bir o'lchov qaysi yozuvdan chiqqani ko'rsatiladi: raqamni tekshirish
                                 mumkin bo'ladi. Tarixiy suratlar joriy etilganda grafik qaytariladi. */}
                             <div className="bg-white border border-gray-100 rounded-2xl p-4">
-                                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Skor manbalari</h4>
+                                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Skoring manbalari</h4>
                                 <TasSourceList tas={selectedStudent.tas} />
                                 {selectedStudent.tas.pending.length > 0 && (
                                     <div className="mt-3 pt-3 border-t border-gray-100">
