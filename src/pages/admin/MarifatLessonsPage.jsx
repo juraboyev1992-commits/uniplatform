@@ -28,7 +28,18 @@ import {
 const MarifatLessonsPage = () => {
     const { user } = useAuth();
     const criterion = INDEX_CRITERIA.EDUCATION;
+    // "Faollik bali" alohida tab EMAS - u jurnalning ikkinchi ko'rinishi. Sababi:
+    // ikkalasi ham AYNI auditoriyaning ayni talabalari haqida va yonma-yon qaraladi
+    // (davomat foizi ballning yarmini, faollik ikkinchi yarmini beradi). Alohida
+    // turganda foydalanuvchi ikki joyni solishtirish uchun tab almashtirib yurardi.
+    // Eski `?tab=faollik` havolasi buzilmasin uchun id ro'yxatda qoldirilgan va
+    // pastda jurnalga yo'naltiriladi.
     const [tab, setTab] = useTabParam(['darslar', 'jurnal', 'faollik'], 'darslar');
+    // Jurnal ichidagi ko'rinish: davomat panjarasi yoki ball kiritish.
+    const [journalView, setJournalView] = useTabParam(['davomat', 'ball'], 'davomat', 'korinish');
+    // Eski manzil bilan kelgan bo'lsa - jurnalning "Ball" ko'rinishiga o'tkazamiz.
+    const isJournal = tab === 'jurnal' || tab === 'faollik';
+    const view = tab === 'faollik' ? 'ball' : journalView;
     const [version, setVersion] = useState(0);
     const [openLessonId, setOpenLessonId] = useState(null);
     const [showForm, setShowForm] = useState(false);
@@ -154,7 +165,7 @@ const MarifatLessonsPage = () => {
     const [journalCourse, setJournalCourse] = useState('');
 
     const journal = useMemo(() => {
-        if (tab !== 'jurnal' || !journalFaculty || !journalCourse) return null;
+        if (!isJournal || view !== 'davomat' || !journalFaculty || !journalCourse) return null;
 
         // Maxrajga faqat DAVOMATI BELGILANGAN darslar kiradi - hisobdagi
         // qoidaning aynan o'zi, aks holda jurnaldagi foiz indeksdagidan
@@ -192,7 +203,7 @@ const MarifatLessonsPage = () => {
             });
 
         return { lessons, rows, unmarkedLessons };
-    }, [tab, journalFaculty, journalCourse, students, academicYear, version]);
+    }, [isJournal, view, journalFaculty, journalCourse, students, academicYear, version]);
 
     const exportJournal = () => {
         if (!journal) return;
@@ -225,7 +236,7 @@ const MarifatLessonsPage = () => {
 
     // Faollik bali kiritish uchun - darsda qatnashgan talabalar.
     const scoreRows = useMemo(() => {
-        if (tab !== 'faollik') return [];
+        if (!isJournal || view !== 'ball') return [];
         const q = scoreSearch.trim().toLowerCase();
         const attended = new Set((db.getMarifatLessons(academicYear) || [])
             .flatMap(l => db.getMarifatAttendance(l.id))
@@ -243,7 +254,7 @@ const MarifatLessonsPage = () => {
                 };
             })
             .sort((a, b) => (b.stats.active - a.stats.active) || (b.stats.attended - a.stats.attended));
-    }, [tab, students, academicYear, scoreSearch, version]);
+    }, [isJournal, view, students, academicYear, scoreSearch, version]);
 
     return (
         <div className="space-y-6 font-sans">
@@ -262,7 +273,6 @@ const MarifatLessonsPage = () => {
                     {[
                         { id: 'darslar', label: 'Darslar' },
                         { id: 'jurnal', label: 'Jurnal' },
-                        { id: 'faollik', label: 'Faollik bali' },
                     ].map(t => (
                         <button
                             key={t.id}
@@ -576,8 +586,31 @@ const MarifatLessonsPage = () => {
                 Yil yakunidagi asosiy hujjat. Ball bo'yicha bahs chiqsa javob
                 shu yerda: kim qaysi darsda bo'lgan, foizi qancha, ball qanday
                 chiqqan. Auditoriya kesimida - chunki maxraj ham shunday. */}
-            {tab === 'jurnal' && (
+            {isJournal && (
                 <>
+                    {/* Jurnalning ikki ko'rinishi. Ular AYNI auditoriyaning ayni
+                        talabalari haqida: davomat foizi 7-mezon balining bir qismini,
+                        faollik ikkinchi qismini beradi. Shuning uchun yonma-yon turadi. */}
+                    <div className="flex gap-1.5 bg-slate-100 p-1.5 rounded-xl w-fit">
+                        {[
+                            ['davomat', 'Davomat'],
+                            ['ball', 'Ball'],
+                        ].map(([id, label]) => (
+                            <button
+                                key={id}
+                                type="button"
+                                onClick={() => { if (tab !== 'jurnal') setTab('jurnal'); setJournalView(id); }}
+                                className={`px-4 py-2 rounded-lg text-xs font-extrabold transition-all ${
+                                    view === id ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {view === 'davomat' && (
+                    <>
                     <Card>
                         <div className="p-5 space-y-3">
                             <h3 className="font-bold text-gray-900">Davomat jurnali</h3>
@@ -731,11 +764,13 @@ const MarifatLessonsPage = () => {
                             </Card>
                         )
                     )}
+                    </>
+                    )}
                 </>
             )}
 
-            {/* ================= FAOLLIK BALI ================= */}
-            {tab === 'faollik' && (
+            {/* ================= FAOLLIK BALI (jurnalning "Ball" ko'rinishi) ================= */}
+            {isJournal && view === 'ball' && (
                 <>
                     <Card>
                         <div className="p-5 space-y-2">
