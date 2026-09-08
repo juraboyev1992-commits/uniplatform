@@ -514,11 +514,21 @@ const RankingTab = ({ scope, setScope, rows, scopeLabel, onExport, onRowClick, t
                             <th className="px-4 py-3">№</th>
                             <th className="px-4 py-3">{scope === 'students' ? 'Talaba' : 'Nomi'}</th>
                             {scope === 'students' && <><th className="px-4 py-3">Fakultet</th><th className="px-4 py-3">Kurs</th><th className="px-4 py-3">Guruh</th></>}
-                            {scope !== 'students' && <><th className="px-4 py-3 text-center">Jami talaba</th><th className="px-4 py-3 text-center">Unikal</th><th className="px-4 py-3 text-center">Qamrov</th></>}
+                            {/* Uchtasi birga o'qiladi: Qamrov = Unikal / Jami talaba. Maxraj -
+                                shu kesimdagi BARCHA talaba (fakultetning butun tarkibi), faqat
+                                ro'yxatdan o'tganlar emas. */}
+                            {scope !== 'students' && <>
+                                <th className="px-4 py-3 text-center whitespace-nowrap" title="Shu kesimdagi barcha talabalar soni — qamrov foizining maxraji">Jami talaba</th>
+                                <th className="px-4 py-3 text-center whitespace-nowrap" title="Kamida bitta faoliyatda qatnashgan noyob talabalar soni">Unikal</th>
+                                <th className="px-4 py-3 text-center whitespace-nowrap" title="Unikal ÷ Jami talaba">Qamrov</th>
+                            </>}
                             <th className="px-4 py-3 text-center">Ishtirok</th>
-                            <th className="px-4 py-3 text-center">1</th>
-                            <th className="px-4 py-3 text-center">2</th>
-                            <th className="px-4 py-3 text-center">3</th>
+                            {/* Ilgari bu uchtasi shunchaki "1", "2", "3" deb turardi va nimani
+                                anglatishi tushunarsiz edi (Excel eksportida esa to'g'ri
+                                "1-o'rin" deb yozilardi). Sarlavha o'zini o'zi tushuntirishi kerak. */}
+                            <th className="px-4 py-3 text-center whitespace-nowrap" title="Egallangan 1-o'rinlar soni">1-o'rin</th>
+                            <th className="px-4 py-3 text-center whitespace-nowrap" title="Egallangan 2-o'rinlar soni">2-o'rin</th>
+                            <th className="px-4 py-3 text-center whitespace-nowrap" title="Egallangan 3-o'rinlar soni">3-o'rin</th>
                             <th className="px-4 py-3 text-right">Ball</th>
                         </tr>
                     </thead>
