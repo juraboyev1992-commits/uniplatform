@@ -130,12 +130,12 @@ begin
                   select 1 from public.registrations r
                   where r.activity_id::text = d.activity_id
                     and r.activity_type = d.ref_type
-                    and (r.user_id = p.username or r.user_id = p.id::text)
+                    and (r.user_id::text = p.username::text or r.user_id::text = p.id::text)
                     and r.status = 'registered'
               )
           and not exists (
                   select 1 from public.notification_preferences np
-                  where np.username = p.username
+                  where np.username::text = p.username::text
                     and np.type_id = 'registration_deadline'
                     and np.enabled = false
               )
@@ -149,14 +149,14 @@ begin
                   or exists (
                       select 1 from public.memberships m
                       where m.club_id::text = d.club_id
-                        and (m.user_id = p.username or m.user_id = p.id::text)
+                        and (m.user_id::text = p.username::text or m.user_id::text = p.id::text)
                   )
               )
           -- Ayni shu odamga ayni shu faoliyat bo'yicha ayni shu eslatma
           -- allaqachon yuborilgan bo'lsa - takrorlanmaydi.
           and not exists (
                   select 1 from public.notifications n
-                  where n.user_id = p.username
+                  where n.user_id::text = p.username::text
                     and n.ref_id::text = d.activity_id
                     and n.ref_type = d.ref_type
                     and n.title = d.reminder_title
