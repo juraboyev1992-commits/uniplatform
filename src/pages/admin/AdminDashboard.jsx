@@ -50,7 +50,10 @@ const StatCard = ({ label, value, sub, icon: Icon, accent, iconWrap, iconColor, 
         className={`border-l-4 ${accent} transition-shadow focus:outline-none focus:ring-2 focus:ring-indigo-500`}
         role="button"
         tabIndex={0}
-        title={hint}
+        // DIQQAT: bu yerga `title` BERILMAYDI. `Card` ning o'zida `title` propi bor va u
+        // uni katta <h3> sarlavha qilib chizadi — HTML tooltip sifatida emas. Ya'ni
+        // `title={hint}` har bir kartochka tepasiga keraksiz sarlavha qo'shib qo'yardi.
+        // Izoh vazifasini pastdagi "... ochish →" qatori va `aria-label` bajaradi.
         aria-label={`${label}: ${value}. ${hint}`}
         onClick={onOpen}
         onKeyDown={(e) => {
