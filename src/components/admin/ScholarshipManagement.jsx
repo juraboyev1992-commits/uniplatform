@@ -199,10 +199,16 @@ const emptyGrantForm = () => ({
     constraints: defaultConstraints(),
 });
 
-const ScholarshipManagement = () => {
+// `embedded` - "Iqtidor va stipendiya" bo'limi ichida chizilganda o'z sarlavhasini
+// yashiradi; tablarni tashqi sahifa boshqaradi (`tab` / `onTabChange`).
+const ScholarshipManagement = ({ embedded = false, tab: tabProp, onTabChange }) => {
     const { user } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeTab, setActiveTab] = useState('applications');
+    // Tab tashqaridan boshqarilishi mumkin ("Iqtidor va stipendiya" bo'limi) - berilmasa
+    // komponent o'z holatini ishlatadi va avvalgidek mustaqil ishlaydi.
+    const [ownTab, setOwnTab] = useState('applications');
+    const activeTab = tabProp ?? ownTab;
+    const setActiveTab = onTabChange ?? setOwnTab;
     const [version, setVersion] = useState(0);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
@@ -643,9 +649,10 @@ const ScholarshipManagement = () => {
 
     return (
         <div className="space-y-6">
-            {/* Sarlavha */}
+            {/* Sarlavha. Birlashtirilgan bo'limda sarlavha tashqarida turadi, lekin
+                o'ng tomondagi TUGMALAR qoladi - ular joriy tabning amallari. */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
+                <div className={embedded ? 'hidden' : ''}>
                     <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tighter italic">Stipendiyalar Boshqaruvi</h1>
                     <p className="text-gray-500 font-medium italic">Grantlar, arizalar va avtomatik moslik tekshiruvi</p>
                 </div>
@@ -709,7 +716,7 @@ const ScholarshipManagement = () => {
                 Tab lentasi + filtrlar bitta qatorga sig'masligi mumkin, shuning uchun
                 lenta o'z ichida siljiydi va filtrlar keyingi qatorga o'tadi. */}
             <div className="space-y-3">
-                <div className="-mx-1 px-1 overflow-x-auto">
+                <div className={`-mx-1 px-1 overflow-x-auto ${embedded ? 'hidden' : ''}`}>
                     <div className="inline-flex bg-white p-1 rounded-2xl border border-gray-100 shadow-sm">
                         {[
                             ['applications', "Arizalar Ro'yxati"],

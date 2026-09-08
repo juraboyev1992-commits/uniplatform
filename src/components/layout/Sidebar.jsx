@@ -90,8 +90,11 @@ const Sidebar = ({ isOpen, onClose }) => {
         // "Testlar" va "Kutubxona" bittaga birlashtirildi: har asarning testi
         // baribir testlar bo'limida sozlanardi.
         { icon: Library, label: 'Kutubxona va testlar', path: '/admin/library' },
-        { icon: Sparkles, label: 'Iqtidorli talabalar', path: '/admin/talent' },
-        { icon: GraduationCap, label: 'Stipendiyalar', path: '/admin/scholarships' },
+        // "Iqtidorli talabalar" va "Stipendiyalar" bitta bo'lim bo'ldi: Talent'ning
+        // "Nomzodlar" tabi stipendiya arizasini yaratardi, ya'ni ular bir zanjirning
+        // bo'laklari edi va menyu o'rtasida uzilardi. Ichida ikki guruh:
+        // "Rivojlantirish" va "Stipendiya" (TalentAndScholarshipPage.jsx).
+        { icon: Sparkles, label: 'Iqtidor va stipendiya', path: '/admin/talent' },
         { icon: BookOpen, label: 'Akademik ko\'rsatkich', path: '/admin/academic' },
         { icon: CheckSquare, label: 'Davomat', path: '/admin/attendance' },
         { icon: Shirt, label: 'Do\'kon', path: '/admin/wardrobe' },

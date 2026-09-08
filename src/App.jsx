@@ -29,14 +29,13 @@ const ReportingModule = lazy(() => import('./components/admin/ReportingModule'))
 // (ReadingTestsPanel) endi "Kutubxona va testlar" bo'limining "Kitoblar"
 // tabi ichida. Fayl diskda qoldirildi - loyihadagi boshqa iste'mol
 // qilingan ekranlar bilan bir xil tartib.
-const ScholarshipManagement = lazy(() => import('./components/admin/ScholarshipManagement'));
+const TalentAndScholarshipPage = lazy(() => import('./pages/admin/TalentAndScholarshipPage'));
 const AttendanceManagement = lazy(() => import('./components/admin/AttendanceManagement'));
 const WardrobeManagement = lazy(() => import('./components/admin/WardrobeManagement'));
 const StudentsManagement = lazy(() => import('./components/admin/StudentsManagement'));
 const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const AwardsAndIncentivesPage = lazy(() => import('./pages/admin/AwardsAndIncentivesPage'));
 const AcademicRecordsPage = lazy(() => import('./pages/admin/AcademicRecordsPage'));
-const TalentModulePage = lazy(() => import('./pages/admin/TalentModulePage'));
 const ManagementDashboard = lazy(() => import('./pages/management/ManagementDashboard'));
 const StatisticsPage = lazy(() => import('./pages/management/StatisticsPage'));
 const RankingsPage = lazy(() => import('./pages/management/RankingsPage'));
@@ -312,7 +311,11 @@ const AppRouter = () => {
                                 <Route path="rankings" element={<Navigate to="/admin/social-activity?bolim=tahlil" replace />} />
                                 <Route path="reports" element={<ReportingModule />} />
                                 <Route path="library" element={<TestManagement />} />
-                                <Route path="scholarships" element={<ScholarshipManagement />} />
+                                {/* "Iqtidorli talabalar" va "Stipendiyalar" bitta bo'limga
+                                    birlashtirildi: Talent'ning "Nomzodlar" tabi stipendiya
+                                    arizasini yaratadi, ya'ni ular bir zanjir edi. Eski ikkala
+                                    manzil ham yangi bo'limga yo'naltiriladi. */}
+                                <Route path="scholarships" element={<Navigate to="/admin/talent" replace />} />
                                 <Route path="attendance" element={<AttendanceManagement />} />
                                 <Route path="wardrobe" element={<WardrobeManagement />} />
                                 <Route path="monitoring" element={<Navigate to="/admin/social-activity" replace />} />
@@ -323,7 +326,7 @@ const AppRouter = () => {
                                 {/* Yotoqxona mudiri - rol emas, biriktiruv bo'yicha ochiladi. */}
                                 <Route path="my-dormitory" element={<MyDormitoryPage />} />
                                 <Route path="academic" element={<AcademicRecordsPage />} />
-                                <Route path="talent" element={<TalentModulePage />} />
+                                <Route path="talent" element={<TalentAndScholarshipPage />} />
                                 {/* "Taqdirlash reestri" va "Rag'bat va mukofot" bitta bo'limga
                                     birlashtirildi: ular bir zanjirning ikki yarmi (taklif →
                                     tasdiq → reestrga tushish). Eski `/admin/incentive-awards`

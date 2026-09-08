@@ -41,14 +41,21 @@ const TABS = [
 
 const TAB_IDS = TABS.map(([id]) => id);
 
-const TalentModulePage = () => {
+// `embedded` - "Iqtidor va stipendiya" bo'limi ichida chizilganda o'z sarlavhasi va tab
+// lentasini yashiradi: tablarni tashqi sahifa boshqaradi (`tab` / `onTabChange`).
+// Nega tashqaridan: "Nomzodlar" tabi mazmunan STIPENDIYA jarayoni (u grant o'qiydi va
+// ariza yaratadi), shuning uchun u tashqi sahifada "Stipendiya" guruhida turadi. Buni
+// faqat tab ro'yxatini tashqarida qurish bilan qilib bo'ladi.
+const TalentModulePage = ({ embedded = false, tab: tabProp, onTabChange }) => {
     const { user } = useAuth();
     const [version, setVersion] = useState(0);
     const bump = useCallback(() => setVersion(v => v + 1), []);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const [flash, setFlash] = useState('');
-    const [tab, setTab] = useTabParam(TAB_IDS, 'dashboard');
+    const [ownTab, setOwnTab] = useTabParam(TAB_IDS, 'dashboard');
+    const tab = tabProp ?? ownTab;
+    const setTab = onTabChange ?? setOwnTab;
 
     const backendReady = useMemo(() => db.isTalentBackendReady(), [version]);
     const students = useMemo(() => db.getMockStudents(), []);
@@ -151,7 +158,7 @@ const TalentModulePage = () => {
 
     return (
         <div className="space-y-6">
-            <div className="bg-gradient-to-r from-violet-600 to-indigo-700 rounded-2xl p-8 text-white shadow-xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div className={`bg-gradient-to-r from-violet-600 to-indigo-700 rounded-2xl p-8 text-white shadow-xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 ${embedded ? 'hidden' : ''}`}>
                 <div>
                     <h1 className="text-3xl font-bold mb-1 flex items-center gap-3">
                         <Sparkles className="w-8 h-8" /> Iqtidorli talabalar
@@ -207,7 +214,7 @@ const TalentModulePage = () => {
                   - filtrlar guruhi keyingi qatorga o'tadi
                 Sahifaning o'zi hech qachon gorizontal siljimaydi. */}
             <div className="space-y-3">
-                <div className="-mx-1 px-1 overflow-x-auto">
+                <div className={`-mx-1 px-1 overflow-x-auto ${embedded ? 'hidden' : ''}`}>
                     <div className="inline-flex bg-white p-1 rounded-2xl border border-gray-100 shadow-sm">
                         {TABS.map(([id, label]) => (
                             <button key={id} onClick={() => setTab(id)}
