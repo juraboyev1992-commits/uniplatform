@@ -1,6 +1,4 @@
 import React, { useRef, useState } from 'react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 import { QRCodeSVG } from 'qrcode.react';
 import { Download, Shield, ShieldX } from 'lucide-react';
 import Button from '../common/Button';
@@ -25,6 +23,15 @@ const ClubCertificate = ({
     const isRevoked = status === 'revoked';
 
     const download = async () => {
+        // html2canvas + jsPDF birgalikda ~640 KB. Ilgari ular oddiy import edi, ya'ni
+        // HAR BIR foydalanuvchi, hech qachon PDF yuklamasa ham, sayt ochilishida o'sha
+        // 640 KB ni yuklab, tahlil qilishi kerak edi. Endi faqat shu tugma bosilganda
+        // so'raladi - brauzer bo'lakni bir marta yuklab, keyin keshdan oladi.
+        const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+            import('html2canvas'),
+            import('jspdf'),
+        ]);
+
         setBusy(true);
         try {
             const canvas = await html2canvas(ref.current, {

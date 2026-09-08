@@ -1,74 +1,72 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth, ROLES } from './contexts/AuthContext';
+// Marshrutlar KERAK BO'LGANDAGINA yuklanadi (`lazy`). Ilgari hamma sahifa bitta faylga
+// qo'shilardi: butun admin paneli, grafik kutubxonasi va Excel eksporti talabaning bosh
+// sahifasi ochilishidan oldin yuklanib, tahlil qilinishi kerak edi - telefonda bu bir necha
+// soniya. Endi har bo'lim o'z bo'lagida va faqat kirilganda so'raladi.
+//
+// `DashboardLayout` va `LoginPage` ATAYLAB oddiy import: ular birinchi ekranning o'zi,
+// ularni kechiktirish faqat bo'sh kutish ekranini qo'shardi.
 import DashboardLayout from './components/layout/DashboardLayout';
 import LoginPage from './pages/auth/LoginPage';
-import StudentDashboard from './pages/student/StudentDashboard';
-import MyActivityAndScoringPage from './pages/student/MyActivityAndScoringPage';
-import TestsModule from './components/student/TestsModule';
-import LibraryModule from './components/student/LibraryModule';
-import ReadingModule from './components/student/ReadingModule';
-import EventsCalendar from './components/student/EventsCalendar';
-import AttendanceModule from './components/student/AttendanceModule';
-import ScholarshipsModule from './components/student/ScholarshipsModule';
-import WardrobeModule from './components/student/WardrobeModule';
-import CertificatesPage from './pages/student/CertificatesPage';
-import AchievementsPage from './pages/student/AchievementsPage';
-import MyDevelopmentPage from './pages/student/MyDevelopmentPage';
-import OpportunitiesPage from './pages/student/OpportunitiesPage';
-import AchievementsHubPage from './pages/student/AchievementsHubPage';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import TestManagement from './components/admin/TestManagement';
-import EventManagement from './components/admin/EventManagement';
-import SocialActivityManagement from './components/admin/SocialActivityManagement';
-import ActivityAndRankingsPage from './pages/admin/ActivityAndRankingsPage';
-import MarifatLessonsPage from './pages/admin/MarifatLessonsPage';
-import TutorWorkspacePage from './pages/tutor/TutorWorkspacePage';
+const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
+const MyActivityAndScoringPage = lazy(() => import('./pages/student/MyActivityAndScoringPage'));
+const EventsCalendar = lazy(() => import('./components/student/EventsCalendar'));
+const AttendanceModule = lazy(() => import('./components/student/AttendanceModule'));
+const WardrobeModule = lazy(() => import('./components/student/WardrobeModule'));
+const CertificatesPage = lazy(() => import('./pages/student/CertificatesPage'));
+const AchievementsHubPage = lazy(() => import('./pages/student/AchievementsHubPage'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const TestManagement = lazy(() => import('./components/admin/TestManagement'));
+const EventManagement = lazy(() => import('./components/admin/EventManagement'));
+const ActivityAndRankingsPage = lazy(() => import('./pages/admin/ActivityAndRankingsPage'));
+const MarifatLessonsPage = lazy(() => import('./pages/admin/MarifatLessonsPage'));
+const TutorWorkspacePage = lazy(() => import('./pages/tutor/TutorWorkspacePage'));
 
-import ReportingModule from './components/admin/ReportingModule';
+const ReportingModule = lazy(() => import('./components/admin/ReportingModule'));
 // LibraryManagement.jsx MARSHRUTDAN CHIQARILDI: uning butun mazmuni
 // (ReadingTestsPanel) endi "Kutubxona va testlar" bo'limining "Kitoblar"
 // tabi ichida. Fayl diskda qoldirildi - loyihadagi boshqa iste'mol
 // qilingan ekranlar bilan bir xil tartib.
-import ScholarshipManagement from './components/admin/ScholarshipManagement';
-import AttendanceManagement from './components/admin/AttendanceManagement';
-import WardrobeManagement from './components/admin/WardrobeManagement';
-import StudentsManagement from './components/admin/StudentsManagement';
-import SettingsPage from './pages/admin/SettingsPage';
-import AwardsAndIncentivesPage from './pages/admin/AwardsAndIncentivesPage';
-import AcademicRecordsPage from './pages/admin/AcademicRecordsPage';
-import TalentModulePage from './pages/admin/TalentModulePage';
-import ManagementDashboard from './pages/management/ManagementDashboard';
-import StatisticsPage from './pages/management/StatisticsPage';
-import RankingsPage from './pages/management/RankingsPage';
-import ReportsPage from './pages/management/ReportsPage';
-import FacultiesPage from './pages/management/FacultiesPage';
-import ScholarshipsOverviewPage from './pages/management/ScholarshipsOverviewPage';
-import TalentPipelinePage from './pages/management/TalentPipelinePage';
-import NotificationList from './pages/common/NotificationList';
-import ScholarshipEvaluationPage from './pages/common/ScholarshipEvaluationPage';
-import MyMenteesPage from './pages/common/MyMenteesPage';
-import MyDormitoryPage from './pages/common/MyDormitoryPage';
-import ProfilePage from './pages/common/ProfilePage';
-import CompetitionWorkspacePage from './pages/admin/CompetitionWorkspacePage';
-import EventWorkspacePage from './pages/admin/EventWorkspacePage';
-import ReadingTestsModule from './components/student/ReadingTestsModule';
-import LibraryAndTestsPage from './pages/student/LibraryAndTestsPage';
-import ClubsDirectoryPage from './components/clubs/ClubsDirectoryPage';
-import ClubProfilePage from './components/clubs/ClubProfilePage';
-import TeamProfilePage from './components/clubs/TeamProfilePage';
-import CompetitionLiveScreenPage from './pages/public/CompetitionLiveScreenPage';
-import PublicActivityPage from './pages/public/PublicActivityPage';
-import DocumentVerifyPage from './pages/public/DocumentVerifyPage';
-import ClubVerifyPage from './pages/public/ClubVerifyPage';
-import ClubApplicationCreatePage from './pages/student/ClubApplicationCreatePage';
-import MyClubApplicationsPage from './pages/student/MyClubApplicationsPage';
-import ClubApplicationsPage from './pages/admin/ClubApplicationsPage';
-import EventCollectionsPage from './pages/admin/EventCollectionsPage';
-import EventCollectionDetailPage from './pages/admin/EventCollectionDetailPage';
-import EventCollectionsListPage from './pages/student/EventCollectionsListPage';
-import EventCollectionDetailStudentPage from './pages/student/EventCollectionDetailStudentPage';
-import IncentiveAwardsPage from './pages/admin/IncentiveAwardsPage';
+const ScholarshipManagement = lazy(() => import('./components/admin/ScholarshipManagement'));
+const AttendanceManagement = lazy(() => import('./components/admin/AttendanceManagement'));
+const WardrobeManagement = lazy(() => import('./components/admin/WardrobeManagement'));
+const StudentsManagement = lazy(() => import('./components/admin/StudentsManagement'));
+const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
+const AwardsAndIncentivesPage = lazy(() => import('./pages/admin/AwardsAndIncentivesPage'));
+const AcademicRecordsPage = lazy(() => import('./pages/admin/AcademicRecordsPage'));
+const TalentModulePage = lazy(() => import('./pages/admin/TalentModulePage'));
+const ManagementDashboard = lazy(() => import('./pages/management/ManagementDashboard'));
+const StatisticsPage = lazy(() => import('./pages/management/StatisticsPage'));
+const RankingsPage = lazy(() => import('./pages/management/RankingsPage'));
+const ReportsPage = lazy(() => import('./pages/management/ReportsPage'));
+const FacultiesPage = lazy(() => import('./pages/management/FacultiesPage'));
+const ScholarshipsOverviewPage = lazy(() => import('./pages/management/ScholarshipsOverviewPage'));
+const TalentPipelinePage = lazy(() => import('./pages/management/TalentPipelinePage'));
+const NotificationList = lazy(() => import('./pages/common/NotificationList'));
+const ScholarshipEvaluationPage = lazy(() => import('./pages/common/ScholarshipEvaluationPage'));
+const MyMenteesPage = lazy(() => import('./pages/common/MyMenteesPage'));
+const MyDormitoryPage = lazy(() => import('./pages/common/MyDormitoryPage'));
+const ProfilePage = lazy(() => import('./pages/common/ProfilePage'));
+const CompetitionWorkspacePage = lazy(() => import('./pages/admin/CompetitionWorkspacePage'));
+const EventWorkspacePage = lazy(() => import('./pages/admin/EventWorkspacePage'));
+const LibraryAndTestsPage = lazy(() => import('./pages/student/LibraryAndTestsPage'));
+const ClubsDirectoryPage = lazy(() => import('./components/clubs/ClubsDirectoryPage'));
+const ClubProfilePage = lazy(() => import('./components/clubs/ClubProfilePage'));
+const TeamProfilePage = lazy(() => import('./components/clubs/TeamProfilePage'));
+const CompetitionLiveScreenPage = lazy(() => import('./pages/public/CompetitionLiveScreenPage'));
+const PublicActivityPage = lazy(() => import('./pages/public/PublicActivityPage'));
+const DocumentVerifyPage = lazy(() => import('./pages/public/DocumentVerifyPage'));
+const ClubVerifyPage = lazy(() => import('./pages/public/ClubVerifyPage'));
+const ClubApplicationCreatePage = lazy(() => import('./pages/student/ClubApplicationCreatePage'));
+const MyClubApplicationsPage = lazy(() => import('./pages/student/MyClubApplicationsPage'));
+const ClubApplicationsPage = lazy(() => import('./pages/admin/ClubApplicationsPage'));
+const EventCollectionsPage = lazy(() => import('./pages/admin/EventCollectionsPage'));
+const EventCollectionDetailPage = lazy(() => import('./pages/admin/EventCollectionDetailPage'));
+const EventCollectionsListPage = lazy(() => import('./pages/student/EventCollectionsListPage'));
+const EventCollectionDetailStudentPage = lazy(() => import('./pages/student/EventCollectionDetailStudentPage'));
+const IncentiveAwardsPage = lazy(() => import('./pages/admin/IncentiveAwardsPage'));
 
 
 // Qaysi panelga kirmoqchi bo'lgan bo'lsa - o'sha panelning kirish sahifasi.
@@ -143,7 +141,14 @@ const AppRouter = () => {
         return getDefaultRoute();
     };
 
+    // Bo'lim bo'lagi yuklanayotganda ko'rsatiladigan holat. `lazy` bilan ishlaydigan
+    // har qanday marshrut Suspense ichida bo'lishi SHART - aks holda React yiqiladi.
     return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="spinner" />
+            </div>
+        }>
         <Routes>
             {/* KIRISH SAHIFALARI - har rol uchun alohida manzil.
                 Bu faqat KIRISH NUQTASI, huquq emas: rol har doim bazadagi
@@ -400,6 +405,7 @@ const AppRouter = () => {
             {/* Topilmagan manzil - roliga qarab o'z paneliga, kirilmagan bo'lsa asosiy sahifaga. */}
             <Route path="*" element={<Navigate to={getDefaultRoute()} replace />} />
         </Routes>
+        </Suspense>
     );
 };
 
