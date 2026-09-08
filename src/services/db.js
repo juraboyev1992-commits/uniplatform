@@ -16175,6 +16175,44 @@ export const db = {
         await db.syncCoreDataFromSupabase();
     },
 
+    // Bloklash - ASOSIY yo'l. Odam kira olmaydi, lekin hamma yozuvi joyida
+    // qoladi: diplomi tekshirilaveradi, indeks hisobi tarixda turadi.
+    // Supabase auth'ning o'z `banned_until` mexanizmi ishlatiladi.
+    adminSetUserBlocked: async (userId, blocked) => {
+        const { error } = await supabase.rpc('admin_set_user_blocked', {
+            p_user_id: userId, p_blocked: !!blocked,
+        });
+        if (error) throw userManagementError(error);
+        await syncCoreDataFromSupabase();
+    },
+
+    // Akkauntda qanday tarix borligi. O'chirish tugmasi bosilishidan OLDIN
+    // ko'rsatiladi: admin nima uchun o'chira olmayotganini bilishi kerak,
+    // shunchaki "bo'lmaydi" degan javob uni Supabase konsoliga haydaydi -
+    // u yerda esa hech qanday tekshiruv yo'q.
+    // Bloklanganlar ro'yxati. Holat `auth.users.banned_until` da turadi, profil
+    // yozuvida emas - shuning uchun uni alohida so'rash kerak, aks holda UI kim
+    // bloklanganini umuman bilmaydi va tugma har doim "Bloklash" deb turardi.
+    adminBlockedUserIds: async () => {
+        const { data, error } = await supabase.rpc('admin_blocked_user_ids');
+        if (error) throw userManagementError(error);
+        return new Set((data || []).map(r => r.user_id));
+    },
+
+    adminUserHistory: async (userId) => {
+        const { data, error } = await supabase.rpc('admin_user_history', { p_user_id: userId });
+        if (error) throw userManagementError(error);
+        return data || [];
+    },
+
+    // O'chirish - FAQAT tarixi yo'q akkaunt uchun. Tekshiruv serverda ham
+    // takrorlanadi (admin_delete_user): UI dagi himoya yetarli emas.
+    adminDeleteUser: async (userId) => {
+        const { error } = await supabase.rpc('admin_delete_user', { p_user_id: userId });
+        if (error) throw userManagementError(error);
+        await syncCoreDataFromSupabase();
+    },
+
     adminResetUserPassword: async (userId, password) => {
         const { error } = await supabase.rpc('admin_reset_user_password', {
             p_user_id: userId, p_password: password,

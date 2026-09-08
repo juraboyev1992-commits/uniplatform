@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { UserPlus, KeyRound, Search, ShieldCheck, Briefcase, UserCheck, GraduationCap } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { UserPlus, KeyRound, Search, ShieldCheck, Briefcase, UserCheck, GraduationCap, Ban, Unlock, Trash2, AlertTriangle } from 'lucide-react';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Badge from '../common/Badge';
@@ -27,6 +27,7 @@ const suggestPassword = () => {
 };
 
 const UserAccountsPanel = () => {
+    const [deleteTarget, setDeleteTarget] = useState(null);
     const { user } = useAuth();
     const [version, setVersion] = useState(0);
     const bump = () => setVersion(v => v + 1);
@@ -43,7 +44,23 @@ const UserAccountsPanel = () => {
     const [pwdTarget, setPwdTarget] = useState(null);
     const [newPassword, setNewPassword] = useState('');
 
-    const accounts = useMemo(() => db.getAllUserAccounts(), [version]);
+    // Bloklanganlar alohida so'raladi: holat `auth.users` da, profil yozuvida
+    // emas. Busiz tugma har doim "Bloklash" deb turardi.
+    const [blockedIds, setBlockedIds] = useState(new Set());
+    useEffect(() => {
+        let cancelled = false;
+        db.adminBlockedUserIds()
+            .then(ids => { if (!cancelled) setBlockedIds(ids); })
+            // Xato bo'lsa jim o'tkaziladi: SQL hali ishga tushirilmagan bo'lishi
+            // mumkin va bu butun panelni ishdan chiqarmasligi kerak.
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [version]);
+
+    const accounts = useMemo(
+        () => db.getAllUserAccounts().map(a => ({ ...a, blocked: blockedIds.has(a.id) })),
+        [version, blockedIds]
+    );
     const rows = useMemo(() => {
         const q = search.trim().toLowerCase();
         return accounts.filter(a =>
@@ -78,6 +95,34 @@ const UserAccountsPanel = () => {
         setError(''); setBusy(true);
         try { await db.adminSetUserRole(account.id, role); bump(); }
         catch (e) { setError(e.message || 'Xatolik yuz berdi'); } finally { setBusy(false); }
+    };
+
+    // O'chirish SO'RALGANDA avval TARIX ko'rsatiladi. "Ishonchingiz komilmi?"
+    // degan savol bu yerda yetarli emas: admin nima yo'qotayotganini bilishi kerak.
+    const askDelete = async (account) => {
+        setError(''); setBusy(true);
+        try {
+            const history = await db.adminUserHistory(account.id);
+            setDeleteTarget({ account, history });
+        } catch (e) { setError(e.message || 'Xatolik yuz berdi'); }
+        finally { setBusy(false); }
+    };
+
+    const handleDelete = async () => {
+        setError(''); setBusy(true);
+        try {
+            await db.adminDeleteUser(deleteTarget.account.id);
+            setDeleteTarget(null);
+            bump();
+        } catch (e) { setError(e.message || 'Xatolik yuz berdi'); }
+        finally { setBusy(false); }
+    };
+
+    const handleToggleBlock = async (account) => {
+        setError(''); setBusy(true);
+        try { await db.adminSetUserBlocked(account.id, !account.blocked); bump(); }
+        catch (e) { setError(e.message || 'Xatolik yuz berdi'); }
+        finally { setBusy(false); }
     };
 
     const handleResetPassword = async () => {
@@ -176,13 +221,38 @@ const UserAccountsPanel = () => {
                                         )}
                                     </td>
                                     <td className="p-3">
-                                        <button
-                                            type="button" disabled={busy}
-                                            onClick={() => { setPwdTarget(a); setNewPassword(suggestPassword()); setError(''); }}
-                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800"
-                                        >
-                                            <KeyRound size={12} /> Almashtirish
-                                        </button>
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <button
+                                                type="button" disabled={busy}
+                                                onClick={() => { setPwdTarget(a); setNewPassword(suggestPassword()); setError(''); }}
+                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800"
+                                            >
+                                                <KeyRound size={12} /> Parol
+                                            </button>
+                                            {/* BLOKLASH - asosiy yo'l: odam kira olmaydi, lekin
+                                                hamma yozuvi joyida qoladi va diplomi
+                                                tekshirilaveradi. Qaytariladi. */}
+                                            <button
+                                                type="button" disabled={busy}
+                                                onClick={() => handleToggleBlock(a)}
+                                                className={`inline-flex items-center gap-1 text-[11px] font-bold ${
+                                                    a.blocked ? 'text-emerald-600 hover:text-emerald-800' : 'text-amber-600 hover:text-amber-800'
+                                                }`}
+                                            >
+                                                {a.blocked ? <><Unlock size={12} /> Blokdan chiqarish</> : <><Ban size={12} /> Bloklash</>}
+                                            </button>
+                                            {/* O'CHIRISH - faqat tarixi yo'q akkauntda ishlaydi.
+                                                Tugma har doim ko'rinadi: yashirilgan tugma
+                                                "nega yo'q?" degan javobsiz savol qoldiradi,
+                                                bosilganda esa sabab tushuntiriladi. */}
+                                            <button
+                                                type="button" disabled={busy}
+                                                onClick={() => askDelete(a)}
+                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-800"
+                                            >
+                                                <Trash2 size={12} /> O'chirish
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             );
@@ -239,6 +309,66 @@ const UserAccountsPanel = () => {
                         {busy ? 'Yaratilmoqda...' : 'Yaratish'}
                     </Button>
                 </div>
+            </Modal>
+
+            {/* O'CHIRISH TASDIG'I.
+                Tarix bo'lsa - o'chirish tugmasi umuman chiqmaydi va sabab
+                ko'rsatiladi. "Ishonchingiz komilmi?" degan savol bu yerda yetarli
+                emas: admin nima yo'qotayotganini KO'RISHI kerak. */}
+            <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Akkauntni o'chirish" size="sm">
+                {deleteTarget && (
+                    <div className="space-y-4">
+                        <p className="text-sm text-gray-700">
+                            <span className="font-mono font-bold">{deleteTarget.account.username}</span>
+                            {deleteTarget.account.fullName ? ` — ${deleteTarget.account.fullName}` : ''}
+                        </p>
+
+                        {deleteTarget.history.length > 0 ? (
+                            <>
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                                    <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+                                        <AlertTriangle size={13} /> Bu akkauntni o'chirib bo'lmaydi
+                                    </p>
+                                    <p className="text-[11px] text-amber-700 mt-1">
+                                        Unga bog'langan yozuvlar bor. O'chirilsa, berilgan hujjatlar
+                                        egasiz qoladi va tekshiruv sahifasida tasdiqlanmay qoladi.
+                                    </p>
+                                    <ul className="mt-2 space-y-0.5">
+                                        {deleteTarget.history.map(h => (
+                                            <li key={h.source} className="text-[11px] text-amber-800">
+                                                • {h.source}: <b>{h.cnt}</b>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                                <p className="text-xs text-gray-500">
+                                    O'chirish o'rniga <b>bloklang</b> — shunda odam kira olmaydi,
+                                    lekin hujjatlari tekshirilaveradi.
+                                </p>
+                                <Button variant="outline" className="w-full" onClick={() => setDeleteTarget(null)}>
+                                    Yopish
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                    <p className="text-xs text-gray-700">
+                                        Bu akkauntda hech qanday yozuv yo'q — hujjat, ariza, davomat,
+                                        klub a'zoligi. O'chirish xavfsiz.
+                                    </p>
+                                </div>
+                                <div className="flex gap-3">
+                                    <Button variant="outline" className="flex-1" onClick={() => setDeleteTarget(null)}>
+                                        Bekor qilish
+                                    </Button>
+                                    <Button variant="danger" className="flex-1" disabled={busy} onClick={handleDelete}>
+                                        {busy ? "O'chirilmoqda..." : "Butunlay o'chirish"}
+                                    </Button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
             </Modal>
 
             {/* Parolni almashtirish */}
