@@ -1,9 +1,10 @@
 import React from 'react';
-import { ClipboardCheck, Gauge } from 'lucide-react';
+import { ClipboardCheck, Gauge, Trophy } from 'lucide-react';
 import { useTabParam } from '../../hooks/useTabParam';
 import { useAuth } from '../../contexts/AuthContext';
 import SocialActivityIndex from './SocialActivityIndex';
 import StudentTasPanel from '../../components/student/StudentTasPanel';
+import StudentRankingTab from '../../components/student/StudentRankingTab';
 
 // Talabaning ikkita ballini BIR JOYGA yig'adi.
 //
@@ -23,7 +24,11 @@ import StudentTasPanel from '../../components/student/StudentTasPanel';
 // talaba va mas'ul bir xil mantiq bo'yicha harakat qiladi.
 const TABS = [
     { id: 'indeks', label: 'Rasmiy indeks', icon: ClipboardCheck, hint: 'Ministrlik metodikasi bo\'yicha 100 ballik baho' },
-    { id: 'skoring', label: 'Umumiy skoring', icon: Gauge, hint: 'GPA, faollik, liderlik va davomat bo\'yicha 1000 ballik tahlil' }
+    { id: 'skoring', label: 'Umumiy skoring', icon: Gauge, hint: 'GPA, faollik, liderlik va davomat bo\'yicha 1000 ballik tahlil' },
+    // Reyting UCHINCHI: avval o'z bahoingni tushunasan, keyin boshqalar bilan
+    // solishtirasan. Teskarisi bo'lsa raqam nimadan chiqqani noma'lum bo'lib,
+    // solishtirish ma'nosiz taqqoslashga aylanardi.
+    { id: 'reyting', label: 'Talabalar reytingi', icon: Trophy, hint: "Umumiy ro'yxat va sizning o'rningiz" },
 ];
 const TAB_IDS = TABS.map(t => t.id);
 
@@ -73,6 +78,7 @@ const MyActivityAndScoringPage = () => {
             {tab === 'skoring' && (
                 <StudentTasPanel studentId={user?.username} displayName={user?.name || user?.fullName} />
             )}
+            {tab === 'reyting' && <StudentRankingTab />}
         </div>
     );
 };
