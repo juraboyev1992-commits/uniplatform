@@ -35,7 +35,7 @@ import AttendanceManagement from './components/admin/AttendanceManagement';
 import WardrobeManagement from './components/admin/WardrobeManagement';
 import StudentsManagement from './components/admin/StudentsManagement';
 import SettingsPage from './pages/admin/SettingsPage';
-import AwardRegistryPage from './pages/admin/AwardRegistryPage';
+import AwardsAndIncentivesPage from './pages/admin/AwardsAndIncentivesPage';
 import AcademicRecordsPage from './pages/admin/AcademicRecordsPage';
 import TalentModulePage from './pages/admin/TalentModulePage';
 import ManagementDashboard from './pages/management/ManagementDashboard';
@@ -319,8 +319,14 @@ const AppRouter = () => {
                                 <Route path="my-dormitory" element={<MyDormitoryPage />} />
                                 <Route path="academic" element={<AcademicRecordsPage />} />
                                 <Route path="talent" element={<TalentModulePage />} />
-                                <Route path="awards" element={<AwardRegistryPage />} />
-                                <Route path="incentive-awards" element={<IncentiveAwardsPage />} />
+                                {/* "Taqdirlash reestri" va "Rag'bat va mukofot" bitta bo'limga
+                                    birlashtirildi: ular bir zanjirning ikki yarmi (taklif →
+                                    tasdiq → reestrga tushish). Eski `/admin/incentive-awards`
+                                    manzili yangi bo'limning "Ish jarayoni" guruhiga yo'naltiriladi.
+                                    Klub koordinatorining `/student/incentive-awards` yo'li esa
+                                    tegilmagan - u yerda mustaqil sahifa bo'lib qolaveradi. */}
+                                <Route path="awards" element={<AwardsAndIncentivesPage />} />
+                                <Route path="incentive-awards" element={<Navigate to="/admin/awards?bolim=jarayon" replace />} />
                                 <Route path="settings" element={<SettingsPage />} />
                                 <Route path="profile" element={<ProfilePage />} />
                                 <Route path="notifications" element={<NotificationList />} />

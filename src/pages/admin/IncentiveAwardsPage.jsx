@@ -16,10 +16,13 @@ import {
 // reestridagi rasmiy jadvalga kiradi. Musobaqada haqiqiy natija hisoblangan bo'lsa, g'oliblar
 // tizim tomonidan AVTOMATIK aniqlanadi (db.getAutoDetectedWinners - getLeaderboard bilan bir xil
 // manba) - koordinator faqat ko'rib chiqib, pul miqdorini yozib tasdiqqa yuboradi.
-const IncentiveAwardsPage = () => {
+// `embedded` — "Taqdirlash va rag'bat" bo'limining "Ish jarayoni" guruhi sifatida chizilganda
+// o'z sarlavhasini yashiradi. Tab kaliti ATAYLAB `jarayon`: reestr sahifasi bilan yonma-yon
+// turadi va ikkalasi standart `?tab=` kalitini talashib qolmasligi kerak.
+const IncentiveAwardsPage = ({ embedded = false }) => {
     const { user, hasClubRole } = useAuth();
     const isAdmin = user?.role === 'ADMINISTRATOR';
-    const [tab, setTab] = useTabParam(['propose', 'builder', 'pending'], 'propose');
+    const [tab, setTab] = useTabParam(['propose', 'builder', 'pending'], 'propose', 'jarayon');
     const [version, setVersion] = useState(0);
     const bump = () => setVersion(v => v + 1);
     const [error, setError] = useState('');
@@ -194,7 +197,8 @@ const IncentiveAwardsPage = () => {
 
     return (
         <div className="space-y-6 pb-10">
-            <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-3xl p-8 text-white shadow-xl">
+            {/* Birlashtirilgan bo'lim ichida sarlavha ikki marta chiqmasin. */}
+            <div className={`bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-3xl p-8 text-white shadow-xl ${embedded ? 'hidden' : ''}`}>
                 <div className="flex items-center gap-4">
                     <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
                         <Gift className="w-7 h-7" />

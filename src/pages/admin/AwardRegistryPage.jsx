@@ -35,7 +35,9 @@ const StatCard = ({ label, value, hint }) => (
     </Card>
 );
 
-const AwardRegistryPage = () => {
+// `embedded` — "Taqdirlash va rag'bat" bo'limining "Reestr" guruhi sifatida chizilganda o'z
+// sarlavhasini yashiradi (tashqi sahifa allaqachon bergan), tab qatori esa qoladi.
+const AwardRegistryPage = ({ embedded = false }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [tab, setTab] = useTabParam(['registry', 'scholarships', 'clubs', 'incentives', 'prizes', 'analytics'], 'registry');
@@ -105,7 +107,8 @@ const AwardRegistryPage = () => {
 
     return (
         <div className="space-y-6 pb-10">
-            <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 rounded-3xl p-8 text-white shadow-xl">
+            {/* Birlashtirilgan bo'lim ichida sarlavha ikki marta chiqmasin. */}
+            <div className={`bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 rounded-3xl p-8 text-white shadow-xl ${embedded ? 'hidden' : ''}`}>
                 <div className="flex items-center gap-4">
                     <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
                         <Trophy className="w-7 h-7" />
@@ -147,8 +150,8 @@ const AwardRegistryPage = () => {
             {tab === 'analytics' && <AwardAnalyticsTab />}
             {tab === 'scholarships' && <ScholarshipRecipientsTab />}
             {tab === 'clubs' && <ClubCertificatesTab />}
-            {tab === 'incentives' && <RecognitionRegistryTab kind="incentive" onManage={() => navigate('/admin/incentive-awards')} />}
-            {tab === 'prizes' && <RecognitionRegistryTab kind="prize" onManage={() => navigate('/admin/incentive-awards')} />}
+            {tab === 'incentives' && <RecognitionRegistryTab kind="incentive" onManage={() => navigate('/admin/awards?bolim=jarayon')} />}
+            {tab === 'prizes' && <RecognitionRegistryTab kind="prize" onManage={() => navigate('/admin/awards?bolim=jarayon')} />}
 
             {tab === 'registry' && (
             <>

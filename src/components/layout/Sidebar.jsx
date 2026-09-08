@@ -78,8 +78,11 @@ const Sidebar = ({ isOpen, onClose }) => {
         // auditoriya kesimida rejalashtiriladi va davomat foizi shu doirada
         // hisoblanadi.
         { icon: Lightbulb, label: "Ma'rifat darslari", path: '/admin/marifat' },
-        { icon: Trophy, label: 'Taqdirlash reestri', path: '/admin/awards' },
-        { icon: Gift, label: "Rag'bat va mukofot", path: '/admin/incentive-awards' },
+        // "Taqdirlash reestri" va "Rag'bat va mukofot" bitta bo'lim bo'ldi: ular bir
+        // zanjirning ikki yarmi edi (koordinator taklif qiladi -> admin tasdiqlaydi ->
+        // natija reestrga tushadi), lekin menyuda ikki alohida element bo'lib turardi.
+        // Ichida ikkita guruh: "Ish jarayoni" va "Reestr" (AwardsAndIncentivesPage.jsx).
+        { icon: Trophy, label: "Taqdirlash va rag'bat", path: '/admin/awards' },
         { icon: FileText, label: 'Hisobotlar', path: '/admin/reports' },
         // "Testlar" va "Kutubxona" bittaga birlashtirildi: har asarning testi
         // baribir testlar bo'limida sozlanardi.
