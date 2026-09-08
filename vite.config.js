@@ -32,8 +32,14 @@ export default defineConfig({
           // qaytarilsa Rollup o'zi alohida, faqat kerak bo'lganda so'raladigan bo'lak qiladi.
           if (id.includes('html2canvas') || id.includes('jspdf') || id.includes('dompurify') || id.includes('canvg')) return;
           if (id.includes('@supabase')) return 'supabase';
-          if (id.includes('react-router')) return 'router';
-          if (id.includes('react-dom') || id.includes('/scheduler/')) return 'react';
+          if (id.includes('/react-router')) return 'router';
+          // React yadrosi BITTA bo'lakda bo'lishi SHART: `react`, `react-dom` va `scheduler`
+          // bir-biriga ichki bog'langan. Ilgari bu yerda faqat `react-dom` nomlanardi, `react`
+          // ning o'zi esa pastdagi umumiy `vendor` ga tushib ketardi - natijada react-dom
+          // yuklanganda react hali tayyor bo'lmay, sayt oq ekran bilan yiqilardi
+          // ("Cannot read properties of undefined (reading '__SECRET_INTERNALS_...')").
+          // Shuning uchun aniq paket yo'li bo'yicha tekshiriladi, nom bo'lagi bo'yicha emas.
+          if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react';
           return 'vendor';
         }
       }
