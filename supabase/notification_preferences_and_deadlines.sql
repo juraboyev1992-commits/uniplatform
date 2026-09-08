@@ -73,14 +73,22 @@ declare
     inserted integer := 0;
     today    date := (now() at time zone 'Asia/Tashkent')::date;
 begin
+    -- HAR BIR USTUN TURI OCHIQ BELGILANADI.
+    --
+    -- Sabab: `events.registration_closes_at` bu bazada `text`, musobaqada esa
+    -- qiymat `data` jsonb dan olinib `timestamptz` ga o'giriladi. UNION ikki
+    -- tarmoqning turlarini tenglashtira olmay xato berardi:
+    --   "UNION types text and timestamp with time zone cannot be matched"
+    -- Ochiq `::` bilan ikkala tarmoq ham bir xil turga keltiriladi va ustun
+    -- turi kelajakda o'zgarsa ham so'rov buzilmaydi.
     with activities as (
-        -- Tadbirlar: muddat HAQIQIY USTUNDA.
+        -- Tadbirlar: muddat ustunda (turi `text` bo'lishi mumkin).
         select
-            e.id                    as activity_id,
-            'event'::text           as ref_type,
-            e.title,
-            e.registration_closes_at as closes_at,
-            e.club_id
+            e.id::text                              as activity_id,
+            'event'::text                           as ref_type,
+            e.title::text                           as title,
+            e.registration_closes_at::timestamptz   as closes_at,
+            e.club_id::text                         as club_id
         from public.events e
         where e.registration_closes_at is not null
           and e.status <> 'completed'
@@ -91,12 +99,12 @@ begin
         -- muddat ham o'sha yerdan olinadi (tadbirdan farqli - bu farq ataylab
         -- emas, tarixiy, lekin hisobga olinishi shart).
         select
-            c.id,
+            c.id::text,
             'competition'::text,
-            coalesce(c.data->>'name', c.data->>'title', 'Musobaqa'),
+            coalesce(c.data->>'name', c.data->>'title', 'Musobaqa')::text,
             (c.data->>'registrationClosesAt')::timestamptz,
-            case when c.data->>'contextType' = 'club'
-                 then c.data->>'contextId' else null end
+            (case when c.data->>'contextType' = 'club'
+                  then c.data->>'contextId' else null end)::text
         from public.competitions c
         where c.data->>'registrationClosesAt' is not null
           and coalesce(c.data->>'status', '') <> 'completed'
@@ -120,7 +128,7 @@ begin
           on p.role::text = 'TALABA'
         where not exists (
                   select 1 from public.registrations r
-                  where r.activity_id = d.activity_id
+                  where r.activity_id::text = d.activity_id
                     and r.activity_type = d.ref_type
                     and (r.user_id = p.username or r.user_id = p.id::text)
                     and r.status = 'registered'
@@ -140,7 +148,7 @@ begin
                   d.club_id is null
                   or exists (
                       select 1 from public.memberships m
-                      where m.club_id = d.club_id
+                      where m.club_id::text = d.club_id
                         and (m.user_id = p.username or m.user_id = p.id::text)
                   )
               )
@@ -149,7 +157,7 @@ begin
           and not exists (
                   select 1 from public.notifications n
                   where n.user_id = p.username
-                    and n.ref_id = d.activity_id
+                    and n.ref_id::text = d.activity_id
                     and n.ref_type = d.ref_type
                     and n.title = d.reminder_title
               )
