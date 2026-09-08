@@ -15,7 +15,7 @@ import {
     Trophy,
     UserCheck
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
@@ -23,9 +23,8 @@ import ScoreCardExport from '../../components/common/ScoreCardExport';
 import TasVerificationFooter from '../../components/common/TasVerificationFooter';
 import { db } from '../../services/db';
 import { useAuth, ROLES } from '../../contexts/AuthContext';
-import { computeStudentTAS, getTasTrendMonths, TAS_TIERS } from '../../utils/studentScoring';
-
-const TAS_TREND_MONTHS = getTasTrendMonths();
+import { computeStudentTAS, TAS_TIERS, TAS_MAX_TOTAL } from '../../utils/studentScoring';
+import { TasBreakdownRows, TasSourceList } from '../../components/common/TasBreakdown';
 
 const ProfilePage = () => {
     const { user } = useAuth();
@@ -33,8 +32,9 @@ const ProfilePage = () => {
     // NOTE: `user.username` is the mock-login identity ('talaba'), a separate id space from the
     // generateMockStudents() pool db.js's student-domain functions expect (see studentScoring.js) —
     // db.getStudentPortfolio/getSocialApplications naturally return empty/zero for it rather than a
-    // fabricated match, so the demo student account's "Faoliyat tarixi" legitimately shows empty while
-    // the Akademik/Ijtimoiy-faollik/Ishonchlilik proxies still render (they don't depend on that pool).
+    // fabricated match. Endi TAS'ning to'rt o'lchovi ham HAQIQIY yozuvdan olingani uchun bunday
+    // akkauntda ko'rsatkichlar "Ma'lumot yo'q" bo'lib chiqadi — bu to'g'ri xatti-harakat: ilgari
+    // o'sha bo'sh holat ham urug'lantirilgan tasodifiy son bilan to'ldirilib ketardi.
     const tas = useMemo(() => (isStudent && user?.username ? computeStudentTAS(db, user.username) : null), [isStudent, user?.username]);
     const skoringRef = useRef(null);
     const [isEditing, setIsEditing] = useState(false);
@@ -129,7 +129,7 @@ const ProfilePage = () => {
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
-                                            data={[{ value: tas.total }, { value: Math.max(0, 1000 - tas.total) }]}
+                                            data={[{ value: tas.total }, { value: Math.max(0, TAS_MAX_TOTAL - tas.total) }]}
                                             dataKey="value" startAngle={90} endAngle={-270}
                                             innerRadius={38} outerRadius={50} stroke="none"
                                         >
@@ -148,47 +148,39 @@ const ProfilePage = () => {
                                 <p className="text-xs text-white/70 mt-1 leading-relaxed">
                                     TAS — talabaning akademik muvaffaqiyati, ijtimoiy faolligi, liderlik salohiyati va intizomiy ishonchliligini kompleks baholaydigan analitik ko'rsatkich.
                                 </p>
-                                <span className={`inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full text-[11px] font-bold ${tas.delta >= 0 ? 'bg-emerald-400/90 text-emerald-950' : 'bg-red-400/90 text-red-950'}`}>
-                                    {tas.delta >= 0 ? '↑' : '↓'} {Math.abs(tas.delta)} (o'tgan oyga nisbatan)
+                                {/* "O'tgan oyga nisbatan" belgisi olib tashlandi: oldingi oyning bali
+                                    hech qayerda saqlanmaydi, shuning uchun u sun'iy chiziqdan
+                                    hisoblanardi. O'rniga hisobning to'liqligi ko'rsatiladi. */}
+                                <span className={`inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full text-[11px] font-bold ${tas.complete ? 'bg-emerald-400/90 text-emerald-950' : 'bg-amber-300/90 text-amber-950'}`}>
+                                    {tas.complete
+                                        ? "To'rt o'lchov ham hisoblandi"
+                                        : `${tas.dimensionCount} o'lchovdan ${tas.measuredCount} tasi hisoblandi`}
                                 </span>
                             </div>
                         </div>
 
                         <div className="bg-white/80 rounded-3xl p-5 border border-gray-100">
                             <p className="text-xs font-bold text-gray-700 mb-2">Skor tarkibi</p>
-                            <div className="space-y-2">
-                                {[
-                                    { label: 'Akademik skori', value: tas.academicScore, max: 400, dot: 'bg-indigo-600' },
-                                    { label: 'Ijtimoiy faollik skori', value: tas.socialFaollikScore, max: 300, dot: 'bg-emerald-500' },
-                                    { label: 'Liderlik skori', value: tas.leadershipScore, max: 150, dot: 'bg-amber-500' },
-                                    { label: 'Intizom va ishonchlilik', value: tas.reliabilityScore, max: 150, dot: 'bg-blue-500' }
-                                ].map(row => (
-                                    <div key={row.label}>
-                                        <div className="flex items-center justify-between text-xs mb-1">
-                                            <span className="flex items-center gap-1.5 text-gray-600"><span className={`w-2 h-2 rounded-full ${row.dot}`} />{row.label}</span>
-                                            <span className="font-bold text-gray-800">{row.value} / {row.max}</span>
-                                        </div>
-                                        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                                            <div className={`h-full rounded-full ${row.dot}`} style={{ width: `${Math.min(100, Math.round((row.value / row.max) * 100))}%` }} />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <p className="text-right text-xs font-bold text-indigo-700 mt-3">Jami: {tas.total} / 1000</p>
+                            <TasBreakdownRows tas={tas} />
                         </div>
                     </div>
 
+                    {/* Ilgari bu joyda "Skor dinamikasi (so'nggi 6 oy)" grafigi turardi. Ball
+                        suratlari (snapshot) saqlanmagani uchun oldingi oylarning bali ma'lum emas
+                        edi — chiziq oxirgi baldan orqaga qarab o'ylab topilardi. O'rniga har bir
+                        o'lchov qaysi yozuvdan chiqqani ko'rsatiladi: talaba o'z balini tekshira
+                        oladi va nima yetishmayotganini ko'radi. */}
                     <div className="bg-white/80 rounded-3xl p-5 border border-gray-100">
-                        <p className="text-xs font-bold text-gray-700 mb-3">Skor dinamikasi (so'nggi 6 oy)</p>
-                        <ResponsiveContainer width="100%" height={180}>
-                            <LineChart data={tas.trend.map((v, idx) => ({ month: TAS_TREND_MONTHS[idx], value: v }))}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                                <Tooltip />
-                                <Line type="monotone" dataKey="value" stroke="#4F46E5" strokeWidth={2.5} dot={{ r: 3 }} />
-                            </LineChart>
-                        </ResponsiveContainer>
+                        <p className="text-xs font-bold text-gray-700 mb-3">Skor manbalari</p>
+                        <TasSourceList tas={tas} />
+                        {tas.pending.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-gray-100">
+                                <p className="text-[11px] font-bold text-amber-600 mb-1">Hisoblanmagan o'lchovlar</p>
+                                {tas.pending.map(p => (
+                                    <p key={p.key} className="text-[11px] text-gray-500">{p.label} — {p.missing}</p>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -205,6 +197,11 @@ const ProfilePage = () => {
                                     </div>
                                 ))}
                             </div>
+                            {!tas.complete && (
+                                <p className="text-[11px] text-amber-600 mt-2">
+                                    Daraja hali belgilanmadi — barcha o'lchovlar hisoblanishi kerak.
+                                </p>
+                            )}
                         </div>
 
                         {tas.recommendations.length > 0 && (

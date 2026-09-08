@@ -4,7 +4,7 @@ import {
     GraduationCap, Award, BookOpen, Calendar, Trophy, BarChart3,
     Mail, Phone, MapPin, Clock, ArrowUpDown, X, UserCheck, TrendingUp
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Modal from '../common/Modal';
@@ -14,10 +14,11 @@ import Pagination from '../common/Pagination';
 import ScoreCardExport from '../common/ScoreCardExport';
 import TasVerificationFooter from '../common/TasVerificationFooter';
 import { db } from '../../services/db';
-import { computeStudentTAS, getTasTrendMonths, TAS_TIERS } from '../../utils/studentScoring';
+import { computeStudentTAS, TAS_TIERS, TAS_MAX_TOTAL } from '../../utils/studentScoring';
+import { TasBreakdownRows, TasSourceList } from '../common/TasBreakdown';
+import { computeSocialActivityIndex } from '../../utils/socialActivityScoring';
 import { getStudentAttendanceParticipationSummary } from '../../utils/rankingsAnalytics';
 
-const TAS_TREND_MONTHS = getTasTrendMonths();
 const CURRENT_YEAR = new Date().getFullYear();
 
 const StudentsManagement = () => {
@@ -35,34 +36,40 @@ const StudentsManagement = () => {
     const [showFilters, setShowFilters] = useState(false);
     const modalContentRef = useRef(null);
 
+    // Talabalar ro'yxati HAQIQIY manbalardan yig'iladi. Ilgari bu blok deyarli har bir ustunni
+    // Math.random() bilan to'ldirardi (GPA, davomat, ijtimoiy ball, kitoblar, klublar, hatto
+    // "Faol/Nofaol" holati ham) - jadval har renderda qayta aralashardi va saralash ma'nosiz edi.
+    //
+    // computeStudentTAS o'zi GPA, davomat, mezon bali va klub a'zoligini o'qiydi va `sources`
+    // ichida qaytaradi - shu qiymatlarni qayta so'ramaymiz, 550 ta talaba uchun ikkinchi marta
+    // o'qish behuda. Kitob/test kabi og'ir ko'rsatkichlar esa faqat kartochka ochilganda
+    // hisoblanadi (quyidagi selectedStudentDetail).
     const allStudents = useMemo(() => {
-        const students = db.getMockStudents();
-        const socialCategories = db.getSocialCriteriaCategories().filter(c => c.isActive && !c.isArchived);
-        // Enrich with random social activity data
-        return students.map((s, i) => {
-            const criteria = socialCategories.map(c => ({
-                ...c,
-                score: Math.floor(Math.random() * (c.maxPoints + 1))
-            }));
+        return db.getMockStudents().map((s, i) => {
             const tas = computeStudentTAS(db, s.id);
+            const src = tas.sources;
             return {
                 ...s,
-                socialScore: Math.floor(30 + Math.random() * 70),
-                booksRead: Math.floor(Math.random() * 25),
-                // Real count (Davomat feature) — replaces what used to be a re-randomized Math.random()
-                // on every render. Union of directly-provable registrations + real 'present' attendance
-                // marks for the current calendar year (see getStudentAttendanceParticipationSummary).
+                // "Ijtimoiy ball" - TAS'ning ijtimoiy o'lchovi 100 ballik shkalaga keltirilgani
+                // (tasdiqlangan arizalar bali / mezonlar maksimumi). Mezonlar sozlanmagan bo'lsa null.
+                socialScore: tas.socialFaollikScore == null ? null : Math.round((tas.socialFaollikScore / 300) * 100),
+                gpa: src.averageGpa,
+                attendance: src.attendanceRate,
+                clubsJoined: src.clubCount,
+                // Real count (Davomat feature) — union of directly-provable registrations + real
+                // 'present' attendance marks for the current calendar year.
                 eventsAttended: getStudentAttendanceParticipationSummary(db, s.id, CURRENT_YEAR).eventsCount,
-                testsCompleted: Math.floor(Math.random() * 15),
-                clubsJoined: Math.floor(1 + Math.random() * 4),
-                attendance: Math.floor(60 + Math.random() * 40),
-                gpa: (2.5 + Math.random() * 1.5).toFixed(2),
-                phone: `+998 ${90 + (i % 10)}${String(1000000 + Math.floor(Math.random() * 9000000)).slice(0, 7).replace(/(\d{3})(\d{2})(\d{2})/, ' $1-$2-$3')}`,
-                email: `${s.fullName.split(' ').join('.').toLowerCase()}@uni.uz`,
-                address: 'Toshkent sh., Mirzo Ulug\'bek tumani',
-                enrollmentDate: `2023-09-01`,
-                status: Math.random() > 0.1 ? 'active' : 'inactive',
-                criteria,
+                // "Faol" - kamida bitta TASDIQLANGAN ijtimoiy faollik arizasi bor. Reytinglar
+                // sahifasidagi "faol" ta'rifi bilan bir xil, shuning uchun ikki bo'lim bir xil
+                // talabani bir xil holatda ko'rsatadi.
+                status: tas.activityHistory.length > 0 ? 'active' : 'inactive',
+                // Shaxsiy ma'lumot: haqiqiy profilda bo'lsa o'sha ustun turadi. Demo talabalar
+                // (generateSyntheticStudents) uchun namunaviy qiymat qoladi - ular o'zi shartli
+                // shaxslar, lekin endi hech bo'lmasa har renderda o'zgarmaydi.
+                phone: s.phone || `+998 ${90 + (i % 10)} ${String(100 + (i * 37) % 900)}-${String(10 + (i * 13) % 90)}-${String(10 + (i * 7) % 90)}`,
+                email: s.email || `${s.fullName.split(' ').join('.').toLowerCase()}@uni.uz`,
+                address: s.address || 'Toshkent sh., Mirzo Ulug\'bek tumani',
+                enrollmentDate: s.enrollmentDate || '2023-09-01',
                 // Shared with the student's own "Mening profilim" page (ProfilePage.jsx) via
                 // computeStudentTAS — same function, same studentId, so both surfaces always agree.
                 tas,
@@ -72,6 +79,19 @@ const StudentsManagement = () => {
             };
         });
     }, []);
+
+    // Kartochka ochilgandagina hisoblanadigan og'ir ko'rsatkichlar. Ijtimoiy faollik indeksi 11 ta
+    // mezonni alohida hisoblaydi, kitobxonlik esa barcha testlarni skanerlaydi - buni 550 ta talaba
+    // uchun oldindan qilish jadvalni sekinlashtiradi va keraksiz.
+    const selectedStudentDetail = useMemo(() => {
+        if (!selectedStudent) return null;
+        const readingBooks = db.getStudentReadingDetail(selectedStudent.id) || [];
+        return {
+            socialIndex: computeSocialActivityIndex(db, selectedStudent.id),
+            booksRead: readingBooks.filter(b => b.passed).length,
+            testsCompleted: (db.getStudentTestAttempts(selectedStudent.id) || []).length
+        };
+    }, [selectedStudent]);
 
     const faculties = useMemo(() => [...new Set(allStudents.map(s => s.faculty))].sort(), [allStudents]);
     const groups = useMemo(() => {
@@ -97,6 +117,11 @@ const StudentsManagement = () => {
         result.sort((a, b) => {
             let aVal = a[sortField];
             let bVal = b[sortField];
+            // Ma'lumoti yo'q talaba (GPA/davomat kiritilmagan) qaysi yo'nalishda saralansa ham
+            // OXIRIDA turadi - "eng past ball" bilan "ball yo'q" bir joyda ko'rinmasligi kerak.
+            if (aVal == null && bVal == null) return 0;
+            if (aVal == null) return 1;
+            if (bVal == null) return -1;
             if (typeof aVal === 'string') aVal = aVal.toLowerCase();
             if (typeof bVal === 'string') bVal = bVal.toLowerCase();
             if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
@@ -104,7 +129,7 @@ const StudentsManagement = () => {
             // Default view (TAS) tie-break: Ijtimoiy ball desc, then Oxirgi faollik desc — only applies
             // while sorted by tasTotal, every other column keeps its original single-key behavior.
             if (sortField === 'tasTotal') {
-                if (a.socialScore !== b.socialScore) return b.socialScore - a.socialScore;
+                if ((a.socialScore ?? -1) !== (b.socialScore ?? -1)) return (b.socialScore ?? -1) - (a.socialScore ?? -1);
                 const aActivity = a.tas.activityHistory[0]?.date || '';
                 const bActivity = b.tas.activityHistory[0]?.date || '';
                 if (aActivity !== bActivity) return aActivity > bActivity ? -1 : 1;
@@ -145,7 +170,10 @@ const StudentsManagement = () => {
         const headers = ['#', 'Talaba №', 'F.I.Sh.', 'Talaba ID', 'Fakultet', 'Guruh', 'Ijtimoiy ball', 'GPA', 'Davomat', 'Holat'];
         const rows = filtered.map((s, i) => [
             i + 1, s.displayNumber, s.fullName, s.studentId, s.faculty, s.group,
-            s.socialScore, s.gpa, s.attendance + '%', s.status === 'active' ? 'Faol' : 'Nofaol'
+            // Bo'sh katak - "ma'lumot kiritilmagan". Hisobotga 0 yozib qo'yish uni "nol ball"
+            // deb o'qishga majbur qiladi.
+            s.socialScore ?? '', s.gpa ?? '', s.attendance == null ? '' : s.attendance + '%',
+            s.status === 'active' ? 'Faol' : 'Nofaol'
         ]);
         const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
         const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -155,10 +183,12 @@ const StudentsManagement = () => {
         link.click();
     };
 
-    // Summary stats
-    const avgScore = Math.round(filtered.reduce((s, st) => s + st.socialScore, 0) / (filtered.length || 1));
+    // Summary stats — o'rtacha faqat BALLI BOR talabalar bo'yicha. Ma'lumoti yo'qlarni nol deb
+    // qo'shish o'rtachani sun'iy ravishda pasaytiradi.
+    const scored = filtered.filter(s => s.socialScore != null);
+    const avgScore = scored.length ? Math.round(scored.reduce((s, st) => s + st.socialScore, 0) / scored.length) : null;
     const activeCount = filtered.filter(s => s.status === 'active').length;
-    const topCount = filtered.filter(s => s.socialScore >= 80).length;
+    const topCount = scored.filter(s => s.socialScore >= 80).length;
 
     const SortIcon = ({ field }) => {
         if (sortField !== field) return <ArrowUpDown size={14} className="text-gray-300" />;
@@ -189,7 +219,7 @@ const StudentsManagement = () => {
                 {[
                     { label: 'Jami talabalar', value: filtered.length, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
                     { label: 'Faol talabalar', value: activeCount, icon: UserCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                    { label: 'O\'rtacha ball', value: avgScore, icon: BarChart3, color: 'text-amber-600', bg: 'bg-amber-50' },
+                    { label: 'O\'rtacha ball', value: avgScore ?? '—', icon: BarChart3, color: 'text-amber-600', bg: 'bg-amber-50' },
                     { label: 'Top talabalar (80+)', value: topCount, icon: Trophy, color: 'text-purple-600', bg: 'bg-purple-50' },
                 ].map((stat, i) => (
                     <Card key={i} className="p-5 border-none bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-all">
@@ -321,11 +351,11 @@ const StudentsManagement = () => {
                                     </td>
                                     <td className="px-6 py-4 text-gray-600 text-xs">{student.faculty}</td>
                                     <td className="px-6 py-4 text-center">
-                                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-bold ${getScoreColor(student.socialScore)}`}>
-                                            {student.socialScore}
+                                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-bold ${student.socialScore == null ? 'text-gray-400 bg-gray-100' : getScoreColor(student.socialScore)}`}>
+                                            {student.socialScore ?? '—'}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-center font-semibold text-gray-700">{student.gpa}</td>
+                                    <td className={`px-6 py-4 text-center font-semibold ${student.gpa == null ? 'text-gray-300' : 'text-gray-700'}`}>{student.gpa ?? '—'}</td>
                                     <td className="px-6 py-4 text-center">
                                         <Badge variant={student.status === 'active' ? 'success' : 'danger'} size="sm">
                                             {student.status === 'active' ? 'Faol' : 'Nofaol'}
@@ -421,7 +451,7 @@ const StudentsManagement = () => {
                                             <Pie
                                                 data={[
                                                     { value: selectedStudent.tas.total },
-                                                    { value: Math.max(0, 1000 - selectedStudent.tas.total) }
+                                                    { value: Math.max(0, TAS_MAX_TOTAL - selectedStudent.tas.total) }
                                                 ]}
                                                 dataKey="value" startAngle={90} endAngle={-270}
                                                 innerRadius={38} outerRadius={50} stroke="none"
@@ -441,8 +471,14 @@ const StudentsManagement = () => {
                                     <p className="text-xs text-gray-500 mt-1 leading-relaxed">
                                         Talabaning akademik muvaffaqiyati, ijtimoiy faolligi, liderlik salohiyati va intizomiy ishonchliligini kompleks baholaydigan analitik ko'rsatkich.
                                     </p>
-                                    <span className={`inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full text-[11px] font-bold ${selectedStudent.tas.delta >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                                        {selectedStudent.tas.delta >= 0 ? '↑' : '↓'} {Math.abs(selectedStudent.tas.delta)} · O'tgan oyga nisbatan
+                                    {/* Ilgari bu yerda "↑ 28 · O'tgan oyga nisbatan" degan belgi turardi. U
+                                        sun'iy 6 oylik chiziqdan hisoblanardi: TAS suratlari (snapshot)
+                                        saqlanmagani uchun oldingi oyning bali umuman ma'lum emas. Solishtirish
+                                        o'rniga hisobning to'liqligini ko'rsatamiz - bu tekshirsa bo'ladigan haqiqat. */}
+                                    <span className={`inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full text-[11px] font-bold ${selectedStudent.tas.complete ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                        {selectedStudent.tas.complete
+                                            ? "To'rt o'lchov ham hisoblandi"
+                                            : `${selectedStudent.tas.dimensionCount} o'lchovdan ${selectedStudent.tas.measuredCount} tasi hisoblandi`}
                                     </span>
                                 </div>
                             </div>
@@ -454,40 +490,27 @@ const StudentsManagement = () => {
                                 full-width layout ProfilePage.jsx's own Skoring section already uses. */}
                             <div className="bg-gray-50 rounded-2xl p-5">
                                 <p className="text-xs font-bold text-gray-700 mb-3">Skor tarkibi</p>
-                                <div className="space-y-3">
-                                    {[
-                                        { label: 'Akademik skori', value: selectedStudent.tas.academicScore, max: 400, dot: 'bg-indigo-600' },
-                                        { label: 'Ijtimoiy faollik skori', value: selectedStudent.tas.socialFaollikScore, max: 300, dot: 'bg-emerald-500' },
-                                        { label: 'Liderlik skori', value: selectedStudent.tas.leadershipScore, max: 150, dot: 'bg-amber-500' },
-                                        { label: 'Ishonchlilik skori', value: selectedStudent.tas.reliabilityScore, max: 150, dot: 'bg-blue-500' }
-                                    ].map(row => (
-                                        <div key={row.label}>
-                                            <div className="flex items-center justify-between text-xs mb-1">
-                                                <span className="flex items-center gap-1.5 text-gray-600"><span className={`w-2 h-2 rounded-full shrink-0 ${row.dot}`} />{row.label}</span>
-                                                <span className="font-bold text-gray-800 shrink-0">{row.value}/{row.max} ({Math.round((row.value / row.max) * 100)}%)</span>
-                                            </div>
-                                            <div className="h-1.5 rounded-full bg-gray-200 overflow-hidden">
-                                                <div className={`h-full rounded-full ${row.dot}`} style={{ width: `${Math.min(100, Math.round((row.value / row.max) * 100))}%` }} />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <p className="text-right text-xs font-bold text-indigo-700 mt-3">Jami: {selectedStudent.tas.total} / 1000</p>
+                                <TasBreakdownRows tas={selectedStudent.tas} />
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {/* Ilgari bu joyda "Skor dinamikasi (so'nggi 6 oy)" grafigi turardi. TAS
+                                suratlari saqlanmagani uchun oldingi oylarning bali hech qayerda yo'q
+                                edi - chiziq oxirgi baldan orqaga qarab o'ylab topilardi. O'rniga har
+                                bir o'lchov qaysi yozuvdan chiqqani ko'rsatiladi: raqamni tekshirish
+                                mumkin bo'ladi. Tarixiy suratlar joriy etilganda grafik qaytariladi. */}
                             <div className="bg-white border border-gray-100 rounded-2xl p-4">
-                                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Skor dinamikasi (so'nggi 6 oy)</h4>
-                                <ResponsiveContainer width="100%" height={160}>
-                                    <LineChart data={selectedStudent.tas.trend.map((v, idx) => ({ month: TAS_TREND_MONTHS[idx], value: v }))}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                                        <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                                        <Tooltip />
-                                        <Line type="monotone" dataKey="value" stroke="#4F46E5" strokeWidth={2.5} dot={{ r: 3 }} />
-                                    </LineChart>
-                                </ResponsiveContainer>
+                                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Skor manbalari</h4>
+                                <TasSourceList tas={selectedStudent.tas} />
+                                {selectedStudent.tas.pending.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-gray-100">
+                                        <p className="text-[11px] font-bold text-amber-600 mb-1">Hisoblanmagan o'lchovlar</p>
+                                        {selectedStudent.tas.pending.map(p => (
+                                            <p key={p.key} className="text-[11px] text-gray-500">{p.label} — {p.missing}</p>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="bg-white border border-gray-100 rounded-2xl p-4">
@@ -505,6 +528,13 @@ const StudentsManagement = () => {
                                         </div>
                                     ))}
                                 </div>
+                                {/* To'liq bo'lmagan hisobga daraja qo'yilmaydi: yarim o'lchovdan chiqqan
+                                    ball talabani noto'g'ri darajaga joylashtiradi. */}
+                                {!selectedStudent.tas.complete && (
+                                    <p className="text-[11px] text-amber-600 mt-2">
+                                        Daraja hali belgilanmadi — barcha o'lchovlar hisoblanishi kerak.
+                                    </p>
+                                )}
                             </div>
                         </div>
 
@@ -562,47 +592,71 @@ const StudentsManagement = () => {
                             </div>
                         )}
 
-                        {/* Score Overview */}
+                        {/* Score Overview — beshta ko'rsatkich ham haqiqiy yozuvdan. Ma'lumoti
+                            yo'q plitka kulrang bo'lib "—" ko'rsatadi: "nol ball" bilan "ball
+                            kiritilmagan" bir xil ko'rinmasligi kerak. */}
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                             {[
-                                { label: 'Ijtimoiy ball', value: selectedStudent.socialScore, color: getScoreColor(selectedStudent.socialScore) },
+                                { label: 'Ijtimoiy ball', value: selectedStudent.socialScore, color: selectedStudent.socialScore == null ? '' : getScoreColor(selectedStudent.socialScore) },
                                 { label: 'GPA', value: selectedStudent.gpa, color: 'text-indigo-600 bg-indigo-50' },
-                                { label: 'Kitoblar', value: selectedStudent.booksRead, color: 'text-amber-600 bg-amber-50' },
+                                { label: 'Kitoblar', value: selectedStudentDetail?.booksRead, color: 'text-amber-600 bg-amber-50' },
                                 { label: 'Tadbirlar', value: selectedStudent.eventsAttended, color: 'text-emerald-600 bg-emerald-50' },
-                                { label: 'Davomat', value: selectedStudent.attendance + '%', color: 'text-blue-600 bg-blue-50' },
+                                { label: 'Davomat', value: selectedStudent.attendance == null ? null : selectedStudent.attendance + '%', color: 'text-blue-600 bg-blue-50' },
                             ].map((item, i) => (
-                                <div key={i} className={`rounded-xl p-4 text-center ${item.color}`}>
-                                    <p className="text-2xl font-black">{item.value}</p>
+                                <div key={i} className={`rounded-xl p-4 text-center ${item.value == null ? 'text-gray-400 bg-gray-50' : item.color}`}>
+                                    <p className="text-2xl font-black">{item.value ?? '—'}</p>
                                     <p className="text-[10px] font-bold uppercase tracking-wider mt-1 opacity-70">{item.label}</p>
                                 </div>
                             ))}
                         </div>
 
-                        {/* Activity Criteria Breakdown */}
-                        <div>
-                            <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                <BarChart3 size={16} className="text-indigo-600" />
-                                Ijtimoiy faollik tafsiloti ({selectedStudent.criteria.length} mezon)
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {selectedStudent.criteria.map((c, i) => (
-                                    <div key={i} className="flex items-center gap-6">
-                                        <div className="flex-1">
-                                            <ProgressBar
-                                                value={c.score}
-                                                max={c.maxPoints}
-                                                label={c.name}
-                                                color="auto"
-                                                size="sm"
-                                            />
+                        {/* Ijtimoiy faollik tafsiloti — rasmiy metodika (186-son buyruq) bo'yicha
+                            hisoblangan mezonlar. Ilgari bu ro'yxat har bir mezonga Math.random()
+                            bilan ball qo'yardi, ya'ni butun tafsilot o'ylab topilgan edi. Endi manba
+                            utils/socialActivityScoring.js — har bir mezon o'z yozuvidan hisoblanadi
+                            va ma'lumoti yo'q mezon nol emas, `null` bo'lib qoladi. */}
+                        {selectedStudentDetail && (
+                            <div>
+                                <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <BarChart3 size={16} className="text-indigo-600" />
+                                    Ijtimoiy faollik tafsiloti
+                                    <span className="normal-case font-semibold text-gray-400 text-xs">
+                                        ({selectedStudentDetail.socialIndex.totalCount} mezondan {selectedStudentDetail.socialIndex.scoredCount} tasi hisoblandi · jami {selectedStudentDetail.socialIndex.total}/{selectedStudentDetail.socialIndex.maxTotal})
+                                    </span>
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {selectedStudentDetail.socialIndex.criteria.map(c => (
+                                        <div key={c.key} className="flex items-center gap-6">
+                                            <div className="flex-1 min-w-0">
+                                                <ProgressBar
+                                                    value={c.points ?? 0}
+                                                    max={c.maxPoints}
+                                                    label={c.name}
+                                                    color="auto"
+                                                    size="sm"
+                                                />
+                                                <p className="text-[10px] text-gray-400 mt-0.5 truncate">
+                                                    {c.points == null ? c.missing : (c.sourceLabel || '')}
+                                                </p>
+                                            </div>
+                                            <span className={`text-xs font-bold w-12 text-right shrink-0 ${c.points == null ? 'text-gray-300' : 'text-gray-500'}`}>
+                                                {c.points == null ? '—' : `${c.points}/${c.maxPoints}`}
+                                            </span>
                                         </div>
-                                        <span className="text-xs font-bold text-gray-500 w-12 text-right shrink-0">
-                                            {c.score}/{c.maxPoints}
-                                        </span>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
+                                {selectedStudentDetail.socialIndex.deduction > 0 && (
+                                    <p className="text-xs font-bold text-red-600 mt-3">
+                                        Intizomiy jazo: −{selectedStudentDetail.socialIndex.deduction} ball
+                                    </p>
+                                )}
+                                {selectedStudentDetail.socialIndex.disqualified && (
+                                    <p className="text-xs font-bold text-red-600 mt-1">
+                                        Diskvalifikatsiya: dresskod/odob talablari buzilgan.
+                                    </p>
+                                )}
                             </div>
-                        </div>
+                        )}
 
                         <TasVerificationFooter verifyId={`TAS-${selectedStudent.displayNumber || selectedStudent.studentId}`} />
                     </div>

@@ -5,10 +5,10 @@
 import { computeStudentTAS } from './studentScoring';
 
 // "Faol" (active) — a student counts as active when they have at least one real APPROVED social
-// activity submission (the same signal computeStudentTAS itself already treats as real, via
-// db.getSocialApplications()). Deliberately not "tas.total > 0": every student's TAS academic/
-// reliability components are always > 0 (seeded proxies, never truly zero), so that would make
-// "active" mean 100% of students — meaningless as a filter.
+// activity submission (db.getSocialApplications()). Deliberately not "tas.total > 0": TAS is a
+// composite of four separate dimensions, so a student with only a GPA on file already scores
+// several hundred points without having taken part in anything — that would make "active" mean
+// almost every student, which is useless as a filter.
 const isStudentActive = (db, studentId) =>
     db.getSocialApplications().some(a => a.studentId === studentId && a.status === 'Approved');
 
@@ -99,7 +99,6 @@ const groupAndRank = (rows, keyFn) => {
     });
     const result = Array.from(groups.entries()).map(([key, list]) => {
         const avgTas = Math.round(list.reduce((s, r) => s + r.tas.total, 0) / list.length);
-        const avgDelta = Math.round(list.reduce((s, r) => s + r.tas.delta, 0) / list.length);
         const activeCount = list.filter(r => r.isActive).length;
         const totalParticipations = list.reduce((s, r) => s + r.participations, 0);
         return {
@@ -108,10 +107,11 @@ const groupAndRank = (rows, keyFn) => {
             activeCount,
             totalParticipations,
             avgTas,
-            // Growth expressed as a % of the group's own average TAS, so a +8-point average delta reads
-            // very differently for a 300-avg group vs an 800-avg group — same idea as the per-student
-            // delta badge on the Skoring card, just relativized for comparison across groups.
-            growthPct: avgTas > 0 ? Math.round((avgDelta / avgTas) * 1000) / 10 : 0,
+            // O'sish foizi hisoblanmaydi: u talabaning TAS `delta`sidan chiqardi, `delta` esa
+            // tarixiy TAS suratlaridan chiqishi kerak — bunday suratlar tizimi hali yo'q
+            // (studentScoring.js, `delta: null`). Ilgari bu yerdagi raqam sun'iy 6 oylik
+            // chiziqdan olingan edi. `null` — GrowthBadge uni "—" deb chizadi.
+            growthPct: null,
             // "Faollik indeksi" (spec): (qatnashuvlar / faol talabalar) * (o'rtacha TAS / 100) — rewards
             // groups where the genuinely active students are ALSO participating a lot and scoring high,
             // rather than just having a big headcount.
@@ -148,13 +148,12 @@ export const getClubTasRankings = (db, rows) => {
         const members = db.getClubMembers(club.id);
         const memberRows = members.map(m => rowByStudentId.get(m.userId)).filter(Boolean);
         const avgTas = memberRows.length ? Math.round(memberRows.reduce((s, r) => s + r.tas.total, 0) / memberRows.length) : 0;
-        const avgDelta = memberRows.length ? Math.round(memberRows.reduce((s, r) => s + r.tas.delta, 0) / memberRows.length) : 0;
         return {
             club,
             memberCount: members.length,
             activeMembers: memberRows.filter(r => r.isActive).length,
             avgTas,
-            growthPct: avgTas > 0 ? Math.round((avgDelta / avgTas) * 1000) / 10 : 0,
+            growthPct: null,
             activities: db.getClubEvents(club.id).length + db.getClubCompetitions(club.id).length,
             totalParticipations: clubTotalParticipations(db, club.id),
             achievements: db.getClubAchievements(club.id).length
@@ -192,7 +191,6 @@ export const getCategoryRankings = (db, rows) => {
         });
         const memberRows = Array.from(memberIds).map(id => rowByStudentId.get(id)).filter(Boolean);
         const avgTas = memberRows.length ? Math.round(memberRows.reduce((s, r) => s + r.tas.total, 0) / memberRows.length) : 0;
-        const avgDelta = memberRows.length ? Math.round(memberRows.reduce((s, r) => s + r.tas.delta, 0) / memberRows.length) : 0;
         return {
             name,
             clubCount: bucketClubs.length,
@@ -200,7 +198,7 @@ export const getCategoryRankings = (db, rows) => {
             activeStudents: memberRows.filter(r => r.isActive).length,
             totalParticipations,
             avgTas,
-            growthPct: avgTas > 0 ? Math.round((avgDelta / avgTas) * 1000) / 10 : 0
+            growthPct: null
         };
     });
 };
