@@ -73,16 +73,22 @@ const MarifatLessonsPage = () => {
     );
     const [marks, setMarks] = useState({});
     const [rosterSearch, setRosterSearch] = useState('');
+    // 'all' | 'unmarked' | 'absent' - belgilashni tekshirib chiqish uchun.
+    const [rosterFilter, setRosterFilter] = useState('all');
 
-    // Auditoriya - shu fakultet va kursning talabalari.
-    const roster = useMemo(() => {
+    // TO'LIQ auditoriya - qidiruv va filtrdan QAT'I NAZAR. Saqlash aynan shundan
+    // yoziladi.
+    //
+    // Ilgari saqlash ko'rinib turgan (qidiruv bilan filtrlangan) ro'yxatdan
+    // yozardi. Ma'lumot o'chmasdi (upsert), lekin qidiruvdan keyin saqlagan mas'ul
+    // qolgan talabalarga umuman YOZUV QOLDIRMASDI - ular jurnalda "kelmagan" bo'lib
+    // chiqardi, holbuki ular haqida hech kim hech narsa aytmagan edi.
+    const fullRoster = useMemo(() => {
         if (!openLesson) return [];
-        const q = rosterSearch.trim().toLowerCase();
         return students
             .filter(s => s.faculty === openLesson.faculty && Number(s.course) === Number(openLesson.course))
-            .filter(s => !q || s.fullName?.toLowerCase().includes(q))
             .sort((a, b) => String(a.fullName).localeCompare(String(b.fullName)));
-    }, [students, openLesson, rosterSearch]);
+    }, [students, openLesson]);
 
     const saved = useMemo(
         () => (openLesson ? new Map(db.getMarifatAttendance(openLesson.id).map(a => [a.studentId, a])) : new Map()),
@@ -91,19 +97,57 @@ const MarifatLessonsPage = () => {
 
     const markOf = (studentId) => marks[studentId] || saved.get(studentId) || { present: false, active: false };
 
+    // "Belgilanmagan" - saqlangan yozuvi ham, joriy belgisi ham yo'q talaba. Bu
+    // "kelmagan" BILAN BIR XIL EMAS: kelmagani ataylab belgilangan, belgilanmagani
+    // esa shunchaki e'tibordan chetda qolgan.
+    const isUnmarked = (studentId) => !marks[studentId] && !saved.has(studentId);
+
+    // Ekranda ko'rinadigan ro'yxat: qidiruv + filtr.
+    const roster = useMemo(() => {
+        const q = rosterSearch.trim().toLowerCase();
+        return fullRoster
+            .filter(s => !q || s.fullName?.toLowerCase().includes(q))
+            .filter(s => {
+                if (rosterFilter === 'unmarked') return isUnmarked(s.id);
+                if (rosterFilter === 'absent') return !markOf(s.id).present;
+                return true;
+            });
+    }, [fullRoster, rosterSearch, rosterFilter, marks, saved]);
+
     const setMark = (studentId, patch) => setMarks(m => ({
         ...m,
         [studentId]: { ...markOf(studentId), ...patch },
     }));
 
+    // Qatorning istalgan joyiga bosish "qatnashdi" ni almashtiradi - auditoriyada
+    // telefon bilan kichkina katakchani nishonga olish qiyin.
+    const togglePresent = (studentId) => {
+        const cur = markOf(studentId);
+        setMark(studentId, { present: !cur.present, active: !cur.present ? cur.active : false });
+    };
+
     const saveAttendance = () => run(async () => {
-        const rows = roster.map(s => ({ studentId: s.id, ...markOf(s.id) }));
+        // TO'LIQ ro'yxat yoziladi - shunda hech kim yozuvsiz qolmaydi.
+        const rows = fullRoster.map(s => ({ studentId: s.id, ...markOf(s.id) }));
         await db.markMarifatAttendance(openLesson.id, rows, { by: user?.username });
         setMarks({});
     }, 'Davomat saqlandi.');
 
-    const presentCount = roster.filter(s => markOf(s.id).present).length;
-    const activeCount = roster.filter(s => markOf(s.id).active).length;
+    const presentCount = fullRoster.filter(s => markOf(s.id).present).length;
+    const activeCount = fullRoster.filter(s => markOf(s.id).active).length;
+    const unmarkedCount = fullRoster.filter(s => isUnmarked(s.id)).length;
+    // Saqlanmagan o'zgarish bormi - oynani yopishdan oldin ogohlantirish uchun.
+    const isDirty = Object.keys(marks).length > 0;
+
+    // Oynani yopish: saqlanmagan belgi bo'lsa tasdiq so'raladi. Ilgari yopish
+    // belgilarni jimgina yo'q qilardi.
+    const closeLesson = () => {
+        if (isDirty && !window.confirm("Saqlanmagan belgilar bor. Ular yo'qoladi. Yopilsinmi?")) return;
+        setOpenLessonId(null);
+        setMarks({});
+        setRosterSearch('');
+        setRosterFilter('all');
+    };
 
     // --- Jurnal ---
     const [journalFaculty, setJournalFaculty] = useState('');
@@ -117,10 +161,15 @@ const MarifatLessonsPage = () => {
         // farq qilib qolardi.
         const all = db.getMarifatLessons(academicYear)
             .filter(l => l.faculty === journalFaculty && Number(l.course) === Number(journalCourse));
-        const lessons = all
+        const withAttendance = all
             .map(l => ({ ...l, attendance: db.getMarifatAttendance(l.id) }))
-            .filter(l => l.attendance.length > 0)
             .sort((a, b) => new Date(a.date) - new Date(b.date));
+        const lessons = withAttendance.filter(l => l.attendance.length > 0);
+        // Davomati umuman belgilanmagan darslar. Ular hisobga KIRMAYDI (yuqoridagi
+        // izohga qarang), lekin JIM YASHIRINIB ham qolmasligi kerak: aks holda
+        // o'tkazib yuborilgan dars jurnalda umuman ko'rinmay, hech kim uni
+        // belgilashni eslamaydi.
+        const unmarkedLessons = withAttendance.filter(l => l.attendance.length === 0);
 
         const rows = students
             .filter(s => s.faculty === journalFaculty && Number(s.course) === Number(journalCourse))
@@ -142,7 +191,7 @@ const MarifatLessonsPage = () => {
                 };
             });
 
-        return { lessons, rows };
+        return { lessons, rows, unmarkedLessons };
     }, [tab, journalFaculty, journalCourse, students, academicYear, version]);
 
     const exportJournal = () => {
@@ -345,7 +394,7 @@ const MarifatLessonsPage = () => {
                     <div className="p-5 border-b border-gray-100">
                         <button
                             type="button"
-                            onClick={() => { setOpenLessonId(null); setMarks({}); }}
+                            onClick={closeLesson}
                             className="text-xs font-bold text-indigo-600 flex items-center gap-1 mb-3"
                         >
                             <ChevronLeft size={14} /> Darslar ro'yxatiga
@@ -369,6 +418,19 @@ const MarifatLessonsPage = () => {
                             <span className="text-xs text-amber-700">
                                 Faol: <b>{activeCount}</b>
                             </span>
+                            {/* "Belgilanmagan" ATAYLAB alohida ko'rsatiladi: u "kelmagan"
+                                bilan bir xil emas. Kelmagani - qaror, belgilanmagani -
+                                e'tibordan chetda qolgan talaba. */}
+                            {unmarkedCount > 0 && (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">
+                                    Belgilanmagan: {unmarkedCount}
+                                </span>
+                            )}
+                            {isDirty && (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold">
+                                    Saqlanmagan
+                                </span>
+                            )}
                             {/* Ro'yxatni bir bosishda to'ldirish - 100+ talabani
                                 birma-bir belgilash real ishda bajarilmaydi. */}
                             {!openLesson.locked && (
@@ -402,14 +464,36 @@ const MarifatLessonsPage = () => {
                         </p>
                     </div>
 
-                    <div className="p-4 border-b border-gray-50">
-                        <div className="relative max-w-sm">
+                    <div className="p-4 border-b border-gray-50 flex flex-col sm:flex-row sm:items-center gap-3">
+                        <div className="relative sm:max-w-sm flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                             <input
                                 type="text" value={rosterSearch} onChange={e => setRosterSearch(e.target.value)}
                                 placeholder="Talaba qidirish..."
                                 className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm"
                             />
+                        </div>
+                        {/* Belgilashni TEKSHIRIB CHIQISH uchun. "Hammasi qatnashdi" bosilgandan
+                            keyin kim qolib ketganini ko'rishning yo'li yo'q edi. */}
+                        <div className="flex gap-1.5 flex-wrap">
+                            {[
+                                ['all', `Hammasi (${fullRoster.length})`],
+                                ['unmarked', `Belgilanmagan (${unmarkedCount})`],
+                                ['absent', `Kelmaganlar (${fullRoster.length - presentCount})`],
+                            ].map(([id, label]) => (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => setRosterFilter(id)}
+                                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+                                        rosterFilter === id
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
@@ -421,24 +505,37 @@ const MarifatLessonsPage = () => {
                         <div className="divide-y divide-gray-50 max-h-[28rem] overflow-y-auto">
                             {roster.map(s => {
                                 const m = markOf(s.id);
+                                const unmarked = isUnmarked(s.id);
                                 return (
-                                    <div key={s.id} className="flex items-center gap-3 px-5 py-2.5">
-                                        <span className="flex-1 min-w-0 text-sm text-gray-800 truncate">
-                                            {s.fullName}
-                                        </span>
-                                        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                                    <div
+                                        key={s.id}
+                                        className={`flex items-center gap-3 px-5 py-1 ${unmarked ? 'bg-amber-50/60' : ''}`}
+                                    >
+                                        {/* BUTUN QATOR bosiladi. Auditoriyada telefon bilan kichkina
+                                            katakchani nishonga olish qiyin - eng ko'p takrorlanadigan
+                                            harakat eng katta nishon bo'lishi kerak. */}
+                                        <button
+                                            type="button"
+                                            disabled={openLesson.locked}
+                                            onClick={() => togglePresent(s.id)}
+                                            className={`flex-1 min-w-0 flex items-center gap-3 text-left py-2.5 rounded-lg
+                                                ${openLesson.locked ? 'cursor-default' : 'hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500'}`}
+                                        >
                                             <input
-                                                type="checkbox" className="rounded accent-indigo-600"
+                                                type="checkbox" className="rounded accent-indigo-600 pointer-events-none shrink-0"
+                                                readOnly
                                                 disabled={openLesson.locked}
                                                 checked={m.present}
-                                                onChange={e => setMark(s.id, {
-                                                    present: e.target.checked,
-                                                    // Kelmagan talaba faol bo'la olmaydi.
-                                                    active: e.target.checked ? m.active : false,
-                                                })}
                                             />
-                                            Qatnashdi
-                                        </label>
+                                            <span className="min-w-0 text-sm text-gray-800 truncate">
+                                                {s.fullName}
+                                            </span>
+                                            {unmarked && (
+                                                <span className="ml-auto shrink-0 text-[10px] font-bold text-amber-700">
+                                                    belgilanmagan
+                                                </span>
+                                            )}
+                                        </button>
                                         <label className={`flex items-center gap-1.5 text-xs cursor-pointer ${m.present ? 'text-amber-700' : 'text-gray-300'}`}>
                                             <input
                                                 type="checkbox" className="rounded accent-amber-500"
@@ -532,6 +629,30 @@ const MarifatLessonsPage = () => {
                                         ✓ qatnashgan · <span className="text-amber-600">★</span> faol · — kelmagan
                                     </p>
                                 </div>
+
+                                {journal.unmarkedLessons.length > 0 && (
+                                    <div className="mx-4 mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                                        <p className="text-xs font-bold text-amber-800">
+                                            {journal.unmarkedLessons.length} ta darsning davomati belgilanmagan
+                                        </p>
+                                        <p className="text-[11px] text-amber-700 mt-0.5">
+                                            Ular jadvalga ham, foiz hisobiga ham kirmaydi. Belgilangunicha
+                                            talabalarning foizi shu darslarsiz hisoblanadi.
+                                        </p>
+                                        <div className="flex flex-wrap gap-1.5 mt-2">
+                                            {journal.unmarkedLessons.map(l => (
+                                                <button
+                                                    key={l.id}
+                                                    type="button"
+                                                    onClick={() => { setTab('darslar'); setOpenLessonId(l.id); setMarks({}); }}
+                                                    className="px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-[11px] font-bold text-amber-800 hover:bg-amber-100"
+                                                >
+                                                    {new Date(l.date).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit' })} · {l.title}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Keng jadval - o'z ichida gorizontal suriladi.
                                     Talaba ustuni yopishqoq: 12 ta dars bo'lsa ham
