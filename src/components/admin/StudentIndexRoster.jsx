@@ -5,6 +5,7 @@ import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Pagination from '../common/Pagination';
 import { db, getCurrentAcademicYear } from '../../services/db';
+import { computeStudentTAS } from '../../utils/studentScoring';
 import { PAGINATION } from '../../constants/index.js';
 import {
     needsConfirmation, INDEX_TOTAL_MAX, INDEX_CRITERIA, INDEX_CRITERIA_ORDER,
@@ -581,15 +582,21 @@ const StudentIndexRoster = () => {
     );
 
     // Faqat ko'rinib turgan qator uchun hisoblanadi.
-    const rows = useMemo(() => paginated.map(s => {
+    // `withCachedReads`: faqat joriy sahifadagi talabalar hisoblanadi, lekin har biri uchun
+    // o'nlab `db.getX()` chaqiriladi va ularning har biri kesh bo'lmasa butun bazani qayta
+    // JSON.parse qilardi. Blok sof o'qishdan iborat.
+    const rows = useMemo(() => db.withCachedReads(() => paginated.map(s => {
         const index = db.getSocialActivityIndex(s.id);
         const evidence = db.getIndexEvidence(s.id);
         const confirmed = index.criteria.filter(
             c => needsConfirmation(c.key) && db.getSocialIndexAssessment(s.id, c.key)
         ).length;
         const needsConfirm = index.criteria.filter(c => needsConfirmation(c.key)).length;
-        return { student: s, index, evidence, confirmed, needsConfirm };
-    }), [paginated]);
+        // Aynan Reytinglar jadvalidagi hisob - bitta funksiya, shuning uchun ikki jadval
+        // bir talaba haqida bir xil TAS ko'rsatadi.
+        const tas = computeStudentTAS(db, s.id);
+        return { student: s, index, evidence, confirmed, needsConfirm, tas };
+    })), [paginated]);
 
     // Boshqa talabaga o'tganda ochiq mezon yopiladi - aks holda oldingi
     // talabaning ochiq bandi yangisida ham ochiq qolib chalkashtirardi.
@@ -684,6 +691,10 @@ const StudentIndexRoster = () => {
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Talaba</th>
                                 <th className={`px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider ${detail ? 'hidden' : ''}`}>Fakultet / Kurs</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Indeks</th>
+                                {/* TAS shu yerda ham ko'rsatiladi: ilgari indeks bu jadvalda, TAS esa
+                                    Reytinglar bo'limidagi boshqa jadvalda turardi va ular bir-biriga
+                                    bog'liq emasdek ko'rinardi. Endi ikkala ball yonma-yon. */}
+                                <th className={`px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider ${detail ? 'hidden xl:table-cell' : ''}`}>TAS</th>
                                 {criterionKey && (
                                     <th className="px-6 py-4 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
                                         {INDEX_CRITERIA_ORDER.indexOf(criterionKey) + 1}-mezon
@@ -738,6 +749,17 @@ const StudentIndexRoster = () => {
                                                     style={{ width: `${(index.total / index.maxTotal) * 100}%` }}
                                                 />
                                             </div>
+                                        </td>
+                                        <td className={`px-6 py-4 ${detail ? 'hidden xl:table-cell' : ''}`}>
+                                            <div className="flex items-baseline gap-1">
+                                                <span className="text-lg font-extrabold text-indigo-600 tabular-nums">{tas.total}</span>
+                                                <span className="text-xs text-gray-400">/ 1000</span>
+                                            </div>
+                                            {!tas.complete && (
+                                                <p className="text-[10px] text-amber-600 font-semibold mt-0.5">
+                                                    {tas.measuredCount}/{tas.dimensionCount} o'lchov
+                                                </p>
+                                            )}
                                         </td>
                                         {/* Tanlangan mezonning bali - sahifadagi qatorlar uchun
                                             allaqachon hisoblangan indeksdan olinadi. */}
@@ -796,7 +818,8 @@ const StudentIndexRoster = () => {
                             })}
                             {rows.length === 0 && (
                                 <tr>
-                                    <td colSpan={criterionKey ? 8 : 7} className="px-6 py-10 text-center text-sm text-gray-400">
+                                    {/* +1 — TAS ustuni qo'shilgani uchun. */}
+                                    <td colSpan={criterionKey ? 9 : 8} className="px-6 py-10 text-center text-sm text-gray-400">
                                         Talaba topilmadi
                                     </td>
                                 </tr>

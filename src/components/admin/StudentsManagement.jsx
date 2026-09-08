@@ -52,9 +52,11 @@ const StudentsManagement = () => {
             const src = tas.sources;
             return {
                 ...s,
-                // "Ijtimoiy ball" - TAS'ning ijtimoiy o'lchovi 100 ballik shkalaga keltirilgani
-                // (tasdiqlangan arizalar bali / mezonlar maksimumi). Mezonlar sozlanmagan bo'lsa null.
-                socialScore: tas.socialFaollikScore == null ? null : Math.round((tas.socialFaollikScore / 300) * 100),
+                // RASMIY indeks (186-son buyruq, 100 ball) - shu jadvalda ham, "Indeks holati"
+                // jadvalida ham AYNAN bir xil raqam ko'rinishi uchun to'g'ridan-to'g'ri indeksdan
+                // olinadi. Ilgari bu ustun TAS'ning ijtimoiy o'lchovidan qayta hisoblanardi, ya'ni
+                // ikki jadval bir talaba haqida ikki xil son ko'rsatardi.
+                socialScore: tas.sources.socialIndexTotal,
                 gpa: src.averageGpa,
                 attendance: src.attendanceRate,
                 clubsJoined: src.clubCount,
@@ -169,12 +171,12 @@ const StudentsManagement = () => {
     };
 
     const handleExport = () => {
-        const headers = ['#', 'Talaba №', 'F.I.Sh.', 'Talaba ID', 'Fakultet', 'Guruh', 'Ijtimoiy ball', 'GPA', 'Davomat', 'Holat'];
+        const headers = ['#', 'Talaba №', 'F.I.Sh.', 'Talaba ID', 'Fakultet', 'Guruh', 'Indeks (100)', 'TAS (1000)', 'GPA', 'Davomat', 'Holat'];
         const rows = filtered.map((s, i) => [
             i + 1, s.displayNumber, s.fullName, s.studentId, s.faculty, s.group,
             // Bo'sh katak - "ma'lumot kiritilmagan". Hisobotga 0 yozib qo'yish uni "nol ball"
             // deb o'qishga majbur qiladi.
-            s.socialScore ?? '', s.gpa ?? '', s.attendance == null ? '' : s.attendance + '%',
+            s.socialScore ?? '', s.tasTotal, s.gpa ?? '', s.attendance == null ? '' : s.attendance + '%',
             s.status === 'active' ? 'Faol' : 'Nofaol'
         ]);
         const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -221,7 +223,7 @@ const StudentsManagement = () => {
                 {[
                     { label: 'Jami talabalar', value: filtered.length, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
                     { label: 'Faol talabalar', value: activeCount, icon: UserCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                    { label: 'O\'rtacha ball', value: avgScore ?? '—', icon: BarChart3, color: 'text-amber-600', bg: 'bg-amber-50' },
+                    { label: "O'rtacha indeks", value: avgScore ?? '—', icon: BarChart3, color: 'text-amber-600', bg: 'bg-amber-50' },
                     { label: 'Top talabalar (80+)', value: topCount, icon: Trophy, color: 'text-purple-600', bg: 'bg-purple-50' },
                 ].map((stat, i) => (
                     <Card key={i} className="p-5 border-none bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-all">
@@ -318,7 +320,19 @@ const StudentsManagement = () => {
                                     className="text-center px-6 py-4 font-bold text-gray-500 uppercase tracking-wider text-xs cursor-pointer hover:text-indigo-600 transition-colors"
                                     onClick={() => handleSort('socialScore')}
                                 >
-                                    <span className="flex items-center justify-center gap-2">Ijtimoiy ball <SortIcon field="socialScore" /></span>
+                                    <span className="flex items-center justify-center gap-2" title="Rasmiy ijtimoiy faollik indeksi (186-son buyruq), 100 ball">
+                                        Indeks <SortIcon field="socialScore" />
+                                    </span>
+                                </th>
+                                {/* Ikkala ball YONMA-YON turadi: ilgari indeks bitta jadvalda, TAS
+                                    boshqasida edi va ular bir-biriga bog'lanmagan ko'rinardi. */}
+                                <th
+                                    className="text-center px-6 py-4 font-bold text-gray-500 uppercase tracking-wider text-xs cursor-pointer hover:text-indigo-600 transition-colors"
+                                    onClick={() => handleSort('tasTotal')}
+                                >
+                                    <span className="flex items-center justify-center gap-2" title="Talaba Analitik Skoring: GPA, ijtimoiy faollik, liderlik va davomat, 1000 ball">
+                                        TAS <SortIcon field="tasTotal" />
+                                    </span>
                                 </th>
                                 <th
                                     className="text-center px-6 py-4 font-bold text-gray-500 uppercase tracking-wider text-xs cursor-pointer hover:text-indigo-600 transition-colors"
@@ -356,6 +370,15 @@ const StudentsManagement = () => {
                                         <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-bold ${student.socialScore == null ? 'text-gray-400 bg-gray-100' : getScoreColor(student.socialScore)}`}>
                                             {student.socialScore ?? '—'}
                                         </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        <span className="font-black text-indigo-600 tabular-nums">{student.tasTotal}</span>
+                                        <span className="text-[10px] text-gray-400"> / 1000</span>
+                                        {!student.tas.complete && (
+                                            <p className="text-[10px] text-amber-600 font-semibold">
+                                                {student.tas.measuredCount}/{student.tas.dimensionCount} o'lchov
+                                            </p>
+                                        )}
                                     </td>
                                     <td className={`px-6 py-4 text-center font-semibold ${student.gpa == null ? 'text-gray-300' : 'text-gray-700'}`}>{student.gpa ?? '—'}</td>
                                     <td className="px-6 py-4 text-center">
@@ -599,7 +622,7 @@ const StudentsManagement = () => {
                             kiritilmagan" bir xil ko'rinmasligi kerak. */}
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                             {[
-                                { label: 'Ijtimoiy ball', value: selectedStudent.socialScore, color: selectedStudent.socialScore == null ? '' : getScoreColor(selectedStudent.socialScore) },
+                                { label: 'Indeks', value: selectedStudent.socialScore, color: selectedStudent.socialScore == null ? '' : getScoreColor(selectedStudent.socialScore) },
                                 { label: 'GPA', value: selectedStudent.gpa, color: 'text-indigo-600 bg-indigo-50' },
                                 { label: 'Kitoblar', value: selectedStudentDetail?.booksRead, color: 'text-amber-600 bg-amber-50' },
                                 { label: 'Tadbirlar', value: selectedStudent.eventsAttended, color: 'text-emerald-600 bg-emerald-50' },

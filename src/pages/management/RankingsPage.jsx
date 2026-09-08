@@ -168,7 +168,9 @@ const RankingsPage = ({ embedded = false }) => {
     const tabs = [
         { id: 'faculty', label: 'Fakultetlar', icon: GraduationCap },
         { id: 'course', label: 'Kurslar', icon: BookOpen },
-        { id: 'students', label: 'Global talabalar', icon: Trophy },
+        // "Global talabalar" emas: bu ro'yxatning ishi — saralash, filtr, eksport, ya'ni
+        // REYTING. Ishchi ko'rinish ("Indeks holati") esa Ish jarayoni guruhida turadi.
+        { id: 'students', label: 'Talabalar reytingi', icon: Trophy },
         { id: 'clubs', label: 'Global klublar', icon: Building2 },
         { id: 'category', label: 'Kategoriyalar', icon: Award }
     ];

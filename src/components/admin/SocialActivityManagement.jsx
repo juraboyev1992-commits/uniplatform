@@ -39,7 +39,10 @@ import { SOCIAL_REVIEWER_ROLES, PAGINATION } from '../../constants/index.js';
 import { useTabParam } from '../../hooks/useTabParam';
 
 const TABS = [
-    { id: 'talabalar', label: 'Talabalar' },
+    // Nomi ATAYLAB "Talabalar" emas: "Tahlil" guruhida ham talabalar ro'yxati bor va
+    // ikkisi bir xil nom bilan turganda takroriy ko'rinardi. Bu yerda ISH ko'rinishi -
+    // mezon bo'yicha tafsilot, tasdiq holati va hujjatlar.
+    { id: 'talabalar', label: 'Indeks holati' },
     { id: 'arizalar', label: 'Arizalar' },
     { id: 'tasdiqlash', label: 'Tasdiqlash' },
     { id: 'monitoring', label: 'Monitoring' },
