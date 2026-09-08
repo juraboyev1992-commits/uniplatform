@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import { db } from '../../services/db';
+import {
+    NOTIFICATION_TYPES, NOTIFICATION_TYPE_ORDER,
+} from '../../config/notificationTypes';
 import { Link } from 'react-router-dom';
 import {
     User,
@@ -28,6 +32,15 @@ const ProfilePage = () => {
     const { user } = useAuth();
     const isStudent = user?.role === ROLES.STUDENT;
     const [isEditing, setIsEditing] = useState(false);
+    // Bildirishnoma sozlamalari. Ilgari bu yerda ikkita SOXTA tugma turardi - oddiy
+    // `div`, bosilmasdi va hech qayerga saqlanmasdi.
+    const [notifPrefs, setNotifPrefs] = useState(
+        () => (user?.username ? db.getNotificationPrefs(user.username) : {})
+    );
+    const toggleNotif = (typeId, next) => {
+        db.setNotificationPref(user?.username, typeId, next);
+        setNotifPrefs(db.getNotificationPrefs(user?.username));
+    };
     const [formData, setFormData] = useState({
         displayName: user?.name || 'Anvar Azizov',
         email: 'anvar@unip.uz',
@@ -249,19 +262,46 @@ const ProfilePage = () => {
                             <Bell size={18} className="text-blue-500" />
                             Bildirishnomalar
                         </h3>
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-gray-700">Email bildirishnomalar</span>
-                                <div className="w-10 h-5 bg-indigo-600 rounded-full relative">
-                                    <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full"></div>
-                                </div>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-gray-700">Tizim bildirishnomalari</span>
-                                <div className="w-10 h-5 bg-indigo-600 rounded-full relative">
-                                    <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full"></div>
-                                </div>
-                            </div>
+                        <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                            Qaysi xabarlar kelishini o'zingiz belgilaysiz. Ba'zilari o'chirilmaydi —
+                            ular xabar emas, sizdan kutilayotgan <b>ish</b>.
+                        </p>
+                        <div className="space-y-3">
+                            {NOTIFICATION_TYPE_ORDER
+                                // Xodimlarga mo'ljallangan turlar talabaga ko'rsatilmaydi va aksincha.
+                                .filter(id => (NOTIFICATION_TYPES[id].audience === 'staff') !== isStudent)
+                                .map(id => {
+                                    const t = NOTIFICATION_TYPES[id];
+                                    const on = notifPrefs[id] !== false;
+                                    return (
+                                        <div key={id} className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-medium text-gray-800">{t.label}</p>
+                                                <p className="text-[11px] text-gray-500">{t.description}</p>
+                                                {!t.optional && (
+                                                    <p className="text-[11px] text-amber-600 mt-0.5">
+                                                        O'chirib bo'lmaydi — {t.reason}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={on}
+                                                aria-label={t.label}
+                                                disabled={!t.optional}
+                                                onClick={() => toggleNotif(id, !on)}
+                                                className={`w-10 h-5 rounded-full relative shrink-0 mt-0.5 transition-colors ${
+                                                    on ? 'bg-indigo-600' : 'bg-gray-300'
+                                                } ${t.optional ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}
+                                            >
+                                                <span className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${
+                                                    on ? 'right-1' : 'left-1'
+                                                }`} />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
                         </div>
                     </Card>
                 </div>

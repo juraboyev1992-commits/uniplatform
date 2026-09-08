@@ -80,6 +80,8 @@ const resolveMatchScoringShape = (comp) => {
 
 const DB_KEY = 'uniplatform_clubos_db';
 
+import { NOTIFICATION_TYPES, resolveNotificationPrefs } from '../config/notificationTypes.js';
+
 export const SOCIAL_APPLICATION_STATUS = {
     PENDING: 'Pending',
     APPROVED: 'Approved',
@@ -16071,6 +16073,40 @@ export const db = {
     // foydalanuvchi yarata olmaydi va `service_role` kalitini mijoz kodiga
     // qo'yish mumkin emas. Har bir RPC ichida `is_platform_admin()` tekshiriladi.
     // ========================================================================
+
+    // --- BILDIRISHNOMA SOZLAMALARI ---
+    //
+    // Sozlama TUR bo'yicha (config/notificationTypes.js), tab bo'yicha emas - sabab
+    // o'sha faylning boshida yozilgan.
+    //
+    // Hozircha QURILMA bo'yicha saqlanadi, `queueSeen` bilan bir xil sabab: uni
+    // akkauntga bog'lash uchun Supabase'da alohida jadval kerak. Jadval qo'shilganda
+    // shu ikki funksiyaning ichi almashadi, chaqiruvchi kod tegilmaydi.
+    getNotificationPrefs: (username) =>
+        resolveNotificationPrefs((getDB().notificationPrefs || {})[username]),
+
+    setNotificationPref: (username, typeId, enabled) => {
+        if (!username) return;
+        // O'chirib bo'lmaydigan turni o'chirish urinishi JIM RAD ETILADI - UI ham uni
+        // ko'rsatmaydi, lekin himoya ikki joyda turgani ma'qul.
+        if (NOTIFICATION_TYPES[typeId] && NOTIFICATION_TYPES[typeId].optional === false) return;
+        const dbData = getDB();
+        dbData.notificationPrefs = dbData.notificationPrefs || {};
+        dbData.notificationPrefs[username] = {
+            ...(dbData.notificationPrefs[username] || {}),
+            [typeId]: !!enabled,
+        };
+        saveDB(dbData);
+    },
+
+    // Xabar yuborishdan OLDIN chaqiriladi. Bitta joyda turadi, chunki tekshiruvni
+    // har bir yaratish nuqtasida takrorlash - o'sha nuqtalardan birini unutish demak.
+    wantsNotification: (username, typeId) => {
+        if (!username || !typeId) return true;
+        const t = NOTIFICATION_TYPES[typeId];
+        if (t && t.optional === false) return true;
+        return db.getNotificationPrefs(username)[typeId] !== false;
+    },
 
     // --- ISH NAVBATI: "o'qildi" belgilari ---
     //

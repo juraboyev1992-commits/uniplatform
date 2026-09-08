@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { notificationLink } from '../../config/notificationTypes';
 import {
     Bell,
     CheckCheck,
@@ -38,6 +40,7 @@ const formatRelativeTime = (iso) => {
 // Fed by db.js's unified registration layer (waitlist offers, team invites, and any future
 // createNotification callers) via db.getNotificationsForUser/markNotificationRead/etc.
 const NotificationList = () => {
+    const navigate = useNavigate();
     const { user } = useAuth();
     const [version, setVersion] = useState(0);
     const notifications = user ? db.getNotificationsForUser(user.username) : [];
@@ -57,6 +60,18 @@ const NotificationList = () => {
     const markOneRead = async (id) => {
         await db.markNotificationRead(id);
         setVersion(v => v + 1);
+    };
+
+    // Xabarni bosish -> tegishli joyga o'tish. `refType`/`refId` maydonlari bazada
+    // ALLAQACHON bor edi, lekin hech qayerda ishlatilmasdi: xabarni bosish hech narsa
+    // qilmasdi va odam kerakli joyni menyudan qaytadan qidirardi.
+    //
+    // Ochishda xabar o'qilgan deb ham belgilanadi - alohida tugma bosishni kutish
+    // ortiqcha: odam ochdi, demak o'qidi.
+    const openNotification = (notif) => {
+        const to = notificationLink(notif, user?.role);
+        if (!notif.isRead) markOneRead(notif.id);
+        if (to) navigate(to);
     };
 
     return (
@@ -103,8 +118,15 @@ const NotificationList = () => {
                     {notifications.map((notif) => (
                         <Card
                             key={notif.id}
+                            role={notificationLink(notif, user?.role) ? 'button' : undefined}
+                            tabIndex={notificationLink(notif, user?.role) ? 0 : undefined}
+                            onClick={() => notificationLink(notif, user?.role) && openNotification(notif)}
+                            onKeyDown={(e) => {
+                                if (!notificationLink(notif, user?.role)) return;
+                                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNotification(notif); }
+                            }}
                             className={`p-6 border-none transition-all hover:translate-x-1 ${notif.isRead ? 'bg-white/50 grayscale-[0.3] opacity-80' : 'bg-white shadow-md'
-                                }`}
+                                } ${notificationLink(notif, user?.role) ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500' : ''}`}
                         >
                             <div className="flex gap-4">
                                 <div className={`p-3 rounded-2xl shrink-0 ${TYPE_BG[notif.type] || 'bg-blue-50'}`}>
@@ -123,9 +145,12 @@ const NotificationList = () => {
                                     <p className="text-sm text-gray-600 leading-relaxed italic">
                                         {notif.message}
                                     </p>
+                                    {notificationLink(notif, user?.role) && (
+                                        <p className="text-[11px] font-bold text-indigo-600">Ochish →</p>
+                                    )}
                                     {!notif.isRead && (
                                         <div className="pt-2">
-                                            <button onClick={() => markOneRead(notif.id)} className="text-xs font-bold text-gray-400 hover:text-gray-600">
+                                            <button onClick={(e) => { e.stopPropagation(); markOneRead(notif.id); }} className="text-xs font-bold text-gray-400 hover:text-gray-600">
                                                 O'qilgan deb belgilash
                                             </button>
                                         </div>
