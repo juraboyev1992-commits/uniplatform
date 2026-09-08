@@ -1,14 +1,30 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import { db, POSITION_TYPE_LABELS } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
+import { evaluateForPosition } from '../../utils/clubLadder';
+import { LadderChecklist } from './LadderChecklist';
 
 // Ariza-only model — the coordinator never invites, a student applies for themselves (spec section 4).
 const PositionApplicationModal = ({ isOpen, onClose, position, onSubmitted }) => {
     const { user } = useAuth();
     const [motivation, setMotivation] = useState('');
     const [error, setError] = useState('');
+
+    // Zinapoya holati. Ariza BLOKLANMAYDI - bu faqat ma'lumot: talaba nimaga
+    // javob berayotganini, koordinator esa kimni ko'rib chiqayotganini biladi.
+    // Yakuniy qarorni baribir koordinator yoki admin qabul qiladi.
+    const club = useMemo(
+        () => (position?.clubId ? db.getClubById(position.clubId) : null),
+        [position?.clubId]
+    );
+    const ladderCheck = useMemo(() => {
+        if (!user?.username || !position?.clubId) return null;
+        return db.withCachedReads(() => evaluateForPosition(
+            db, user.username, position.clubId, position.title, club?.ladder
+        ));
+    }, [user?.username, position?.clubId, position?.title, club]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -26,6 +42,13 @@ const PositionApplicationModal = ({ isOpen, onClose, position, onSubmitted }) =>
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={`${POSITION_TYPE_LABELS[position.title] || position.title} — ariza`}>
             <form onSubmit={handleSubmit} className="space-y-4">
+                {ladderCheck && (
+                    <LadderChecklist
+                        rows={ladderCheck.rows}
+                        meetsAll={ladderCheck.meetsAll}
+                        audience="student"
+                    />
+                )}
                 <div>
                     <label className="block text-xs font-bold text-gray-500 mb-1">Nima uchun bu lavozimga mos kelasiz?</label>
                     <textarea
