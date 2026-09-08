@@ -2672,6 +2672,20 @@ const studentRecognitionTableError = (error) => {
 // membersCount is deliberately NOT a value trusted from the `clubs` row - it's derived fresh from
 // the real membership rows on every sync, so it can never drift and a plain member (who can't write
 // to `clubs` under RLS) never needs permission to touch it just by joining/leaving.
+// Profillar `profiles_directory` ko'rinishidan o'qiladi: u boshqa talabalarning
+// F.I.Sh./fakultet/kursini beradi, guruh va talaba ID kabi shaxsiy maydonlarni esa
+// xodim bo'lmagan foydalanuvchiga NULL qilib qaytaradi (supabase/rls_personal_data.sql).
+//
+// Ko'rinish topilmasa eski `profiles` jadvaliga qaytadi. Sababi ketma-ketlik: kod
+// deploy bo'lgani bilan SQL hali ishga tushirilmagan bo'lishi mumkin. Bu qaytish
+// bo'lmasa o'sha oraliqda real foydalanuvchilar ro'yxatlardan jimgina yo'qolardi -
+// sinxronizatsiya xatoni yutib yuboradi va `realProfiles` bo'sh massiv bo'lib qolardi.
+const fetchProfileRows = async () => {
+    const viaView = await supabase.from('profiles_directory').select('*');
+    if (!viaView.error) return viaView;
+    return supabase.from('profiles').select('*');
+};
+
 const syncCoreDataFromSupabase = async () => {
     // HAMMA SO'ROV BIR VAQTDA.
     //
@@ -2691,7 +2705,9 @@ const syncCoreDataFromSupabase = async () => {
         Promise.all([
             supabase.from('clubs').select('*'),
             supabase.from('memberships').select('*'),
-            supabase.from('profiles').select('*'),
+            // Foydalanuvchining O'Z to'liq profili bundan olinmaydi - uni AuthContext
+            // `profiles` jadvalidan o'z qatori bo'yicha o'qiydi (izoh yuqorida).
+            fetchProfileRows(),
             supabase.from('teams').select('*'),
             supabase.from('team_members').select('*'),
             supabase.from('events').select('*'),
