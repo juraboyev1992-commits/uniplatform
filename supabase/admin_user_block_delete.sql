@@ -93,6 +93,23 @@ returns table (source text, cnt bigint)
 language plpgsql security definer set search_path = public as $$
 declare
     uname text;
+    rec   record;
+    n     bigint;
+    -- Jadval nomi -> egasi ustuni -> ko'rsatiladigan nom.
+    -- Jadvallar DINAMIK tekshiriladi: bu bazada ba'zi jadvallar boshqacha
+    -- nomlangan yoki umuman yo'q bo'lishi mumkin. Statik `from public.documents`
+    -- yozilsa, yo'q jadval butun funksiyani ishdan chiqarardi.
+    checks text[][] := array[
+        ['documents',                   'recipient_id', 'Berilgan hujjatlar'],
+        ['registrations',               'user_id',      'Ro''yxatdan o''tishlar'],
+        ['activity_attendance',         'participant_id', 'Davomat yozuvlari'],
+        ['social_activity_applications','student_id',   'Ijtimoiy faollik arizalari'],
+        ['memberships',                 'user_id',      'Klub a''zoligi'],
+        ['academic_records',            'student_id',   'Akademik yozuvlar'],
+        ['competition_scores',          'student_id',   'Musobaqa natijalari'],
+        ['student_recognitions',        'student_id',   'Rag''bat yozuvlari']
+    ];
+    i int;
 begin
     if not is_platform_admin() then
         raise exception 'Faqat administrator ko''ra oladi';
@@ -100,30 +117,32 @@ begin
 
     select username into uname from public.profiles where id = p_user_id;
 
-    -- Har bir jadval alohida tekshiriladi va MAVJUDLIGI ham tekshiriladi:
-    -- ba'zi jadvallar hali yaratilmagan bo'lishi mumkin, o'shanda funksiya
-    -- yiqilmasligi kerak.
-    return query
-    with checks(source, cnt) as (
-        select 'Berilgan hujjatlar', count(*) from public.documents
-            where recipient_id::text in (uname, p_user_id::text)
-        union all
-        select 'Ro''yxatdan o''tishlar', count(*) from public.registrations
-            where user_id::text in (uname, p_user_id::text)
-        union all
-        select 'Davomat yozuvlari', count(*) from public.activity_attendance
-            where participant_id::text in (uname, p_user_id::text)
-        union all
-        select 'Ijtimoiy faollik arizalari', count(*) from public.social_activity_applications
-            where student_id::text in (uname, p_user_id::text)
-        union all
-        select 'Klub a''zoligi', count(*) from public.memberships
-            where user_id::text in (uname, p_user_id::text)
-        union all
-        select 'Akademik yozuvlar', count(*) from public.academic_records
-            where student_id::text in (uname, p_user_id::text)
-    )
-    select c.source, c.cnt from checks c where c.cnt > 0;
+    for i in 1 .. array_length(checks, 1) loop
+        -- Jadval bormi?
+        if to_regclass('public.' || checks[i][1]) is null then
+            continue;
+        end if;
+        -- Ustun bormi?
+        if not exists (
+            select 1 from information_schema.columns
+            where table_schema = 'public'
+              and table_name = checks[i][1]
+              and column_name = checks[i][2]
+        ) then
+            continue;
+        end if;
+
+        execute format(
+            'select count(*) from public.%I where %I::text in (%L, %L)',
+            checks[i][1], checks[i][2], coalesce(uname, '~yo''q~'), p_user_id::text
+        ) into n;
+
+        if n > 0 then
+            source := checks[i][3];
+            cnt := n;
+            return next;
+        end if;
+    end loop;
 end;
 $$;
 
