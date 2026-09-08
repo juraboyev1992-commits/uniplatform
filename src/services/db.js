@@ -5622,7 +5622,7 @@ export const db = {
         // bo'ladi, shuning uchun xabar shu yerda ketadi. Yaratilgan paytda
         // yuborilmagan edi (u paytda tadbir hali ko'rinmasdi).
         if (action === 'approve' && !updated?.linkedCompetitionId) {
-            await db.announceActivity('event', eventId);
+            await db.announceActivity(eventId, 'event');
         }
         return updated;
     },
@@ -5701,7 +5701,7 @@ export const db = {
         // Musobaqaga bog'langan tadbir O'TKAZIB YUBORILADI: u musobaqaning
         // kalendardagi soyasi, ya'ni bitta narsa uchun ikkita xabar kelardi.
         if (data.moderation_status === 'approved' && !data.linked_competition_id) {
-            await db.announceActivity('event', id);
+            await db.announceActivity(id, 'event');
         }
         return mapEventFromSupabase(data);
     },
@@ -5886,7 +5886,7 @@ export const db = {
         });
         // Musobaqa talabaga aynan tasdiqlangandan keyin ko'rinadi - e'lon ham
         // shu paytda ketadi.
-        if (action === 'approve') await db.announceActivity('competition', compId);
+        if (action === 'approve') await db.announceActivity(compId, 'competition');
         return updated;
     },
     createCompetition: async (compData) => {
@@ -5939,7 +5939,7 @@ export const db = {
         // ko'rinmaydi (getPublicCompetitions), demak havolasi ham ochilmasdi.
         // Moderatsiyadan o'tgach `reviewCompetitionModeration` yuboradi.
         if (data.moderationStatus === 'approved') {
-            await db.announceActivity('competition', id);
+            await db.announceActivity(id, 'competition');
         }
         return mapCompetitionFromSupabase(row);
     },
@@ -12920,62 +12920,70 @@ export const db = {
 
     // --- 4. BILDIRISHNOMALAR ---
     //
-    // Mexanizm platformada bor edi, lekin butun tizimda atigi ikki joyda
-    // chaqirilardi. Endi tadbir hayot yo'liga ulanadi.
-    announceActivity: async (activityId, activityType, { by = null, audience = 'club' } = {}) => {
-        await assertAuthenticated();
-        const dbData = getDB();
-        const activity = activityType === 'competition'
-            ? (dbData.competitions || []).find(c => c.id === activityId)
-            : (dbData.events || []).find(e => e.id === activityId);
-        if (!activity) throw new Error('Faoliyat topilmadi');
+    // Faoliyat e'loni. Ikki joydan chaqiriladi va IKKALASI HAM shu bitta yo'ldan
+    // o'tadi: avtomatik (tadbir yaratilganda yoki tasdiqlanganda - createEvent /
+    // createCompetition / reviewEventModeration / reviewCompetitionModeration) va
+    // qo'lda ("E'lon qilish" tugmasi, EventManagementPanel.jsx).
+    //
+    // BUTUN ISH SERVERDA (supabase/announce_activity.sql). Bu yerda faqat
+    // chaqiruv. Ilgari qabul qiluvchilar shu yerda, brauzerda yig'ilardi va
+    // bunda uchta jiddiy kamchilik bor edi:
+    //   1. `notification_preferences` ning RLS'i har kimga faqat O'Z qatorini
+    //      ko'rsatadi - ya'ni brauzer boshqalarning tanlovini umuman ko'ra
+    //      olmaydi va xabarni o'chirgan odam ham xabar olib qolardi.
+    //   2. Ro'yxat `generateMockStudents()` dan olinardi, ya'ni SINTETIK
+    //      talabalar bo'yicha. O'sha ro'yxatda yo'q haqiqiy talaba jimgina
+    //      tushib qolardi.
+    //   3. Har qabul qiluvchiga alohida `insert` - N ta tarmoq chaqiruvi.
+    //
+    // Qamrov qoidasi ham serverda: xabar ro'yxatdan o'ta oladigan odamga
+    // boradi (fakultet/kurs/jins/professionallik cheklovlari `checkEligibility`
+    // bilan bir xil o'qiladi).
+    //
+    // TAKROR YUBORISH XAVFSIZ: server ayni odam + ayni faoliyat bo'yicha
+    // ikkinchi marta yozmaydi. Shuning uchun avtomatik e'londan keyin qo'lda
+    // bosilsa ham hech kim ikkita xabar olmaydi.
+    //
+    // JIM XATO — ataylab: e'lon yuborilmagani uchun tadbir yaratilishi bekor
+    // bo'lmasligi kerak. Yaratish asosiy ish, xabar qo'shimcha.
+    announceActivity: async (activityId, activityType = 'event') => {
+        if (!activityId) return { sent: 0, alreadyAnnounced: false };
 
         const meta = db.getActivityMeta(activityId, activityType);
-        if (meta.announcedAt) {
-            return { sent: 0, alreadyAnnounced: true, at: meta.announcedAt };
-        }
-
-        // Kimga: klub a'zolariga yoki hamma talabaga.
-        let recipients;
-        if (audience === 'all') {
-            recipients = generateMockStudents().map(s => s.id);
-        } else {
-            const clubId = activity.clubId || (activity.contextType === 'club' ? activity.contextId : null);
-            recipients = clubId
-                ? (dbData.memberships || []).filter(m => m.clubId === clubId).map(m => m.userId)
-                : [];
-        }
-
-        // Cheklovlar hisobga olinadi - mos kelmaydigan talabaga xabar bormaydi.
-        const students = new Map(generateMockStudents().map(s => [s.id, s]));
-        const r = activity.restrictions || {};
-        recipients = [...new Set(recipients)].filter(id => {
-            const s = students.get(id);
-            if (!s) return false;
-            if (r.byFaculty?.length && !r.byFaculty.includes(s.faculty)) return false;
-            if (r.byCourse?.length && !r.byCourse.map(Number).includes(Number(s.course))) return false;
-            if (r.byGender && r.byGender !== s.gender) return false;
-            return true;
-        });
-
-        const title = activity.title || activity.name;
-        const when = (activity.date || activity.startDate || '').slice(0, 10);
-
+        const wasAnnounced = !!meta.announcedAt;
         let sent = 0;
-        for (const userId of recipients) {
-            try {
-                await addNotificationToSupabase({
-                    userId, type: 'info', title: 'Yangi tadbir',
-                    message: `${title}${when ? ` — ${when}` : ''}. Ro'yxatdan o'tishingiz mumkin.`,
-                    refId: activityId, refType: activityType,
-                });
-                sent++;
-            } catch (e) { console.warn('[tadbir] xabar yuborilmadi:', e.message); }
-        }
-        try { await syncCoreDataFromSupabase(); } catch { /* xabar ko'rinishi keyingi yangilanishda */ }
 
-        await db.setActivityMeta(activityId, activityType, { announcedAt: new Date().toISOString() });
-        return { sent, alreadyAnnounced: false };
+        try {
+            const { data, error } = await supabase.rpc('announce_activity', {
+                p_activity_type: activityType,
+                p_activity_id: String(activityId),
+            });
+            if (error) {
+                console.warn("E'lon xabari yuborilmadi:", error.message);
+                return { sent: 0, alreadyAnnounced: wasAnnounced, error: error.message };
+            }
+            sent = data || 0;
+        } catch (e) {
+            console.warn("E'lon xabari yuborilmadi:", e.message);
+            return { sent: 0, alreadyAnnounced: wasAnnounced, error: e.message };
+        }
+
+        // Yozuv bo'lgandagina qayta o'qiladi - e'lon ko'pincha takrorlanib
+        // chaqiriladi va bo'sh natijada tarmoqqa chiqish keraksiz.
+        if (sent > 0) await syncCoreDataFromSupabase();
+
+        // `announcedAt` - "kamida bir marta e'lon qilingan" belgisi, tugma
+        // o'rnida nishon ko'rsatish uchun. U TAKRORNI TO'SMAYDI: takror
+        // yubormaslikni server o'zi, odam-odam bo'yicha hal qiladi.
+        if (!wasAnnounced) {
+            try {
+                await db.setActivityMeta(activityId, activityType, { announcedAt: new Date().toISOString() });
+            } catch (e) {
+                console.warn("E'lon belgisi saqlanmadi:", e.message);
+            }
+        }
+
+        return { sent, alreadyAnnounced: wasAnnounced && sent === 0 };
     },
 
     // =========================================================================
@@ -16156,39 +16164,6 @@ export const db = {
         const t = NOTIFICATION_TYPES[typeId];
         if (t && t.optional === false) return true;
         return db.getNotificationPrefs(username)[typeId] !== false;
-    },
-
-    // --- E'LON: "yangi musobaqa / tadbir" xabari ---
-    //
-    // Butun ish SERVERDA (supabase/announce_activity.sql), bu yerda faqat
-    // chaqiruv. Sabab: `notification_preferences` jadvalining RLS'i har kimga
-    // FAQAT O'Z qatorini ko'rsatadi, ya'ni brauzer boshqalarning tanlovini
-    // ko'ra olmaydi. Bu yerda yig'ilsa, xabarni o'chirgan odam ham xabar olardi
-    // va sozlama yolg'on bo'lib qolardi. Ustiga yuzlab qator yozishni brauzerga
-    // yuklash kerak emas.
-    //
-    // JIM XATO — ataylab: e'lon yuborilmagani uchun tadbir yaratilishi bekor
-    // bo'lmasligi kerak. Yaratish — asosiy ish, xabar — qo'shimcha. SQL hali
-    // ishga tushirilmagan bo'lsa ham yaratish ishlayveradi.
-    announceActivity: async (activityType, activityId) => {
-        if (!activityId) return 0;
-        try {
-            const { data, error } = await supabase.rpc('announce_activity', {
-                p_activity_type: activityType,
-                p_activity_id: String(activityId),
-            });
-            if (error) {
-                console.warn("E'lon xabari yuborilmadi:", error.message);
-                return 0;
-            }
-            // Yozuv bo'lgandagina qayta o'qiladi - bo'lmasa keraksiz tarmoq
-            // chaqiruvi (e'lon ko'pincha takrorlanib chaqiriladi).
-            if (data > 0) await syncCoreDataFromSupabase();
-            return data || 0;
-        } catch (e) {
-            console.warn("E'lon xabari yuborilmadi:", e.message);
-            return 0;
-        }
     },
 
     // --- ISH NAVBATI: "o'qildi" belgilari ---

@@ -110,7 +110,7 @@ const EventManagementPanel = ({
         setFinishError('');
         setBusy(true);
         try {
-            const res = await db.announceActivity(event.id, 'event', { by: actingUsername });
+            const res = await db.announceActivity(event.id, 'event');
             setAnnounceResult(res);
             refresh();
         } catch (e) {
@@ -250,28 +250,40 @@ const EventManagementPanel = ({
                 />
             )}
 
-            {/* E'lon - klub a'zolariga xabar. Cheklovlarga mos kelmaydigan
-                talabaga xabar bormaydi. Bir marta yuboriladi. */}
+            {/* E'lon. Tadbir yaratilganda (yoki tasdiqlanganda) xabar AVTOMATIK
+                ketadi - bu tugma qayta yuborish uchun: cheklov o'zgargan, yangi
+                talaba qo'shilgan yoki e'lon o'sha paytda ishlamay qolgan bo'lsa.
+                Bosish xavfsiz - allaqachon xabar olgan odam ikkinchisini olmaydi
+                (takrorni server odam-odam bo'yicha tekshiradi). */}
             {shows('announce') && canEditDetails && event.status !== 'completed' && (
                 <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div>
                             <h3 className="font-bold text-sm text-gray-700">E'lon qilish</h3>
-                            <p className="text-[11px] text-gray-400">Klub a'zolariga bildirishnoma yuboriladi.</p>
+                            <p className="text-[11px] text-gray-400">
+                                Ro'yxatdan o'ta oladigan talabalarga bildirishnoma yuboriladi.
+                            </p>
                         </div>
-                        {event.announcedAt ? (
-                            <Badge variant="success" size="sm">E'lon qilingan</Badge>
-                        ) : (
+                        <div className="flex items-center gap-2">
+                            {event.announcedAt && <Badge variant="success" size="sm">E'lon qilingan</Badge>}
+                            {/* Nishon tugmani ALMASHTIRMAYDI: avtomatik e'londan keyin
+                                nishon darrov paydo bo'ladi va tugma yo'qolsa,
+                                keyinroq qo'shilgan talabaga xabar yuborishning
+                                iloji qolmasdi. */}
                             <Button variant="outline" size="sm" disabled={busy} onClick={handleAnnounce}>
-                                {busy ? 'Yuborilmoqda...' : "E'lon qilish"}
+                                {busy ? 'Yuborilmoqda...' : (event.announcedAt ? 'Qayta yuborish' : "E'lon qilish")}
                             </Button>
-                        )}
+                        </div>
                     </div>
                     {announceResult && (
-                        <p className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
-                            {announceResult.alreadyAnnounced
-                                ? "Bu tadbir allaqachon e'lon qilingan."
-                                : `${announceResult.sent} talabaga xabar yuborildi.`}
+                        <p className={`text-[11px] font-semibold rounded-xl px-3 py-2 border ${
+                            announceResult.sent > 0
+                                ? 'text-emerald-700 bg-emerald-50 border-emerald-100'
+                                : 'text-gray-500 bg-gray-50 border-gray-100'
+                        }`}>
+                            {announceResult.sent > 0
+                                ? `${announceResult.sent} talabaga xabar yuborildi.`
+                                : "Yangi qabul qiluvchi yo'q — mos talabalarning hammasi bu tadbir haqida xabardor."}
                         </p>
                     )}
                 </div>
