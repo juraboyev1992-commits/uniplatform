@@ -39,6 +39,38 @@ const classifyCompetition = (c) => {
 const COMPETITION_STATUS_LABELS = { ongoing: 'Davom etmoqda', upcoming: 'Ochilmagan', closed: 'Yakunlangan' };
 const COMPETITION_STATUS_VARIANTS = { ongoing: 'warning', upcoming: 'info', closed: 'default' };
 
+// Bosiladigan ko'rsatkich kartochkasi.
+//
+// `Card` oddiy `div` chizadi, shuning uchun klaviatura bilan ishlash QO'LDA qo'shiladi:
+// `role="button"` + `tabIndex` + Enter/Bo'sh joy. Busiz kartochka faqat sichqoncha bilan
+// ochilardi - klaviaturada yuradigan foydalanuvchi uchun tugma umuman yo'qdek bo'lardi.
+const StatCard = ({ label, value, sub, icon: Icon, accent, iconWrap, iconColor, hint, onOpen }) => (
+    <Card
+        hover
+        className={`border-l-4 ${accent} transition-shadow focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+        role="button"
+        tabIndex={0}
+        title={hint}
+        aria-label={`${label}: ${value}. ${hint}`}
+        onClick={onOpen}
+        onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); }
+        }}
+    >
+        <div className="flex items-center justify-between">
+            <div className="min-w-0">
+                <p className="text-sm text-gray-600 mb-1">{label}</p>
+                <p className="text-3xl font-bold text-gray-900">{value}</p>
+                {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+            </div>
+            <div className={`w-12 h-12 ${iconWrap} rounded-lg flex items-center justify-center shrink-0`}>
+                <Icon className={`w-6 h-6 ${iconColor}`} />
+            </div>
+        </div>
+        <p className="text-[11px] text-indigo-600 font-semibold mt-3">{hint} →</p>
+    </Card>
+);
+
 // Overview tab (spec: "Tahlil & Monitoring") — real data throughout, deliberately NOT re-showing
 // per-student/per-faculty rankings here (that's Reytinglar's job, with far richer TAS/tier/search
 // tooling — duplicating it here would just be a second, weaker copy). This tab's job is a quick pulse
@@ -183,56 +215,51 @@ const AdminDashboard = () => {
 
             {activeAdminTab === 'overview' && (
                 <>
-                    {/* Quick Stats — all real */}
+                    {/* Quick Stats — all real. Har biri o'z bo'limiga OLIB BORADI: raqamni
+                        ko'rgan odamning keyingi savoli har doim "kimlar?" bo'ladi, ilgari esa
+                        u menyudan qaytadan qidirishi kerak edi. */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <Card hover className="border-l-4 border-l-blue-500">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-600 mb-1">Jami talabalar</p>
-                                    <p className="text-3xl font-bold text-gray-900">{students.length}</p>
-                                </div>
-                                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                    <Users className="w-6 h-6 text-blue-500" />
-                                </div>
-                            </div>
-                        </Card>
-
-                        <Card hover className="border-l-4 border-l-yellow-500">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-600 mb-1">Tasdiqlash kutilmoqda</p>
-                                    <p className="text-3xl font-bold text-gray-900">{pendingTotal}</p>
-                                    <p className="text-xs text-gray-400 mt-0.5">barcha oqimlar bo'yicha</p>
-                                </div>
-                                <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                                    <Clock className="w-6 h-6 text-yellow-500" />
-                                </div>
-                            </div>
-                        </Card>
-
-                        <Card hover className="border-l-4 border-l-purple-500">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-600 mb-1">Yaqin tadbirlar</p>
-                                    <p className="text-3xl font-bold text-gray-900">{upcomingEvents.length}</p>
-                                </div>
-                                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                                    <Calendar className="w-6 h-6 text-purple-500" />
-                                </div>
-                            </div>
-                        </Card>
-
-                        <Card hover className="border-l-4 border-l-green-500">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-600 mb-1">Faol musobaqalar</p>
-                                    <p className="text-3xl font-bold text-gray-900">{activeCompetitions.length}</p>
-                                </div>
-                                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                                    <Trophy className="w-6 h-6 text-green-500" />
-                                </div>
-                            </div>
-                        </Card>
+                        <StatCard
+                            label="Jami talabalar"
+                            value={students.length}
+                            icon={Users}
+                            accent="border-l-blue-500"
+                            iconWrap="bg-blue-100"
+                            iconColor="text-blue-500"
+                            hint="Talabalar reytingini ochish"
+                            onOpen={() => navigate('/admin/social-activity?bolim=tahlil&tab=students')}
+                        />
+                        <StatCard
+                            label="Tasdiqlash kutilmoqda"
+                            value={pendingTotal}
+                            sub="barcha oqimlar bo'yicha"
+                            icon={Clock}
+                            accent="border-l-yellow-500"
+                            iconWrap="bg-yellow-100"
+                            iconColor="text-yellow-500"
+                            hint="Tasdiqlash navbatini ochish"
+                            onOpen={() => navigate('/admin/social-activity?bolim=ish&jarayon=tasdiqlash')}
+                        />
+                        <StatCard
+                            label="Yaqin tadbirlar"
+                            value={upcomingEvents.length}
+                            icon={Calendar}
+                            accent="border-l-purple-500"
+                            iconWrap="bg-purple-100"
+                            iconColor="text-purple-500"
+                            hint="Tadbirlar bo'limini ochish"
+                            onOpen={() => navigate('/admin/events')}
+                        />
+                        <StatCard
+                            label="Faol musobaqalar"
+                            value={activeCompetitions.length}
+                            icon={Trophy}
+                            accent="border-l-green-500"
+                            iconWrap="bg-green-100"
+                            iconColor="text-green-500"
+                            hint="Musobaqalar bo'limini ochish"
+                            onOpen={() => navigate('/admin/competitions')}
+                        />
                     </div>
 
                     {/* Muddatlar — metodikadagi 10/15/25-iyul. Sanalar tizimda

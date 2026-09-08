@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, CalendarClock, CheckCircle2, Database, ArrowRight } from 'lucide-react';
 import Card from '../common/Card';
 import { db } from '../../services/db';
@@ -23,7 +24,20 @@ import { getIndexReadiness, getPendingWorkload, getSystemHealth } from '../../ut
 // --- MUDDATLAR ---
 // Sanalar metodikadan (10/15/25-iyul), tizimda allaqachon bor edi, lekin
 // faqat sozlamalar ichida ko'rinardi.
+// Har bir muddat qaysi ish bilan bog'liq — bosilganda o'sha joyga olib boradi.
+// Muddat o'zi harakat emas, u ESLATMA; foydalanuvchining keyingi savoli har doim
+// "shu ish qayerda bajariladi?" bo'ladi.
+const DEADLINE_TARGET = {
+    // Talaba hujjat yuklaydi -> admin uni arizalar ro'yxatida ko'radi.
+    upload: '/admin/social-activity?bolim=ish&jarayon=arizalar',
+    // Mas'ul tasdiqlaydi -> tasdiqlash navbati.
+    confirm: '/admin/social-activity?bolim=ish&jarayon=tasdiqlash',
+    // Komissiya baholaydi -> indeks holati (mezon bo'yicha tafsilot shu yerda).
+    evaluate: '/admin/social-activity?bolim=ish&jarayon=talabalar',
+};
+
 export const DeadlineStrip = () => {
+    const navigate = useNavigate();
     const deadlines = useMemo(() => db.getIndexDeadlines(), []);
     if (deadlines.length === 0) return null;
 
@@ -40,14 +54,21 @@ export const DeadlineStrip = () => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {deadlines.map((d, i) => {
                     const isNext = i === nextIdx;
+                    const target = DEADLINE_TARGET[d.key];
                     return (
-                        <div
+                        <button
                             key={d.key}
-                            className={`rounded-xl border px-3 py-2.5 ${d.passed
-                                ? 'border-gray-100 bg-gray-50'
-                                : isNext
-                                    ? 'border-indigo-200 bg-indigo-50'
-                                    : 'border-gray-200 bg-white'}`}
+                            type="button"
+                            disabled={!target}
+                            onClick={() => target && navigate(target)}
+                            title={target ? 'Shu bosqich ustida ishlash' : undefined}
+                            className={`text-left w-full rounded-xl border px-3 py-2.5 transition-shadow
+                                ${target ? 'hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500' : 'cursor-default'}
+                                ${d.passed
+                                    ? 'border-gray-100 bg-gray-50'
+                                    : isNext
+                                        ? 'border-indigo-200 bg-indigo-50'
+                                        : 'border-gray-200 bg-white'}`}
                         >
                             <p className={`text-xs font-bold ${d.passed ? 'text-gray-400' : 'text-gray-900'}`}>
                                 {new Date(d.date).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long' })}
@@ -58,7 +79,7 @@ export const DeadlineStrip = () => {
                                 : d.daysLeft <= 7 ? 'text-red-600' : 'text-indigo-600'}`}>
                                 {d.passed ? "muddat o'tgan" : `${d.daysLeft} kun qoldi`}
                             </p>
-                        </div>
+                        </button>
                     );
                 })}
             </div>
