@@ -6,6 +6,8 @@ import { db, POSITION_TYPE_LABELS, POSITION_APPLICATION_STATUS_LABELS } from '..
 import { useAuth, ROLES } from '../../contexts/AuthContext';
 import { isClubCoordinator } from '../../utils/permissions';
 import StudentPortfolioCard from './StudentPortfolioCard';
+import { LadderChecklist } from './LadderChecklist';
+import { evaluateForPosition } from '../../utils/clubLadder';
 
 // Coordinator stage now has 3 steps (spec): review the applicant's portfolio (below) -> invite to an
 // interview -> after the interview, recommend or reject. Only a recommended application moves to the
@@ -96,6 +98,19 @@ const PositionApplicationReviewPanel = ({ club, positions, onRefresh }) => {
                                 </div>
                             </div>
                         )}
+
+                        {/* Zinapoya holati. Talaba arizani yuborishdan oldin AYNI shu
+                            ro'yxatni ko'rgan - koordinator ham shuni ko'rsin, aks holda
+                            ikki tomon boshqa-boshqa ma'lumot asosida gaplashardi.
+                            Bu qaror EMAS: talab bajarilmagan bo'lsa ham tasdiqlash mumkin. */}
+                        <LadderChecklist
+                            {...db.withCachedReads(() => evaluateForPosition(
+                                db, app.studentId, club.id,
+                                position?.title,
+                                club.ladder
+                            ))}
+                            audience="coordinator"
+                        />
 
                         <StudentPortfolioCard studentId={app.studentId} excludeClubId={club.id} />
 

@@ -2068,6 +2068,10 @@ const mapClubFromSupabase = (row) => ({
     // jimgina o'zgartirish mavjud klublarga a'zo bo'lishni to'xtatib
     // qo'yardi.
     joinPolicy: row.data?.joinPolicy || 'open',
+    // Zinapoya talablari. Yozuvi bo'lmasa `null` - shunda `mergeLadder()` platforma
+    // boshlang'ich qiymatlarini beradi va mavjud klublarga hech narsa qilish
+    // kerak emas.
+    ladder: row.data?.ladder || null,
     // Klubning O'Z matni. Bo'sh bo'lsa "Haqida" bo'limi shunday deb
     // ko'rsatadi - yo'nalish bo'yicha umumiy matn bilan to'ldirilmaydi.
     about: row.data?.about || {},
@@ -3628,6 +3632,10 @@ export const db = {
             // Klub tashkil etish va rasmiylashtirish (config/clubRegistration.js).
             'registrationStatus', 'operationalStatus', 'registryNumber', 'registeredAt',
             'certificateNumber', 'createdFrom', 'createdBy', 'applicationId', 'clubType',
+            // Zinapoya talablari (config/clubLadder.js). Har klub o'zinikini
+            // belgilaydi: yiliga 2 ta tadbir o'tkazadigan klub bilan har oy tadbir
+            // qiladigan klubga bir xil talab qo'yish bajarib bo'lmaydigan bo'lardi.
+            'ladder',
         ];
         const touchedDataFields = DATA_FIELDS.filter(f => updates[f] !== undefined);
         if (touchedDataFields.length > 0) {

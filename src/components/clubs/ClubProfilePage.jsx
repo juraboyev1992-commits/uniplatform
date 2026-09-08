@@ -6,6 +6,7 @@ import Button from '../common/Button';
 import Badge from '../common/Badge';
 import Modal from '../common/Modal';
 import { db } from '../../services/db';
+import { mergeLadder, LADDER_FIELD_LABELS } from '../../config/clubLadder';
 import { useAuth, ROLES } from '../../contexts/AuthContext';
 import { isClubCoordinator } from '../../utils/permissions';
 import { hasEventDelegatedPermission } from '../../utils/competitionPermissions';
@@ -205,6 +206,7 @@ const ClubProfilePage = () => {
             pointsModifier: club.pointsModifier, contacts: { ...(club.contacts || {}) },
             shortName: club.shortName || '',
             joinPolicy: club.joinPolicy || 'open',
+            ladder: mergeLadder(club.ladder),
             about: { ...(club.about || {}) },
         });
         setIsEditOpen(true);
@@ -851,6 +853,55 @@ const ClubProfilePage = () => {
                                         ? "Talaba ariza yuboradi, koordinator qabul qiladi yoki rad etadi."
                                         : "Talaba «A'zo bo'lish» tugmasini bosishi bilan a'zo bo'ladi."}
                                 </p>
+                            </div>
+                        </div>
+
+                        {/* ZINAPOYA TALABLARI.
+                            Har klub o'zinikini belgilaydi: yiliga 2 ta tadbir o'tkazadigan
+                            klub bilan har oy tadbir qiladigan klubga bir xil talab qo'yish
+                            bajarib bo'lmaydigan bo'lardi.
+                            Bu talablar arizani BLOKLAMAYDI - ular talabaga ham, koordinatorga
+                            ham ko'rsatiladi, qaror esa koordinatorda qoladi. */}
+                        <div className="space-y-3 pt-4 border-t">
+                            <div>
+                                <p className="text-xs font-black text-gray-500 uppercase">Lavozim talablari</p>
+                                <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                                    Talaba lavozimga ariza berayotganda bu ko'rsatkichlar unga ko'rsatiladi.
+                                    Talab bajarilmagan bo'lsa ham ariza yuborilaveradi — qarorni siz qabul qilasiz.
+                                </p>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {[
+                                    ['attendancePercent', '%'],
+                                    ['organizerCount', 'marta'],
+                                    ['internalMonths', 'oy'],
+                                    ['organizerCountAssistant', 'marta'],
+                                    ['assistantMonths', 'oy'],
+                                    ['minClubEvents', 'ta tadbir'],
+                                ].map(([field, unit]) => (
+                                    <div key={field} className="min-w-0">
+                                        <label className="block text-[11px] font-bold text-gray-500 mb-1">
+                                            {LADDER_FIELD_LABELS[field]}
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                className="w-24 px-3 py-2 border rounded-xl text-sm"
+                                                value={editForm.ladder?.[field] ?? ''}
+                                                onChange={e => setEditForm({
+                                                    ...editForm,
+                                                    ladder: {
+                                                        ...editForm.ladder,
+                                                        // Bo'sh qoldirilsa platforma qiymatiga qaytadi.
+                                                        [field]: e.target.value === '' ? undefined : Number(e.target.value),
+                                                    },
+                                                })}
+                                            />
+                                            <span className="text-xs text-gray-400">{unit}</span>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
 

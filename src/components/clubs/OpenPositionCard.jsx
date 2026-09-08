@@ -21,6 +21,15 @@ const OpenPositionCard = ({ position, applicationCount, onRefresh }) => {
         [user, position.id, applicationCount]
     );
 
+    // Klub a'zosimi. `memberships.user_id` kod bazasida BA'ZAN username, BA'ZAN
+    // profil uuid'si bilan yoziladi - ikkalasi ham tekshiriladi, aks holda shart
+    // hech qachon rost bo'lmay, hech kim ariza bera olmay qolardi.
+    const isMemberOfClub = useMemo(() => {
+        if (!user) return false;
+        return (db.getClubMembers(position.clubId) || [])
+            .some(m => m.userId === user.username || m.userId === user.id);
+    }, [user, position.clubId]);
+
     return (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 space-y-2.5">
             <div className="flex items-start justify-between gap-2">
@@ -50,9 +59,24 @@ const OpenPositionCard = ({ position, applicationCount, onRefresh }) => {
                 </Badge>
             ) : (
                 !isClosed && !isFull && user && (
-                    <Button variant="primary" size="sm" className="w-full" onClick={() => setIsApplyOpen(true)}>
-                        Ariza topshirish
-                    </Button>
+                    isMemberOfClub ? (
+                        <Button variant="primary" size="sm" className="w-full" onClick={() => setIsApplyOpen(true)}>
+                            Ariza topshirish
+                        </Button>
+                    ) : (
+                        // Lavozimga faqat KLUB A'ZOSI ariza bera oladi. A'zolik -
+                        // zinapoyaning birinchi qadami; klubga umuman aloqasi yo'q odam
+                        // koordinatorlikka da'vogar bo'lishi mantiqsiz edi.
+                        //
+                        // Tugma yashirilmaydi, SABABI yoziladi: yashirilgan tugma
+                        // "nega menda yo'q?" degan javobsiz savol qoldiradi.
+                        <div className="w-full text-center px-3 py-2 rounded-xl bg-gray-50 border border-gray-200">
+                            <p className="text-[11px] font-bold text-gray-600">Avval klubga a'zo bo'ling</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                                Lavozimga faqat klub a'zolari ariza topshiradi
+                            </p>
+                        </div>
+                    )
                 )
             )}
 
