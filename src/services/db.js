@@ -16090,6 +16090,9 @@ export const db = {
         // O'chirib bo'lmaydigan turni o'chirish urinishi JIM RAD ETILADI - UI ham uni
         // ko'rsatmaydi, lekin himoya ikki joyda turgani ma'qul.
         if (NOTIFICATION_TYPES[typeId] && NOTIFICATION_TYPES[typeId].optional === false) return;
+
+        // Avval MAHALLIY yoziladi - tugma darhol javob berishi kerak, tarmoqni
+        // kutib turmasligi kerak.
         const dbData = getDB();
         dbData.notificationPrefs = dbData.notificationPrefs || {};
         dbData.notificationPrefs[username] = {
@@ -16097,6 +16100,18 @@ export const db = {
             [typeId]: !!enabled,
         };
         saveDB(dbData);
+
+        // Keyin BAZAGA. Bu shart: muddat eslatmalarini pg_cron yuboradi va u
+        // brauzerdagi sozlamani ko'ra olmaydi. Faqat mahalliy saqlansa, tugma
+        // "ishlayotgandek" ko'rinib, aslida eslatmalarga ta'sir qilmasdi.
+        //
+        // Jadval hali yaratilmagan bo'lsa (SQL ishga tushirilmagan) - jim
+        // o'tkazib yuboriladi, mahalliy sozlama baribir ishlaydi.
+        supabase.from('notification_preferences').upsert({
+            username, type_id: typeId, enabled: !!enabled, updated_at: new Date().toISOString(),
+        }, { onConflict: 'username,type_id' }).then(({ error }) => {
+            if (error) console.warn('Bildirishnoma sozlamasi bazaga yozilmadi:', error.message);
+        });
     },
 
     // Xabar yuborishdan OLDIN chaqiriladi. Bitta joyda turadi, chunki tekshiruvni
