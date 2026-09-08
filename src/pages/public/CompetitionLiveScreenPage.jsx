@@ -59,6 +59,7 @@ const CompetitionLiveScreenPage = () => {
                     </div>
                 ) : (
                     <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden">
+                        <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="bg-slate-800/60 text-xs font-bold text-slate-400 uppercase">
                                 <tr>
@@ -77,6 +78,7 @@ const CompetitionLiveScreenPage = () => {
                                 ))}
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 )}
             </div>

@@ -232,7 +232,7 @@ const OverviewTab = ({ overview, dailyParticipation, scopeLabel, tutorNameByUser
             <TopCallout label="Eng ko'p ball to'plagan talaba" name={overview.topStudent?.fullName} sub={overview.topStudent ? `${overview.topStudent.totalPoints} ball` : null} />
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {[
                 { key: 'ongoing', label: 'Faol', color: 'text-emerald-600' },
                 { key: 'upcoming', label: 'Kutilayotgan', color: 'text-blue-600' },
@@ -562,7 +562,7 @@ const RankingTab = ({ scope, setScope, rows, scopeLabel, onExport, onRowClick, t
 
 const StudentDrillDown = ({ row }) => (
     <div className="space-y-3">
-        <div className="grid grid-cols-3 gap-2 text-center mb-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-center mb-2">
             <div className="bg-gray-50 rounded-xl p-2.5"><p className="text-lg font-black text-gray-900">{row.participationCount}</p><p className="text-[10px] text-gray-400 font-bold uppercase">Ishtirok</p></div>
             <div className="bg-gray-50 rounded-xl p-2.5"><p className="text-lg font-black text-gray-900">{row.firstPlaces + row.secondPlaces + row.thirdPlaces}</p><p className="text-[10px] text-gray-400 font-bold uppercase">O'rinlar</p></div>
             <div className="bg-indigo-50 rounded-xl p-2.5"><p className="text-lg font-black text-indigo-600">{row.totalPoints}</p><p className="text-[10px] text-gray-400 font-bold uppercase">Jami ball</p></div>
@@ -589,7 +589,7 @@ const StudentDrillDown = ({ row }) => (
 // yig'ilgan holda (aks holda ko'p a'zoli faoliyat necha marta takrorlanib chiqardi).
 const DimensionDrillDown = ({ row }) => (
     <div className="space-y-3">
-        <div className="grid grid-cols-3 gap-2 text-center mb-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-center mb-2">
             <div className="bg-gray-50 rounded-xl p-2.5"><p className="text-lg font-black text-gray-900">{row.uniqueParticipants}</p><p className="text-[10px] text-gray-400 font-bold uppercase">Unikal talaba</p></div>
             <div className="bg-gray-50 rounded-xl p-2.5"><p className="text-lg font-black text-gray-900">{fmtPct(row.coveragePercent)}</p><p className="text-[10px] text-gray-400 font-bold uppercase">Qamrov</p></div>
             <div className="bg-indigo-50 rounded-xl p-2.5"><p className="text-lg font-black text-indigo-600">{row.totalPoints}</p><p className="text-[10px] text-gray-400 font-bold uppercase">Jami ball</p></div>
@@ -664,7 +664,7 @@ const SettingsTab = ({ collection, config, collectionId, bump, busy, setBusy, se
                         <textarea rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                             className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-xl text-sm" />
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Boshlanish</label>
                             <input type="date" value={form.startDate || ''} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}

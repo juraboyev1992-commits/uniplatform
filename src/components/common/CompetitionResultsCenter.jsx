@@ -1501,7 +1501,7 @@ const CompetitionResultsCenter = ({
                             </div>
 
                             {/* Performance metrics */}
-                            <div className="grid grid-cols-3 gap-3 border-t pt-4 border-slate-200/50">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 border-t pt-4 border-slate-200/50">
                                 <div className="p-3 rounded-xl bg-amber-500/5 text-center">
                                     <p className="text-2xl font-black text-amber-500">{drawerParticipant.totalScore}</p>
                                     <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Jami Ball</p>

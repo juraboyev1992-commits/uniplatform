@@ -103,7 +103,7 @@ const EventCollectionsPage = () => {
                         <p className="text-xs text-gray-400 flex items-center gap-1.5 mb-4">
                             <Calendar size={12} /> {fmtRange(collection)}
                         </p>
-                        <div className="grid grid-cols-4 gap-2 text-center">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
                             <div>
                                 <p className="text-lg font-black text-indigo-600">{analytics?.overview.activityCount ?? 0}</p>
                                 <p className="text-[10px] text-gray-400 font-bold uppercase">Faoliyat</p>

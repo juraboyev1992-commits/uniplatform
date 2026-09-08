@@ -79,7 +79,7 @@ const ClubCard = ({ club, clubBase }) => {
                     </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-2 text-center mb-5 mt-auto">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-center mb-5 mt-auto">
                     <div>
                         <p className="font-black text-gray-900 text-sm flex items-center justify-center gap-1"><Users size={12} className="text-gray-400" />{club.membersCount || 0}</p>
                         <p className="text-[10px] text-gray-400 font-semibold uppercase">A'zolar</p>

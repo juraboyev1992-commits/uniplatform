@@ -28,7 +28,7 @@ const MatchNotiqBreakdown = ({ matchId, side, calculationMethod, criteria, allSl
         ? allSlots.filter(s => s.startsWith('I'))
         : allSlots.filter(s => !s.startsWith('I'));
     return (
-        <div className={`grid gap-2 ${isCourt ? 'grid-cols-1 max-w-xs' : 'grid-cols-3'}`}>
+        <div className={`grid gap-2 ${isCourt ? 'grid-cols-1 max-w-xs' : 'grid-cols-2 md:grid-cols-3'}`}>
             {slots.map(slot => {
                 const member = lineup.find(l => l.notiqSlot === slot)?.member;
                 const judgeEntries = scores.filter(s => s.notiqSlot === slot).map(s => ({ judge: s.judge, criteriaScores: s.criteriaScores }));
@@ -71,6 +71,7 @@ const DebateRatingTab = ({ competition }) => {
                 <p className="text-sm text-gray-400 text-center py-8">Hali natijalar yo'q.</p>
             ) : (
                 <div className="border rounded-2xl overflow-hidden">
+                    <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
                         <thead className="bg-slate-50 text-gray-400 uppercase">
                             <tr>
@@ -133,6 +134,7 @@ const DebateRatingTab = ({ competition }) => {
                             ))}
                         </tbody>
                     </table>
+                    </div>
                 </div>
             )}
 
@@ -150,6 +152,7 @@ const DebateRatingTab = ({ competition }) => {
                         <p className="text-sm text-gray-400 text-center py-8">Hali natijalar yo'q.</p>
                     ) : (
                         <div className="border rounded-2xl overflow-hidden">
+                            <div className="overflow-x-auto">
                             <table className="w-full text-left text-xs">
                                 <thead className="bg-slate-50 text-gray-400 uppercase">
                                     <tr>
@@ -172,6 +175,7 @@ const DebateRatingTab = ({ competition }) => {
                                     ))}
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     )}
                 </>

@@ -365,7 +365,7 @@ const TournamentRulesStep = ({ data, onChange, showAttendanceGranularity = false
                                     Bu rejim hozircha faqat sozlamalarni saqlaydi — real ball hisoblash formulasi keyingi bosqichda ishlab chiqiladi.
                                 </p>
                             </div>
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                 <div>
                                     <label className={labelClass}>Maksimal ball</label>
                                     <input type="number" className={inputClass} value={data.rankingMaxBall} onChange={e => onChange({ rankingMaxBall: Number(e.target.value) || 0 })} />
@@ -399,6 +399,7 @@ const TournamentRulesStep = ({ data, onChange, showAttendanceGranularity = false
 
                             {data.rankingPerTur && (
                                 <div className="border rounded-xl overflow-hidden">
+                                    <div className="overflow-x-auto">
                                     <table className="w-full text-xs">
                                         <thead className="bg-white text-gray-400 uppercase text-[10px]">
                                             <tr>
@@ -434,6 +435,7 @@ const TournamentRulesStep = ({ data, onChange, showAttendanceGranularity = false
                                             })}
                                         </tbody>
                                     </table>
+                                    </div>
                                 </div>
                             )}
                         </div>

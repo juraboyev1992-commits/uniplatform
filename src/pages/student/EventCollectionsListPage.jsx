@@ -57,7 +57,7 @@ const EventCollectionsListPage = () => {
                         {collection.description && (
                             <p className="text-sm text-gray-600 mb-4 line-clamp-2">{collection.description}</p>
                         )}
-                        <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-center">
                             <div>
                                 <p className="text-lg font-black text-indigo-600">{analytics?.overview.activityCount ?? 0}</p>
                                 <p className="text-[10px] text-gray-400 font-bold uppercase">Faoliyat</p>

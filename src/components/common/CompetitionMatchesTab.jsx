@@ -175,6 +175,7 @@ const CompetitionMatchesTab = ({ competition, hasFullAdminAccess, canManageAtten
                         {standingsByGroup.map(sg => (
                             <div key={sg.name} className="border rounded-2xl overflow-hidden">
                                 <div className="bg-slate-50 px-3 py-2 text-xs font-bold text-gray-600">Guruh {sg.name}</div>
+                                <div className="overflow-x-auto">
                                 <table className="w-full text-left text-xs">
                                     <thead className="text-gray-400 uppercase">
                                         <tr>
@@ -201,6 +202,7 @@ const CompetitionMatchesTab = ({ competition, hasFullAdminAccess, canManageAtten
                                         ))}
                                     </tbody>
                                 </table>
+                                </div>
                             </div>
                         ))}
                     </div>

@@ -211,7 +211,7 @@ const DebateMatchSchedule = ({ competition, canEdit }) => {
                 </div>
 
                 {(expandedKey === `${m.id}:tasdiqlovchi` || expandedKey === `${m.id}:inkor`) && (
-                    <div className="grid grid-cols-3 gap-2 p-2.5 bg-slate-50 rounded-xl">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-2.5 bg-slate-50 rounded-xl">
                         {sideSlots[expandedKey.split(':')[1]].map(slot => {
                             const member = lineup.find(l => l.notiqSlot === slot)?.member;
                             return (

@@ -362,7 +362,7 @@ const RankingsPage = ({ embedded = false }) => {
                                         <Badge variant={TIER_BADGE_VARIANT[tierForTotal(c.avgTas)]} size="sm">{tierForTotal(c.avgTas)} · {c.avgTas} TAS</Badge>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-3 gap-2 text-center">
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-center">
                                     <div>
                                         <p className="text-sm font-black text-gray-900">{c.activeMembers}/{c.memberCount}</p>
                                         <p className="text-[9px] text-gray-400 font-bold uppercase">Faol a'zo</p>

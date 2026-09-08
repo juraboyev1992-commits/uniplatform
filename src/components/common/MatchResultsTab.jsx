@@ -63,6 +63,7 @@ const MatchResultsTab = ({ competition }) => {
             </div>
 
             <div className="border rounded-2xl overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                     <thead className="bg-slate-50 text-gray-400 uppercase">
                         <tr>
@@ -89,6 +90,7 @@ const MatchResultsTab = ({ competition }) => {
                         ))}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     );

@@ -364,7 +364,7 @@ const GlobalStudentsRankings = () => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                 <div className="p-3 bg-indigo-500/5 rounded-xl text-center">
                                     <p className="text-2xl font-black text-indigo-600">{selectedStudent.totalScore}</p>
                                     <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">Jami ball</p>

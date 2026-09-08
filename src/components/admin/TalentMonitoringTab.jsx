@@ -283,7 +283,7 @@ const MonitoringEditor = ({ item, assignableUsers, busy, user, run, onDone }) =>
                 <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
                     Umumiy holat
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {Object.entries(MONITORING_FLAGS).map(([k, v]) => (
                         <button key={k} type="button" onClick={() => setFlag(k)}
                             className={`p-3 rounded-xl border-2 transition-all ${flag === k ? 'border-gray-800 ' + v.bg : 'border-gray-200 bg-white hover:border-gray-300'}`}>

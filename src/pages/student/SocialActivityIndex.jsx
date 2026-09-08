@@ -371,7 +371,7 @@ const SocialActivityIndex = () => {
                             </Badge>
                         </div>
                     </div>
-                    <div className="mt-4 md:mt-0 grid grid-cols-3 gap-4 text-center">
+                    <div className="mt-4 md:mt-0 grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
                         <div>
                             <p className="text-2xl font-bold text-primary-500">12</p>
                             <p className="text-sm text-gray-600">Fakultetda</p>

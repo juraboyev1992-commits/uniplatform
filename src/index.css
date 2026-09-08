@@ -131,6 +131,19 @@ select:focus {
   padding: 2rem 0;
 }
 
+/* Telefonda yon bo'shliq 1.5rem juda ko'p: 360px ekranda mazmun uchun 312px
+   qoladi va jadval, kartochka, uzun sarlavhalar siqilib ketadi. Vertikal
+   bo'shliq ham kichraytiriladi - kichik ekranda ekranning o'zi kam. */
+@media (max-width: 640px) {
+  .container-custom {
+    padding: 0 0.875rem;
+  }
+
+  .section-padding {
+    padding: 1.25rem 0;
+  }
+}
+
 /* Print Styles */
 @media print {
   .no-print {
