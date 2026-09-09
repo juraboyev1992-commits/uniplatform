@@ -18,6 +18,10 @@ const ActivityTasksPanel = ({ activityId, activityType, canManage, actingUsernam
     // Tanlangan odamning O'ZI saqlanadi, faqat identifikatori emas: forma
     // ochiq turganda uning ismi ko'rinib turishi kerak.
     const [assignee, setAssignee] = useState(null);
+    // Qaysi vazifaning mas'uli hozir tahrirlanyapti. Andoza bilan qo'shilgan
+    // vazifalarda mas'ul bo'sh qoladi va uni KEYIN belgilash kerak - ilgari
+    // buning yo'li yo'q edi, vazifani o'chirib qaytadan yaratish kerak edi.
+    const [editingAssignee, setEditingAssignee] = useState(null);
     const [role, setRole] = useState('');
     const [dueDate, setDueDate] = useState('');
     const [busy, setBusy] = useState(false);
@@ -107,11 +111,58 @@ const ActivityTasksPanel = ({ activityId, activityType, canManage, actingUsernam
                                 <p className={`text-xs font-semibold truncate ${t.status === 'done' ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
                                     {t.title}
                                 </p>
-                                <p className="text-[10px] text-gray-400 truncate">
-                                    {t.assigneeId ? nameOf(t.assigneeId) : 'mas\'ul belgilanmagan'}
-                                    {t.role && ` · ${PARTICIPATION_ROLES[t.role]?.short || t.role}`}
-                                    {t.dueDate && ` · ${t.dueDate}`}
-                                </p>
+                                {editingAssignee === t.id ? (
+                                    <div className="mt-1 flex items-center gap-2">
+                                        <div className="flex-1 min-w-0">
+                                            <StudentPicker
+                                                value={null}
+                                                onSelect={(st) => {
+                                                    if (!st) return;
+                                                    setEditingAssignee(null);
+                                                    run(() => db.updateActivityTask(t.id, { assigneeId: st.username || st.id }));
+                                                }}
+                                                placeholder="Mas'ulni qidiring..."
+                                            />
+                                        </div>
+                                        {/* Tayinlangan mas'ulni OLIB TASHLASH ham kerak:
+                                            odam o'zgarishi yoki xato tanlanishi mumkin. */}
+                                        {t.assigneeId && (
+                                            <button
+                                                type="button" disabled={busy}
+                                                onClick={() => { setEditingAssignee(null); run(() => db.updateActivityTask(t.id, { assigneeId: null })); }}
+                                                className="text-[10px] font-bold text-gray-400 hover:text-red-500 shrink-0"
+                                            >
+                                                Olib tashlash
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingAssignee(null)}
+                                            className="text-[10px] font-bold text-gray-400 hover:text-gray-700 shrink-0"
+                                        >
+                                            Bekor
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <p className="text-[10px] text-gray-400 truncate">
+                                        {/* Mas'ul yozuvining O'ZI bosiladi. Alohida tugma
+                                            qo'yilmadi: qator allaqachon tor va aynan shu
+                                            yozuv eng tabiiy bosish joyi. */}
+                                        {canManage ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditingAssignee(t.id)}
+                                                className={`font-bold hover:underline ${t.assigneeId ? 'text-gray-500' : 'text-indigo-500'}`}
+                                            >
+                                                {t.assigneeId ? nameOf(t.assigneeId) : "+ mas'ul belgilash"}
+                                            </button>
+                                        ) : (
+                                            t.assigneeId ? nameOf(t.assigneeId) : "mas'ul belgilanmagan"
+                                        )}
+                                        {t.role && ` · ${PARTICIPATION_ROLES[t.role]?.short || t.role}`}
+                                        {t.dueDate && ` · ${t.dueDate}`}
+                                    </p>
+                                )}
                             </div>
                             {canManage ? (
                                 <>
