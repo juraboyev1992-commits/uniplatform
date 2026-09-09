@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { UserPlus, CheckCircle2, Clock, Shield, X, Paperclip, Hourglass, XCircle, AlertTriangle } from 'lucide-react';
+import { UserPlus, CheckCircle2, Clock, Shield, X, Paperclip, Hourglass, XCircle, AlertTriangle, Bell } from 'lucide-react';
 import Button from '../common/Button';
 import Badge from '../common/Badge';
 import StudentPicker from '../common/StudentPicker';
@@ -9,6 +9,16 @@ import { db, POSITION_TYPE_LABELS } from '../../services/db';
 import { TOURNAMENT_FILE_UPLOAD } from '../../constants';
 
 const OVERRIDE_REASONS = ['Kechikib keldi', 'Texnik muammo', 'Rasmiy ruxsat', 'Tashkilotchi qarori', 'Boshqa'];
+
+// Taklif necha kundan beri javobsiz. `null` - sana yo'q (eski yozuv), va bu
+// 0 EMAS: "bugun taklif qilindi" bilan "sana noma'lum" bir xil ko'rsatilsa,
+// sardor javobsizlik qanchalik eskiligini noto'g'ri baholardi.
+const pendingDays = (member) => {
+    if (!member?.invitedAt) return null;
+    const ms = Date.now() - new Date(member.invitedAt).getTime();
+    if (Number.isNaN(ms) || ms < 0) return null;
+    return Math.floor(ms / (24 * 60 * 60 * 1000));
+};
 
 // A static (non-interactive) status line, styled like every other action button in this panel so the
 // visual rhythm stays consistent — 4 near-identical `<Button disabled>` blocks (registered/waitlisted/
@@ -42,6 +52,8 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
     useEffect(() => {
         setMinTeamSize(v => Math.max(Number(v) || 2, teamFloor));
     }, [teamFloor]);
+    const [nudgeBusy, setNudgeBusy] = useState(false);
+    const [nudgeResult, setNudgeResult] = useState(null);
     const [pickerValue, setPickerValue] = useState(null);
     const [chosenMode, setChosenMode] = useState(null); // for registrationType 'both': 'individual'|'team'
     // 'new' = today's invite-by-invite flow (unchanged); 'existing' = attach an already-real team the
@@ -217,6 +229,24 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
             bump();
         } catch (err) {
             setError(err?.message || 'Xatolik yuz berdi.');
+        }
+    };
+
+    // Sardor javob bermaganlarni turtadi. Shu paytgacha u jamoasi
+    // to'lmaganini BILAR, lekin ilovada hech narsa qila olmasdi - yagona yo'l
+    // ilovadan tashqarida eslatish edi.
+    const handleNudge = async () => {
+        if (!myRegistration) return;
+        setError('');
+        setNudgeBusy(true);
+        try {
+            const res = await db.nudgePendingTeamMembers(myRegistration.id, user.username);
+            setNudgeResult(res);
+            bump();
+        } catch (err) {
+            setError(err?.message || 'Eslatma yuborilmadi.');
+        } finally {
+            setNudgeBusy(false);
         }
     };
 
@@ -445,15 +475,57 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
                                         Jamoa hali to'liq tasdiqlanmagan: {myRegistration.teamMembers.filter(m => m.status === 'accepted').length + 1} / {myRegistration.minTeamSize} a'zo qabul qildi
                                         <ul className="mt-1 space-y-0.5">
                                             {myRegistration.teamMembers.map(m => (
-                                                <li key={m.userId} className="flex items-center justify-between">
-                                                    <span>{m.userId}</span>
-                                                    <Badge size="sm" variant={m.status === 'accepted' ? 'success' : m.status === 'declined' ? 'danger' : 'default'}>
-                                                        {m.status === 'accepted' ? 'Qabul qildi' : m.status === 'declined' ? 'Rad etdi' : 'Kutilmoqda'}
-                                                    </Badge>
+                                                <li key={m.userId} className="flex items-center justify-between gap-2">
+                                                    {/* Login emas, F.I.Sh. Sardor o'z jamoadoshini
+                                                        login bo'yicha tanimaydi. */}
+                                                    <span className="min-w-0 truncate">{nameOf(m.userId)}</span>
+                                                    <span className="flex items-center gap-1.5 shrink-0">
+                                                        {/* Qancha vaqtdan beri javobsiz. "Kutilmoqda" o'zi
+                                                            yetarli emas: hozir yuborilgani bilan bir hafta
+                                                            javobsiz turgani bir xil ko'rinardi, holbuki
+                                                            sardor uchun bu butunlay boshqa narsa. */}
+                                                        {m.status === 'pending' && pendingDays(m) != null && (
+                                                            <span className="text-[10px] text-gray-400">
+                                                                {pendingDays(m) === 0 ? 'bugun' : `${pendingDays(m)} kundan beri`}
+                                                            </span>
+                                                        )}
+                                                        <Badge size="sm" variant={m.status === 'accepted' ? 'success' : m.status === 'declined' ? 'danger' : 'default'}>
+                                                            {m.status === 'accepted' ? 'Qabul qildi' : m.status === 'declined' ? 'Rad etdi' : 'Kutilmoqda'}
+                                                        </Badge>
+                                                    </span>
                                                 </li>
                                             ))}
                                         </ul>
                                     </div>
+
+                                    {/* ESLATMA YUBORISH. Kuniga bir marta - cheklovni server
+                                        hisoblaydi (db.nudgePendingTeamMembers), shuning uchun
+                                        sahifani yangilash bilan chetlab bo'lmaydi. Busiz
+                                        sardor tugmani ketma-ket bosib, a'zoni bezovta qilardi
+                                        va eslatma o'z ta'sirini yo'qotardi. */}
+                                    {myRegistration.teamMembers.some(m => m.status === 'pending') && (
+                                        <div className="space-y-1">
+                                            <Button
+                                                variant="outline" size="sm" icon={Bell}
+                                                disabled={nudgeBusy} onClick={handleNudge}
+                                            >
+                                                {nudgeBusy ? 'Yuborilmoqda...' : 'Javob bermaganlarga eslatma yuborish'}
+                                            </Button>
+                                            {nudgeResult && (
+                                                <p className={`text-[11px] font-semibold ${nudgeResult.sent > 0 ? 'text-emerald-700' : 'text-gray-500'}`}>
+                                                    {nudgeResult.sent > 0
+                                                        ? `${nudgeResult.sent} kishiga eslatma yuborildi.`
+                                                        : "Bugun allaqachon eslatilgan — ertaga yana yuborishingiz mumkin."}
+                                                    {nudgeResult.sent > 0 && nudgeResult.skipped > 0
+                                                        && ` ${nudgeResult.skipped} kishiga bugun allaqachon yuborilgan.`}
+                                                </p>
+                                            )}
+                                            <p className="text-[10px] text-gray-400">
+                                                Kuniga bir marta yuborish mumkin.
+                                            </p>
+                                        </div>
+                                    )}
+
                                     {canCancelStalledTeam && (
                                         <button type="button" onClick={handleCancelRegistration} className="text-[11px] font-bold text-red-500 hover:underline">
                                             Ro'yxatdan o'tishni bekor qilish
@@ -753,11 +825,21 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
                                             <Badge size="sm" variant="success">Sardor</Badge>
                                         </div>
                                         {(r.teamMembers || []).map(m => (
-                                            <div key={m.userId} className="flex items-center justify-between">
-                                                <span>{nameOf(m.userId)}</span>
-                                                <Badge size="sm" variant={m.status === 'accepted' ? 'success' : m.status === 'declined' ? 'danger' : 'default'}>
-                                                    {m.status === 'accepted' ? 'Qabul qildi' : m.status === 'declined' ? 'Rad etdi' : 'Kutilmoqda'}
-                                                </Badge>
+                                            <div key={m.userId} className="flex items-center justify-between gap-2">
+                                                <span className="min-w-0 truncate">{nameOf(m.userId)}</span>
+                                                <span className="flex items-center gap-1.5 shrink-0">
+                                                    {/* Mas'ul uchun ham muhim: jamoa haqiqatan qotib
+                                                        qolganini yoki taklif endi yuborilganini
+                                                        shundan ajratadi. */}
+                                                    {m.status === 'pending' && pendingDays(m) != null && (
+                                                        <span className="text-[10px] text-gray-400">
+                                                            {pendingDays(m) === 0 ? 'bugun' : `${pendingDays(m)} kundan beri`}
+                                                        </span>
+                                                    )}
+                                                    <Badge size="sm" variant={m.status === 'accepted' ? 'success' : m.status === 'declined' ? 'danger' : 'default'}>
+                                                        {m.status === 'accepted' ? 'Qabul qildi' : m.status === 'declined' ? 'Rad etdi' : 'Kutilmoqda'}
+                                                    </Badge>
+                                                </span>
                                             </div>
                                         ))}
                                     </div>
