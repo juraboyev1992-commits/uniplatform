@@ -80,7 +80,7 @@ const SocialCriteriaManager = () => {
         setCategoryModalMode(null);
         setEditingCategoryId(null);
     };
-    const submitCategory = () => {
+    const submitCategory = async () => {
         if (!categoryForm.name.trim()) { setCategoryFormError('Nomi kiritilishi shart'); return; }
         if (categoryForm.maxPoints === '' || Number(categoryForm.maxPoints) < 0) { setCategoryFormError("Maksimal ball manfiy bo'lmasligi kerak"); return; }
 
@@ -90,13 +90,13 @@ const SocialCriteriaManager = () => {
             description: categoryForm.description.trim(),
             isActive: categoryForm.isActive
         };
-        if (categoryModalMode === 'create') db.createSocialCriteriaCategory({ ...payload, isArchived: false });
-        else if (categoryModalMode === 'edit' && editingCategoryId) db.updateSocialCriteriaCategory(editingCategoryId, payload);
+        if (categoryModalMode === 'create') await db.createSocialCriteriaCategory({ ...payload, isArchived: false });
+        else if (categoryModalMode === 'edit' && editingCategoryId) await db.updateSocialCriteriaCategory(editingCategoryId, payload);
 
         refresh();
         closeCategoryModal();
     };
-    const toggleCategoryActive = (cat) => { db.updateSocialCriteriaCategory(cat.id, { isActive: !cat.isActive }); refresh(); };
+    const toggleCategoryActive = async (cat) => { await db.updateSocialCriteriaCategory(cat.id, { isActive: !cat.isActive }); refresh(); };
     const archiveCategory = (cat) => { db.archiveSocialCriteriaCategory(cat.id); refresh(); };
     const restoreCategory = (cat) => { db.restoreSocialCriteriaCategory(cat.id); refresh(); };
 
@@ -124,7 +124,7 @@ const SocialCriteriaManager = () => {
         setSubcategoryModalMode(null);
         setEditingSubcategoryId(null);
     };
-    const submitSubcategory = () => {
+    const submitSubcategory = async () => {
         if (!subcategoryForm.name.trim()) { setSubcategoryFormError('Nomi kiritilishi shart'); return; }
 
         const payload = {
@@ -135,13 +135,13 @@ const SocialCriteriaManager = () => {
             automaticSourceKey: subcategoryForm.calculationMethod === 'automatic' ? subcategoryForm.automaticSourceKey : null,
             isActive: subcategoryForm.isActive
         };
-        if (subcategoryModalMode === 'create') db.createSocialCriteriaSubcategory({ ...payload, isArchived: false });
-        else if (subcategoryModalMode === 'edit' && editingSubcategoryId) db.updateSocialCriteriaSubcategory(editingSubcategoryId, payload);
+        if (subcategoryModalMode === 'create') await db.createSocialCriteriaSubcategory({ ...payload, isArchived: false });
+        else if (subcategoryModalMode === 'edit' && editingSubcategoryId) await db.updateSocialCriteriaSubcategory(editingSubcategoryId, payload);
 
         refresh();
         closeSubcategoryModal();
     };
-    const toggleSubcategoryActive = (sub) => { db.updateSocialCriteriaSubcategory(sub.id, { isActive: !sub.isActive }); refresh(); };
+    const toggleSubcategoryActive = async (sub) => { await db.updateSocialCriteriaSubcategory(sub.id, { isActive: !sub.isActive }); refresh(); };
     const archiveSubcategory = (sub) => { db.archiveSocialCriteriaSubcategory(sub.id); refresh(); };
     const restoreSubcategory = (sub) => { db.restoreSocialCriteriaSubcategory(sub.id); refresh(); };
 

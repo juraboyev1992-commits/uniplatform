@@ -97,24 +97,26 @@ const ScoringSourcesManager = () => {
         setEditingId(null);
     };
 
-    const handleDuplicate = (source) => {
-        const copy = db.duplicateScoringSource(source.id);
+    // ASYNC: sozlamalar endi bazaga yoziladi. `await` siz xato yo'qolar va
+    // sozlama saqlangandek ko'rinardi.
+    const handleDuplicate = async (source) => {
+        const copy = await db.duplicateScoringSource(source.id);
         refresh();
         if (copy) openEdit(copy);
     };
 
-    const toggleActive = (source) => {
-        db.updateScoringSource(source.id, { isActive: !source.isActive });
+    const toggleActive = async (source) => {
+        await db.updateScoringSource(source.id, { isActive: !source.isActive });
         refresh();
     };
 
-    const handleArchive = (source) => {
-        db.archiveScoringSource(source.id);
+    const handleArchive = async (source) => {
+        await db.archiveScoringSource(source.id);
         refresh();
     };
 
-    const handleRestore = (source) => {
-        db.restoreScoringSource(source.id);
+    const handleRestore = async (source) => {
+        await db.restoreScoringSource(source.id);
         refresh();
     };
 
@@ -134,7 +136,7 @@ const ScoringSourcesManager = () => {
         return '';
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         const error = validate();
         if (error) {
             setFormError(error);
@@ -154,9 +156,9 @@ const ScoringSourcesManager = () => {
         };
 
         if (modalMode === 'create') {
-            db.createScoringSource({ ...payload, isArchived: false });
+            await db.createScoringSource({ ...payload, isArchived: false });
         } else if (modalMode === 'edit' && editingId) {
-            db.updateScoringSource(editingId, payload);
+            await db.updateScoringSource(editingId, payload);
         }
 
         refresh();

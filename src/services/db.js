@@ -563,6 +563,41 @@ const persistClubPositionLog = async (log) => {
     } catch (e) { console.warn('Lavozim tarixi yozilmadi:', e.message); }
 };
 
+// Ijtimoiy faollik SOZLAMALARI uchun yozuvchilar (ball manbalari, mezonlar,
+// bo'limlar). Ular ilgari faqat brauzerda saqlanardi va shu sababli har
+// adminda boshqacha bo'lishi mumkin edi - ya'ni ikki admin ayni arizani
+// tasdiqlab, har xil ball berardi.
+const socialConfigTableError = (error) => {
+    const missing = /relation .*(social_scoring_sources|social_criteria_).* does not exist/i.test(error?.message || '');
+    return new Error(missing
+        ? 'Sozlama saqlanmadi: jadval topilmadi. '
+          + 'Supabase SQL Editor da `supabase/social_scoring_config.sql` ni bir marta ishga tushiring.'
+        : 'Sozlama saqlanmadi: ' + (error?.message || ''));
+};
+
+const persistScoringSource = async (src) => {
+    const { error } = await supabase.from('social_scoring_sources').upsert({
+        id: src.id, code: src.code || null, category: src.category || null,
+        academic_year: src.academicYear || null,
+        is_active: src.isActive !== false, is_archived: !!src.isArchived, data: src,
+    });
+    if (error) throw socialConfigTableError(error);
+};
+
+const persistCriteriaCategory = async (cat) => {
+    const { error } = await supabase.from('social_criteria_categories').upsert({
+        id: cat.id, key: cat.key || null, name: cat.name || null, data: cat,
+    });
+    if (error) throw socialConfigTableError(error);
+};
+
+const persistCriteriaSubcategory = async (sub) => {
+    const { error } = await supabase.from('social_criteria_subcategories').upsert({
+        id: sub.id, category_id: sub.categoryId || null, name: sub.name || null, data: sub,
+    });
+    if (error) throw socialConfigTableError(error);
+};
+
 const socialAppRow = (a) => ({
     id: a.id, student_id: a.studentId || null, criteria_key: a.criteriaKey || null,
     status: a.status || null, submitted_at: a.submittedAt || null, data: a,
@@ -2800,7 +2835,7 @@ const syncCoreDataFromSupabase = async () => {
     const [
         coreRes, venueRes, schRes, testRes, poydevorRes, marifatRes, culturalRes,
         caResSingle, sdocRes, cjrRes, sportRes, housRes, passportRes, talentRes,
-        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes, delegationRes, socialAppRes, compDelegRes, clubPosRes
+        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes, delegationRes, socialAppRes, compDelegRes, clubPosRes, socialCfgRes
     ] = await Promise.all([
         Promise.all([
             supabase.from('clubs').select('*'),
@@ -2933,6 +2968,11 @@ const syncCoreDataFromSupabase = async () => {
             supabase.from('club_positions').select('*'),
             supabase.from('club_position_applications').select('*'),
             supabase.from('club_position_audit_logs').select('*')
+        ]),
+        Promise.all([
+            supabase.from('social_scoring_sources').select('*'),
+            supabase.from('social_criteria_categories').select('*'),
+            supabase.from('social_criteria_subcategories').select('*')
         ])
     ]);
 
@@ -3434,6 +3474,30 @@ const syncCoreDataFromSupabase = async () => {
     }
 
     // Rag'bat puli / mukofot reestri - alohida SQL fayl (supabase/student_recognitions.sql).
+    // Ijtimoiy faollik SOZLAMALARI (supabase/social_scoring_config.sql).
+    //
+    // Jadval BO'SH bo'lsa mahalliy ro'yxat TEGILMAYDI. Sabab: bu jadvallar
+    // bo'sh yaratiladi va brauzerdagi mavjud sozlamalar avtomatik ko'chmaydi.
+    // Bo'sh ro'yxat bilan almashtirsak, admin ekranida hamma mezon birdan
+    // yo'qolib, ariza tasdiqlash butunlay to'xtardi.
+    const [
+        { data: srcRows, error: srcErr },
+        { data: catRows, error: catErr },
+        { data: subRows, error: subErr },
+    ] = socialCfgRes;
+    if (srcErr || catErr || subErr) {
+        console.warn(
+            "[ijtimoiy faollik sozlamalari] jadvallar o'qilmadi - supabase/social_scoring_config.sql ishga tushirilganmi?",
+            srcErr || catErr || subErr
+        );
+        dbData.socialConfigBackendReady = false;
+    } else {
+        if ((srcRows || []).length > 0) dbData.scoringSources = srcRows.map(r => ({ ...(r.data || {}), id: r.id }));
+        if ((catRows || []).length > 0) dbData.socialCriteriaCategories = catRows.map(r => ({ ...(r.data || {}), id: r.id }));
+        if ((subRows || []).length > 0) dbData.socialCriteriaSubcategories = subRows.map(r => ({ ...(r.data || {}), id: r.id }));
+        dbData.socialConfigBackendReady = true;
+    }
+
     // Klub lavozimlari va arizalari (supabase/club_positions.sql).
     const [
         { data: posRows, error: posErr },
@@ -15122,7 +15186,7 @@ export const db = {
     // CONFIGURABLE SCORING SOURCES (Settings -> Ijtimoiy faollik -> Ball manbalari)
     getScoringSources: () => getDB().scoringSources || [],
     getScoringSourceById: (id) => (getDB().scoringSources || []).find(s => s.id === id),
-    createScoringSource: (data) => {
+    createScoringSource: async (data) => {
         const dbData = getDB();
         if (!dbData.scoringSources) dbData.scoringSources = [];
         const timestamp = new Date().toISOString();
@@ -15136,10 +15200,11 @@ export const db = {
             updatedAt: timestamp
         };
         dbData.scoringSources.push(newSource);
+        await persistScoringSource(newSource);
         saveDB(dbData);
         return newSource;
     },
-    updateScoringSource: (id, updates) => {
+    updateScoringSource: async (id, updates) => {
         const dbData = getDB();
         if (!dbData.scoringSources) dbData.scoringSources = [];
         const idx = dbData.scoringSources.findIndex(s => s.id === id);
@@ -15150,10 +15215,11 @@ export const db = {
             points: updates.points != null ? Number(updates.points) : dbData.scoringSources[idx].points,
             updatedAt: new Date().toISOString()
         };
+        await persistScoringSource(dbData.scoringSources[idx]);
         saveDB(dbData);
         return dbData.scoringSources[idx];
     },
-    duplicateScoringSource: (id) => {
+    duplicateScoringSource: async (id) => {
         const dbData = getDB();
         if (!dbData.scoringSources) dbData.scoringSources = [];
         const source = dbData.scoringSources.find(s => s.id === id);
@@ -15170,6 +15236,7 @@ export const db = {
             updatedAt: timestamp
         };
         dbData.scoringSources.push(copy);
+        await persistScoringSource(copy);
         saveDB(dbData);
         return copy;
     },
@@ -15183,7 +15250,7 @@ export const db = {
     // existing criteriaKey-based lookup elsewhere in the app keeps working unchanged during migration.
     getSocialCriteriaCategories: () => getDB().socialCriteriaCategories || [],
     getSocialCriteriaCategoryById: (id) => (getDB().socialCriteriaCategories || []).find(c => c.id === id),
-    createSocialCriteriaCategory: (data) => {
+    createSocialCriteriaCategory: async (data) => {
         const dbData = getDB();
         if (!dbData.socialCriteriaCategories) dbData.socialCriteriaCategories = [];
         const timestamp = new Date().toISOString();
@@ -15197,10 +15264,11 @@ export const db = {
             updatedAt: timestamp
         };
         dbData.socialCriteriaCategories.push(newCategory);
+        await persistCriteriaCategory(newCategory);
         saveDB(dbData);
         return newCategory;
     },
-    updateSocialCriteriaCategory: (id, updates) => {
+    updateSocialCriteriaCategory: async (id, updates) => {
         const dbData = getDB();
         if (!dbData.socialCriteriaCategories) dbData.socialCriteriaCategories = [];
         const idx = dbData.socialCriteriaCategories.findIndex(c => c.id === id);
@@ -15211,6 +15279,7 @@ export const db = {
             maxPoints: updates.maxPoints != null ? Number(updates.maxPoints) : dbData.socialCriteriaCategories[idx].maxPoints,
             updatedAt: new Date().toISOString()
         };
+        await persistCriteriaCategory(dbData.socialCriteriaCategories[idx]);
         saveDB(dbData);
         return dbData.socialCriteriaCategories[idx];
     },
@@ -15224,7 +15293,7 @@ export const db = {
     getSocialCriteriaSubcategories: (categoryId = null) =>
         (getDB().socialCriteriaSubcategories || []).filter(s => !categoryId || s.categoryId === categoryId),
     getSocialCriteriaSubcategoryById: (id) => (getDB().socialCriteriaSubcategories || []).find(s => s.id === id),
-    createSocialCriteriaSubcategory: (data) => {
+    createSocialCriteriaSubcategory: async (data) => {
         const dbData = getDB();
         if (!dbData.socialCriteriaSubcategories) dbData.socialCriteriaSubcategories = [];
         const timestamp = new Date().toISOString();
@@ -15240,10 +15309,11 @@ export const db = {
             updatedAt: timestamp
         };
         dbData.socialCriteriaSubcategories.push(newSubcategory);
+        await persistCriteriaSubcategory(newSubcategory);
         saveDB(dbData);
         return newSubcategory;
     },
-    updateSocialCriteriaSubcategory: (id, updates) => {
+    updateSocialCriteriaSubcategory: async (id, updates) => {
         const dbData = getDB();
         if (!dbData.socialCriteriaSubcategories) dbData.socialCriteriaSubcategories = [];
         const idx = dbData.socialCriteriaSubcategories.findIndex(s => s.id === id);
@@ -15253,6 +15323,7 @@ export const db = {
             ...updates,
             updatedAt: new Date().toISOString()
         };
+        await persistCriteriaSubcategory(dbData.socialCriteriaSubcategories[idx]);
         saveDB(dbData);
         return dbData.socialCriteriaSubcategories[idx];
     },
