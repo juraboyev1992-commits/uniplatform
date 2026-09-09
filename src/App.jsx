@@ -20,6 +20,7 @@ const AchievementsHubPage = lazy(() => import('./pages/student/AchievementsHubPa
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const TestManagement = lazy(() => import('./components/admin/TestManagement'));
 const EventManagement = lazy(() => import('./components/admin/EventManagement'));
+const ActivitiesPage = lazy(() => import('./pages/admin/ActivitiesPage'));
 const ActivityAndRankingsPage = lazy(() => import('./pages/admin/ActivityAndRankingsPage'));
 const MarifatLessonsPage = lazy(() => import('./pages/admin/MarifatLessonsPage'));
 const TutorWorkspacePage = lazy(() => import('./pages/tutor/TutorWorkspacePage'));
@@ -281,12 +282,16 @@ const AppRouter = () => {
                                 <Route path="clubs-directory" element={<ClubsDirectoryPage />} />
                                 <Route path="clubs-directory/:slug" element={<ClubProfilePage />} />
                                 <Route path="teams-directory/:slug" element={<TeamProfilePage />} />
-                                <Route path="events" element={<EventManagement />} />
+                                {/* Tadbirlar va musobaqalar - BITTA bo'lim, ikkita tab
+                                    (talaba panelidagi kabi). Ikkala eski manzil ham
+                                    ishlayveradi, faqat kerakli tab ochilgan holda:
+                                    avval yuborilgan havolalar buzilmasin. */}
+                                <Route path="events" element={<ActivitiesPage defaultKind="events" />} />
                                 {/* Tadbir boshqaruvi — kalendarda yaratish/tahrirlash, bu yerda
                                     o'tkazish (davomat, ball, vazifalar, hisobot, bayonnoma).
                                     Musobaqadagi competitions/:id bilan bir xil naqsh. */}
                                 <Route path="events/:id" element={<EventWorkspacePage />} />
-                                <Route path="competitions" element={<CompetitionWorkspacePage />} />
+                                <Route path="competitions" element={<ActivitiesPage defaultKind="competitions" />} />
                                 <Route path="competitions/:id" element={<CompetitionWorkspacePage />} />
                                 <Route path="event-collections" element={<EventCollectionsPage />} />
                                 <Route path="event-collections/:id" element={<EventCollectionDetailPage />} />

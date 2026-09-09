@@ -80,8 +80,12 @@ const Sidebar = ({ isOpen, onClose }) => {
         // /admin/students itself is untouched and still resolves (App.jsx route unchanged) for anyone
         // with an old link/bookmark.
         { icon: Trophy, label: 'Klublar katalogi', path: '/admin/clubs-directory' },
-        { icon: Calendar, label: 'Tadbirlar', path: '/admin/events' },
-        { icon: Trophy, label: 'Musobaqalar', path: '/admin/competitions' },
+        // Ikkita alohida yozuv ("Tadbirlar" va "Musobaqalar") bittaga
+        // birlashtirildi: ular bir xil ish - faoliyat o'tkazish - va talaba
+        // panelida ham allaqachon bitta bo'lim edi. Ichida ikkita tab.
+        // `/admin/competitions` manzili ishlayveradi, faqat musobaqa tabi
+        // ochilgan holda - eski havolalar buzilmasin.
+        { icon: Calendar, label: 'Tadbirlar va musobaqalar', path: '/admin/events' },
         { icon: Layers, label: "Tadbirlar to'plami", path: '/admin/event-collections' },
         // "Ijtimoiy faollik" va "Reytinglar" bitta bo'lim bo'ldi: ikkalasi bir xil
         // narsani o'lchardi va har birida alohida talabalar ro'yxati bor edi, ya'ni
