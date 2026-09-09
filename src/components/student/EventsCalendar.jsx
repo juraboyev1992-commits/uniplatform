@@ -128,6 +128,31 @@ const EventsCalendar = () => {
     const clubNameById = useMemo(() => new Map(clubs.map(c => [c.id, c.name])), [clubs]);
     const myIds = useMemo(() => db.getMyRegisteredActivityIds(user?.username), [user?.username]);
 
+    // JAMOA BELGISI — faqat ALOQADOR odamga: sardorga va javob bermagan
+    // a'zoga. Boshqa talabaga birovning jamoasi shovqin, shuning uchun
+    // ularning kalendarida hech narsa o'zgarmaydi.
+    //
+    // Rang QIZIL EMAS, sariq: to'lmagan jamoa xato emas, hali tuzatib
+    // bo'ladigan holat (loyihadagi bir xil qoida - LadderChecklist.jsx).
+    // Qizil FAQAT muddatga 1 kun yoki kam qolganda: rangning o'zgarishi ham
+    // ma'lumot beradi, "endi haqiqatan kech bo'lyapti".
+    const teamAlerts = useMemo(() => {
+        const { asCaptain, asInvitee } = db.getTeamAttention(user?.username);
+        const map = new Map();
+        const put = (item, role) => {
+            // Sardor bir vaqtda a'zo bo'la olmaydi, lekin xarita baribir
+            // birinchi yozuvni saqlaydi - sardorlik muhimroq.
+            const key = `${item.activityType}-${item.activityId}`;
+            if (!map.has(key)) map.set(key, { ...item, role });
+        };
+        asCaptain.forEach(i => put(i, 'captain'));
+        asInvitee.forEach(i => put(i, 'invitee'));
+        return map;
+    }, [user?.username]);
+
+    const alertFor = (row) => teamAlerts.get(`${row.kind}-${row.id}`) || null;
+    const alertIsUrgent = (a) => a?.daysLeft != null && a.daysLeft <= 1;
+
     const events = useMemo(() => db.getEvents(), []);
     const competitions = useMemo(() => db.getCompetitions(), []);
 
@@ -462,19 +487,35 @@ const EventsCalendar = () => {
                                                     }`}
                                                 >
                                                     <span className={`text-sm font-bold ${isToday ? 'text-indigo-600' : 'text-gray-400'}`}>{dayNum}</span>
-                                                    {dayRows.slice(0, 2).map(r => (
-                                                        <div
-                                                            key={r.key}
-                                                            title={r.collection ? `${r.title} - ${r.collection.name}` : r.title}
-                                                            className={`mt-1 p-1 text-[10px] text-white rounded truncate cursor-pointer flex items-center gap-1 ${
-                                                                r.kind === 'competition' ? 'bg-amber-500' : 'bg-indigo-600'
-                                                            }`}
-                                                            onClick={() => handleEventClick(r)}
-                                                        >
-                                                            {r.collection && <Layers size={9} className="shrink-0" />}
-                                                            <span className="truncate">{r.title}</span>
-                                                        </div>
-                                                    ))}
+                                                    {dayRows.slice(0, 2).map(r => {
+                                                        const alert = alertFor(r);
+                                                        const urgent = alertIsUrgent(alert);
+                                                        return (
+                                                            <div
+                                                                key={r.key}
+                                                                title={[
+                                                                    r.collection ? `${r.title} - ${r.collection.name}` : r.title,
+                                                                    alert && (alert.role === 'captain'
+                                                                        ? `Jamoangiz to'lmagan: ${alert.accepted}/${alert.need}`
+                                                                        : 'Jamoa taklifiga javob bermagansiz'),
+                                                                ].filter(Boolean).join(' — ')}
+                                                                className={`mt-1 p-1 text-[10px] text-white rounded truncate cursor-pointer flex items-center gap-1 ${
+                                                                    urgent ? 'bg-red-600'
+                                                                        : alert ? 'bg-amber-500 ring-1 ring-amber-700'
+                                                                        : r.kind === 'competition' ? 'bg-amber-500' : 'bg-indigo-600'
+                                                                }`}
+                                                                onClick={() => handleEventClick(r)}
+                                                            >
+                                                                {/* Belgi RANG bilangina berilmaydi: rang ko'rmaydigan
+                                                                    odam uchun ham nishon kerak, ustiga musobaqa
+                                                                    qatori allaqachon sariq - faqat rang bilan
+                                                                    ajratib bo'lmasdi. */}
+                                                                {alert && <Users size={9} className="shrink-0" />}
+                                                                {!alert && r.collection && <Layers size={9} className="shrink-0" />}
+                                                                <span className="truncate">{r.title}</span>
+                                                            </div>
+                                                        );
+                                                    })}
                                                     {dayRows.length > 2 && (
                                                         <div className="mt-0.5 text-[9px] text-gray-400 font-semibold">+{dayRows.length - 2} yana</div>
                                                     )}
@@ -516,6 +557,22 @@ const EventsCalendar = () => {
                                                 {row.clubName && <Badge variant="default" size="sm">{row.clubName}</Badge>}
                                                 {row.format && <Badge variant="primary" size="sm">{FORMAT_LABELS[row.format]}</Badge>}
                                                 {row.isMine && <Badge variant="success" size="sm">Men qatnashaman</Badge>}
+                                                {/* Ro'yxat ko'rinishida belgi MATN bilan - bu yerda
+                                                    joy bor, ya'ni "nima qilishim kerak" degan savolga
+                                                    kalendar katakchasidan ko'ra to'liqroq javob beriladi. */}
+                                                {(() => {
+                                                    const alert = alertFor(row);
+                                                    if (!alert) return null;
+                                                    const urgent = alertIsUrgent(alert);
+                                                    return (
+                                                        <Badge variant={urgent ? 'danger' : 'warning'} size="sm">
+                                                            {alert.role === 'captain'
+                                                                ? `Jamoangiz to'lmagan: ${alert.accepted}/${alert.need}`
+                                                                : 'Jamoa taklifi — javob bering'}
+                                                            {urgent && (alert.daysLeft <= 0 ? ' · bugun' : ' · ertaga')}
+                                                        </Badge>
+                                                    );
+                                                })()}
                                                 {row.collection && (
                                                     <button
                                                         type="button"

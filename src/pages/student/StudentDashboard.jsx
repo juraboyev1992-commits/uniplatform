@@ -26,6 +26,14 @@ import { INDEX_TOTAL_MAX } from '../../config/socialActivityIndex';
 const StudentDashboard = () => {
     const { user } = useAuth();
 
+    // Jamoa bo'yicha ochiq holatlar. Manba BITTA (db.getTeamAttention) -
+    // kalendardagi belgi, menyudagi raqam va pastdagi kartochka ayni hisobga
+    // tayanadi, aks holda ular bir-biridan chetga chiqib ketardi.
+    const teamAttention = useMemo(
+        () => db.getTeamAttention(user.username),
+        [user.username]
+    );
+
     const index = useMemo(
         () => db.getSocialActivityIndex(user.username),
         [user.username]
@@ -111,6 +119,67 @@ const StudentDashboard = () => {
                     {user.group ? ` · ${user.group}` : ''}
                 </p>
             </div>
+
+            {/* JAMOA HOLATI — HARAKAT KUTILAYOTGANDA.
+                Menyudagi qizil raqamdan farqi: raqam "yangi ish" belgisi va
+                bo'lim ochilgach yo'qoladi, bu kartochka esa holat TUGAMAGUNCHA
+                turadi. Aynan shuning uchun qo'shildi - a'zolar umuman javob
+                bermasa, boshqa hech qayerda doimiy belgi qolmasdi.
+                Hech narsa kutilmayotgan bo'lsa umuman chizilmaydi: bo'sh
+                "hammasi joyida" kartochkasi ekranni to'ldirib, qolgan
+                narsalarni pastga surib qo'yardi. */}
+            {(teamAttention.asInvitee.length > 0 || teamAttention.asCaptain.length > 0) && (
+                <Card className="border-l-4 border-l-amber-400">
+                    <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                        <Users size={16} className="text-amber-500" /> Jamoangiz bo'yicha
+                    </h2>
+                    <div className="mt-3 space-y-2">
+                        {/* TAKLIFLAR BIRINCHI: bu talabaning O'ZIDAN kutilayotgan
+                            harakat, sardorlik esa boshqalardan kutilayotgani. */}
+                        {teamAttention.asInvitee.map(item => (
+                            <Link
+                                key={`inv-${item.registrationId}`}
+                                to={`/${item.activityType === 'competition' ? 'musobaqa' : 'tadbir'}/${item.activityId}`}
+                                className="flex items-center justify-between gap-3 p-3 rounded-xl bg-amber-50 border border-amber-100 hover:border-amber-300 transition-colors"
+                            >
+                                <div className="min-w-0">
+                                    <p className="text-sm font-bold text-gray-900 truncate">
+                                        {item.teamName || 'Jamoa'} — taklif javobsiz
+                                    </p>
+                                    <p className="text-[11px] text-gray-500 truncate">{item.activityTitle}</p>
+                                </div>
+                                <span className="text-[11px] font-bold text-amber-700 shrink-0 flex items-center gap-1">
+                                    Javob berish <ArrowRight size={12} />
+                                </span>
+                            </Link>
+                        ))}
+                        {teamAttention.asCaptain.map(item => (
+                            <Link
+                                key={`cap-${item.registrationId}`}
+                                to={`/${item.activityType === 'competition' ? 'musobaqa' : 'tadbir'}/${item.activityId}`}
+                                className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100 hover:border-amber-300 transition-colors"
+                            >
+                                <div className="min-w-0">
+                                    <p className="text-sm font-bold text-gray-900 truncate">
+                                        {item.teamName || 'Jamoangiz'} to'lmagan — {item.accepted}/{item.need}
+                                    </p>
+                                    <p className="text-[11px] text-gray-500 truncate">
+                                        {item.activityTitle}
+                                        {/* Muddat NOMA'LUM bo'lsa hech narsa yozilmaydi.
+                                            "0 kun qoldi" deb yozish yolg'on bo'lardi. */}
+                                        {item.daysLeft != null && item.daysLeft >= 0 && (
+                                            item.daysLeft === 0 ? ' · muddat bugun' : ` · ${item.daysLeft} kun qoldi`
+                                        )}
+                                    </p>
+                                </div>
+                                <span className="text-[11px] font-bold text-gray-600 shrink-0 flex items-center gap-1">
+                                    Eslatish <ArrowRight size={12} />
+                                </span>
+                            </Link>
+                        ))}
+                    </div>
+                </Card>
+            )}
 
             {/* IJTIMOIY FAOLLIK - haqiqiy indeksdan */}
             <Card className="border-2 border-primary-100">
