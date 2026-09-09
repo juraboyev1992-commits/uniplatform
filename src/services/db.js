@@ -2709,7 +2709,7 @@ const syncCoreDataFromSupabase = async () => {
     const [
         coreRes, venueRes, schRes, testRes, poydevorRes, marifatRes, culturalRes,
         caResSingle, sdocRes, cjrRes, sportRes, housRes, passportRes, talentRes,
-        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes
+        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes, delegationRes
     ] = await Promise.all([
         Promise.all([
             supabase.from('clubs').select('*'),
@@ -2831,7 +2831,8 @@ const syncCoreDataFromSupabase = async () => {
             supabase.from('event_collection_items').select('*'),
             supabase.from('tutor_group_assignments').select('*')
         ]),
-        supabase.from('student_recognitions').select('*')
+        supabase.from('student_recognitions').select('*'),
+        supabase.from('event_delegations').select('*')
     ]);
 
     const [
@@ -3332,6 +3333,26 @@ const syncCoreDataFromSupabase = async () => {
     }
 
     // Rag'bat puli / mukofot reestri - alohida SQL fayl (supabase/student_recognitions.sql).
+    // Tadbir vakolati - alohida jadval (supabase/event_delegations.sql).
+    // Jadval yo'q bo'lsa ilova ishlashda davom etadi: vakolat ro'yxati bo'sh
+    // chiqadi, qolgan hamma narsa o'z holida qoladi.
+    const { data: delegRows, error: delegErr } = delegationRes;
+    if (delegErr) {
+        console.warn(
+            "[vakolat] jadval o'qilmadi - supabase/event_delegations.sql ishga tushirilganmi?",
+            delegErr
+        );
+        dbData.eventDelegationsBackendReady = false;
+    } else {
+        dbData.eventDelegations = (delegRows || []).map(r => ({
+            id: r.id, eventId: r.event_id, granteeUsername: r.grantee_username,
+            permissions: r.permissions || ['attendance'], grantedBy: r.granted_by,
+            grantedAt: r.granted_at, revokedBy: r.revoked_by, revokedAt: r.revoked_at,
+            active: r.active,
+        }));
+        dbData.eventDelegationsBackendReady = true;
+    }
+
     const { data: recRows, error: recErr } = recognitionRes;
     if (recErr) {
         console.warn(
@@ -7223,27 +7244,44 @@ export const db = {
     // --- Event delegation - mirrors competitionDelegations/hasDelegatedPermission (competitionPermissions.js),
     // just event-scoped, so a coordinator can grant someone else attendance-marking rights on an event. ---
 
-    grantEventDelegation: (eventId, granteeUsername, permissions, grantedBy) => {
-        const dbData = getDB();
-        if (!dbData.eventDelegations) dbData.eventDelegations = [];
-        const delegation = {
-            id: 'evdeleg_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
-            eventId, granteeUsername, permissions, grantedBy,
-            grantedAt: new Date().toISOString(), revokedBy: null, revokedAt: null, active: true
-        };
-        dbData.eventDelegations.push(delegation);
-        saveDB(dbData);
-        return delegation;
+    // BAZAGA yoziladi, brauzerga emas. Ilgari u faqat localStorage da
+    // saqlanardi va vakolat olgan odam O'Z QURILMASIDA hech narsa
+    // ko'rmasdi - ya'ni funksiya bosilardi, lekin ishlamasdi.
+    grantEventDelegation: async (eventId, granteeUsername, permissions, grantedBy) => {
+        await assertAuthenticated();
+        const uname = (granteeUsername || '').trim();
+        if (!uname) throw new Error('Foydalanuvchi tanlanmagan');
+
+        // Ayni odamga ayni tadbir uchun ikkinchi vakolat berilmaydi - ro'yxatda
+        // bir odam ikki marta chiqib, bekor qilish chalkash bo'lardi.
+        const existing = (getDB().eventDelegations || [])
+            .find(d => d.eventId === eventId && d.granteeUsername === uname && d.active);
+        if (existing) return existing;
+
+        const id = 'evdeleg_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        const { error } = await supabase.from('event_delegations').insert({
+            id, event_id: eventId, grantee_username: uname,
+            permissions: permissions || ['attendance'], granted_by: grantedBy, active: true,
+        });
+        if (error) {
+            const missing = /relation .*event_delegations.* does not exist/i.test(error.message || '');
+            throw new Error(missing
+                ? "Vakolat saqlanmadi: `event_delegations` jadvali topilmadi. "
+                  + 'Supabase SQL Editor da `supabase/event_delegations.sql` ni bir marta ishga tushiring.'
+                : 'Vakolat saqlanmadi: ' + error.message);
+        }
+        await syncCoreDataFromSupabase();
+        return (getDB().eventDelegations || []).find(d => d.id === id) || null;
     },
-    revokeEventDelegation: (delegationId, revokedBy) => {
-        const dbData = getDB();
-        const delegation = (dbData.eventDelegations || []).find(d => d.id === delegationId);
-        if (!delegation) throw new Error('Vakolat topilmadi');
-        delegation.active = false;
-        delegation.revokedBy = revokedBy;
-        delegation.revokedAt = new Date().toISOString();
-        saveDB(dbData);
-        return delegation;
+    // Yozuv O'CHIRILMAYDI, `active` false bo'ladi: kim qachon vakolat
+    // bergani va olganini keyin tekshirish mumkin bo'lishi kerak.
+    revokeEventDelegation: async (delegationId, revokedBy) => {
+        const { error } = await supabase.from('event_delegations')
+            .update({ active: false, revoked_by: revokedBy, revoked_at: new Date().toISOString() })
+            .eq('id', delegationId);
+        if (error) throw new Error('Vakolat bekor qilinmadi: ' + error.message);
+        await syncCoreDataFromSupabase();
+        return true;
     },
     getEventDelegations: (eventId) => (getDB().eventDelegations || []).filter(d => d.eventId === eventId && d.active),
 

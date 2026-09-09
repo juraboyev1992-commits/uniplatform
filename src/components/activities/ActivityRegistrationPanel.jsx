@@ -413,6 +413,22 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
                 <p className="text-xs font-semibold text-red-500 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</p>
             )}
 
+            {/* Ochilgan bo'lsa - YOPISH ham mumkin. Faqat ochilib, qaytib
+                yopilmasa, mas'ul ekranni tozalash uchun sahifani yangilashga
+                majbur bo'lardi. */}
+            {staffContext && showSelf && (
+                <div className="flex items-center justify-between gap-2 pt-1">
+                    <span className="text-xs font-bold text-gray-500">O'zingiz uchun ro'yxatdan o'tish</span>
+                    <button
+                        type="button"
+                        onClick={() => setShowSelf(false)}
+                        className="flex items-center gap-1 text-[11px] font-bold text-gray-400 hover:text-gray-700"
+                    >
+                        <X size={12} /> Yopish
+                    </button>
+                </div>
+            )}
+
             {selfVisible && (<>
             {/* Pending team invite for the current user (they were invited by someone else's registration) */}
             {myPendingInvite && (

@@ -7,6 +7,7 @@ import RegistrationStatusBadge from '../activities/RegistrationStatusBadge';
 import ActivityRegistrationPanel from '../activities/ActivityRegistrationPanel';
 import ActivityAttendancePanel from '../common/ActivityAttendancePanel';
 import ActivityTasksPanel from '../common/ActivityTasksPanel';
+import StudentPicker from '../common/StudentPicker';
 import EventSpeakersPanel from '../common/EventSpeakersPanel';
 import ActivityReportPanel from '../common/ActivityReportPanel';
 import ActivityFinalizationTab from '../common/ActivityFinalizationTab';
@@ -33,7 +34,10 @@ const EventManagementPanel = ({
 }) => {
     const navigate = useNavigate();
     const [version, setVersion] = useState(0);
-    const [delegateUsername, setDelegateUsername] = useState('');
+    // Tanlangan odamning O'ZI saqlanadi: qidiruv komponenti uning ismi va
+    // guruhini ko'rsatib turishi kerak.
+    const [delegatee, setDelegatee] = useState(null);
+    const [delegError, setDelegError] = useState('');
     const [busy, setBusy] = useState(false);
     const [finishError, setFinishError] = useState('');
     const [awardResult, setAwardResult] = useState(null);
@@ -74,16 +78,39 @@ const EventManagementPanel = ({
         ? db.getActivityAttendanceForActivity(event.id, 'event').sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         : [];
     const delegations = event ? db.getEventDelegations(event.id) : [];
-
-    const handleGrantDelegation = () => {
-        if (!delegateUsername.trim() || !event) return;
-        db.grantEventDelegation(event.id, delegateUsername.trim(), ['attendance'], actingUsername);
-        setDelegateUsername('');
-        refresh();
+    // Yozuvda login turadi, ekranda esa ism kerak. Ikkala hovuzdan qidiriladi:
+    // haqiqiy akkauntlar sintetik talabalardan alohida ro'yxatda.
+    const delegateeName = (uname) => {
+        if (!uname) return '';
+        const mock = db.getMockStudents().find(st => st.id === uname);
+        if (mock?.fullName) return mock.fullName;
+        const real = (db.getSyncedProfiles() || []).find(pr => pr.username === uname || pr.id === uname);
+        return real?.fullName || uname;
     };
-    const handleRevokeDelegation = (id) => {
-        db.revokeEventDelegation(id, actingUsername);
-        refresh();
+
+    // ASYNC: yozuv endi bazaga ketadi. Ilgari `await` yo'q edi va ro'yxat
+    // yozuv yetib bormasidan yangilanardi.
+    const handleGrantDelegation = async () => {
+        if (!delegatee || !event) return;
+        setDelegError(''); setBusy(true);
+        try {
+            await db.grantEventDelegation(
+                event.id, delegatee.username || delegatee.id, ['attendance'], actingUsername
+            );
+            setDelegatee(null);
+            refresh();
+        } catch (e) {
+            setDelegError(e?.message || 'Vakolat berilmadi.');
+        } finally { setBusy(false); }
+    };
+    const handleRevokeDelegation = async (id) => {
+        setDelegError(''); setBusy(true);
+        try {
+            await db.revokeEventDelegation(id, actingUsername);
+            refresh();
+        } catch (e) {
+            setDelegError(e?.message || 'Bekor qilinmadi.');
+        } finally { setBusy(false); }
     };
 
     // Yakunlash UCH ishni bajaradi: holatni o'zgartiradi, davomatni qulflaydi va
@@ -350,28 +377,40 @@ const EventManagementPanel = ({
                     <p className="text-[11px] text-gray-400">
                         Boshqa birovga ushbu tadbir uchun faqat davomat belgilash huquqini bering.
                     </p>
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={delegateUsername}
-                            onChange={e => setDelegateUsername(e.target.value)}
-                            placeholder="Foydalanuvchi nomi (username)"
-                            className="flex-1 px-3 py-2 border rounded-xl text-sm"
-                        />
+                    {/* Ilgari bu yerda oddiy matn maydoni turardi va LOGINNI
+                        QO'LDA yozish kerak edi. Loginni hech kim yoddan bilmaydi,
+                        xato yozilsa esa ogohlantirish yo'q edi: vakolat mavjud
+                        bo'lmagan odamga berilardi. Endi ism, talaba ID, guruh
+                        yoki login bo'yicha qidiriladi. */}
+                    <div className="flex flex-col sm:flex-row gap-2 sm:items-start">
+                        <div className="flex-1">
+                            <StudentPicker
+                                value={delegatee}
+                                onSelect={setDelegatee}
+                                placeholder="Ism, ID yoki login bo'yicha qidiring..."
+                            />
+                        </div>
                         <button
                             type="button"
                             onClick={handleGrantDelegation}
-                            disabled={!delegateUsername.trim()}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-700"
+                            disabled={!delegatee || busy}
+                            className="flex items-center gap-1.5 px-3 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-700 shrink-0"
                         >
-                            <ShieldCheck size={13} /> Berish
+                            <ShieldCheck size={13} /> {busy ? 'Saqlanmoqda...' : 'Berish'}
                         </button>
                     </div>
+                    {delegError && (
+                        <p className="text-[11px] font-semibold text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+                            {delegError}
+                        </p>
+                    )}
                     {delegations.length > 0 && (
                         <div className="space-y-1.5">
                             {delegations.map(d => (
                                 <div key={d.id} className="flex items-center justify-between gap-2 px-3 py-1.5 bg-slate-50 rounded-lg text-xs">
-                                    <span className="font-semibold text-gray-700">{d.granteeUsername}</span>
+                                    {/* Login emas, F.I.Sh.: mas'ul kimga vakolat
+                                        berganini login bo'yicha tanimaydi. */}
+                                    <span className="font-semibold text-gray-700">{delegateeName(d.granteeUsername)}</span>
                                     <button type="button" onClick={() => handleRevokeDelegation(d.id)} className="flex items-center gap-1 text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-lg">
                                         <Trash2 size={11} /> Bekor qilish
                                     </button>
