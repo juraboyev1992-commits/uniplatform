@@ -33,7 +33,18 @@ const StatusPill = ({ icon, variant = 'secondary', children }) => (
 // re-registration — renders the same way for every role, per "bir xil ko'rinish, faqat ruxsatlar
 // farq qilsin". Never touches comp.participants/event.registrations directly — everything goes
 // through db.registerForActivity/respondToTeamInvite/confirmWaitlistOffer/overrideAddParticipant.
-const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTime, user, isAdmin, isManagement, hasClubRole, onRegistered }) => {
+// `staffContext` - panel BOSHQARUV ish maydonida chizilyaptimi.
+//
+// Komponent ikki rolga bir xil chiziladi va shu sababli mas'ul ish
+// maydonini ochganda birinchi ko'radigan narsasi "Qatnashaman" tugmasi
+// bo'lardi - o'ziga kerak bo'lgan ro'yxat va "Qo'lda qo'shish" esa pastda
+// qolardi. Tasodifan bosilsa, mas'ul o'zini ishtirokchi qilib qo'yardi va
+// bu davomat bilan ballga ta'sir qilardi.
+//
+// Shuning uchun ish maydonida o'zi uchun ro'yxatdan o'tish YIG'IB
+// qo'yiladi - OLIB TASHLANMAYDI: klub koordinatori ham odam va o'z
+// klubining tadbirida qatnashishi mumkin.
+const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTime, user, isAdmin, isManagement, hasClubRole, onRegistered, staffContext = false }) => {
     const [refreshKey, setRefreshKey] = useState(0);
     const [error, setError] = useState('');
     const [teamName, setTeamName] = useState('');
@@ -86,6 +97,7 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
         setAttachment({ name: file.name, sizeLabel: `${(file.size / 1024 / 1024).toFixed(2)} MB` });
     };
     const [showOverride, setShowOverride] = useState(false);
+    const [showSelf, setShowSelf] = useState(false);
     const [overrideStudent, setOverrideStudent] = useState(null);
     const [overrideTeamId, setOverrideTeamId] = useState('');
     // 'existing' = attach an already-real team (overrideAddTeam); 'new' = admin creates a brand-new real
@@ -164,6 +176,8 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
     );
 
     const canOverride = !!user && (isAdmin || isManagement || (clubId && hasClubRole?.(clubId, ['coordinator', 'head_coordinator'])));
+    // Talaba tomonida HAR DOIM ochiq. Ish maydonida esa faqat so'ralganda.
+    const selfVisible = !staffContext || showSelf;
     const registrationOpen = db.isRegistrationOpen(activity, startDateTime);
     const effectiveMode = activity.registrationType === 'both' ? chosenMode : activity.registrationType;
 
@@ -364,6 +378,7 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
 
     return (
         <div className="space-y-3">
+            {selfVisible && (<>
             {positionConflict && !myRegistration && (
                 <div className="flex gap-2 text-xs rounded-xl px-3 py-2.5 border text-red-700 bg-red-50 border-red-100">
                     <AlertTriangle size={14} className="shrink-0 mt-px" />
@@ -392,10 +407,13 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
                 </div>
             )}
 
+            </>)}
+
             {error && (
                 <p className="text-xs font-semibold text-red-500 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</p>
             )}
 
+            {selfVisible && (<>
             {/* Pending team invite for the current user (they were invited by someone else's registration) */}
             {myPendingInvite && (
                 <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl space-y-2">
@@ -684,6 +702,21 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
                     />
                     <Button variant="outline" size="sm" disabled={!joinCode.trim()} onClick={handleJoinByCode}>Qo'shilish</Button>
                 </div>
+            )}
+
+            </>)}
+
+            {/* O'ZI UCHUN RO'YXATDAN O'TISH - ish maydonida yig'ilgan holda.
+                Yozuv ochiq turadi, ya'ni imkoniyat yashirilmagan; faqat
+                bosilgandagina ochiladi. */}
+            {staffContext && !showSelf && activity.registrationRequired && !myRegistration && (
+                <button
+                    type="button"
+                    onClick={() => setShowSelf(true)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-indigo-600"
+                >
+                    <UserPlus size={13} /> Men ham qatnashaman
+                </button>
             )}
 
             {canOverride && (

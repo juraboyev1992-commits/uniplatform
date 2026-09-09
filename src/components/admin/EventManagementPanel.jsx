@@ -148,6 +148,11 @@ const EventManagementPanel = ({
                         <RegistrationStatusBadge activity={activity} startDateTime={activityStartDateTime} registeredCount={registeredCount} />
                     </div>
                     <ActivityRegistrationPanel
+                        // Bu BOSHQARUV paneli: o'zi uchun ro'yxatdan o'tish
+                        // yig'ilgan holda turadi, mas'ul vositalari esa darrov
+                        // ko'rinadi. Talaba kalendarida bu prop berilmaydi va
+                        // u yerda hech narsa o'zgarmaydi.
+                        staffContext
                         activity={activity}
                         activityType={activityType}
                         clubId={activityClubId}
