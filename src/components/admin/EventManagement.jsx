@@ -146,9 +146,6 @@ const EventManagement = ({ defaultKind = 'events' }) => {
     const [formData, setFormData] = useState(EMPTY_FORM);
     const [scoreData, setScoreData] = useState({ userId: '', score: 0, placement: '' });
     const [saveError, setSaveError] = useState('');
-    // Xonalar bandligi endi alohida tab emas, YONMA-YON ochiladigan blok:
-    // u kalendarning muqobili emas, uni to'ldiradi ("qaysi xona bo'sh").
-    const [showVenues, setShowVenues] = useState(false);
     // Musobaqa yaratish sehrgari. `/admin/competitions` endi umumiy ro'yxat
     // ekranini ko'rsatadi, ya'ni TournamentScoring ichidagi "Yangi Musobaqa"
     // tugmasiga yo'l qolmagan edi - yaratish YO'LI UMUMAN YO'QOLGANDI.
@@ -509,77 +506,53 @@ const EventManagement = ({ defaultKind = 'events' }) => {
                     }
                     navigate(`/admin/competitions/${entry.id}`);
                 }}
-                // "Yangi tadbir" tugmasi BU YERDA YO'Q: u sarlavhaning o'ng
-                // tomonida turadi. Ikki joyda bo'lgani foydalanuvchiga ikki xil
-                // amal borday tuyulardi, aslida esa bitta ish edi.
-                // Kun katagidagi "+": tadbirda sana oldindan to'ldiriladi,
-                // musobaqada sehrgar ochiladi (unda sana o'z qadamida
-                // so'raladi, shuning uchun oldindan to'ldirilmaydi).
-                onCreateAt={(day, kind) => {
-                    if (kind === 'events') { setSelectedDate(day); handleOpenModal(null, day); return; }
-                    setIsCompWizardOpen(true);
-                }}
-                filterBarActions={(kind) => (kind === 'events' ? (
-                    <Button size="sm" icon={Plus} onClick={() => handleOpenModal(null, new Date())}>
-                        Tadbir yaratish
-                    </Button>
-                ) : (
-                    <Button size="sm" icon={Plus} onClick={() => setIsCompWizardOpen(true)}>
-                        Yangi tanlov
-                    </Button>
-                ))}
-                headerActions={
-                    <>
-                        <button
-                            type="button"
-                            title="Qaysi xona qachon band. Faqat xonasi belgilangan faoliyatlar."
-                            onClick={() => setShowVenues(v => !v)}
-                            className={`px-3.5 py-2 rounded-2xl text-xs font-bold transition-colors border ${
-                                showVenues
-                                    ? 'bg-gray-900 text-white border-gray-900'
-                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                            }`}
-                        >
-                            Xonalar bandligi
-                        </button>
-                    </>
-                }
-                footer={showVenues && (
-                    <Card padding={false}>
-                        <div className="p-4">
-                            {/* CHEKLOVNI OCHIQ AYTISH. Bu jadval faqat XONASI
-                                belgilangan faoliyatni ko'rsatadi (db.js dagi
-                                collectVenueOccupancy `venueLabel` bo'lmaganini
-                                o'tkazib yuboradi). Buni yozmasak, onlayn yoki
-                                joyi hali aniqlanmagan tadbirni bu yerdan
-                                topolmagan odam "tadbir yo'qolibdi" deb
-                                o'ylardi. */}
-                            <p className="text-[11px] text-gray-500 bg-slate-50 border border-gray-100 rounded-xl px-3 py-2 mb-3">
-                                Bu jadval <b>qaysi xona qachon band</b> degan savolga javob beradi va
-                                faqat xonasi belgilangan faoliyatlarni ko'rsatadi. Onlayn yoki joyi
-                                hali aniqlanmagan tadbirlarni <b>Kalendar</b> yoki <b>Ro'yxat</b>
-                                {' '}ko'rinishidan ko'ring.
-                            </p>
-                            <VenueOccupancyCalendar
-                                currentUsername={user?.username}
-                                onCreateBooking={(venueLabel, day) => {
-                                    handleOpenModal(null, day);
-                                    // Xona nomi handleOpenModal formani tozalagandan
-                                    // KEYIN qo'yiladi, aks holda yo'qolib ketardi.
-                                    setFormData(prev => ({ ...prev, location: venueLabel }));
-                                }}
-                                onOpenBooking={(booking) => {
-                                    if (booking.kind === 'event') {
-                                        const ev = events.find(e => e.id === booking.id);
-                                        if (ev) handleOpenModal(ev);
-                                    } else {
-                                        navigate(`/admin/competitions/${booking.id}`);
-                                    }
-                                }}
-                            />
-                        </div>
-                    </Card>
-                )}
+                // "Xonalar bandligi" endi Kalendar va Ro'yxat bilan BIR XIL
+                // almashtirgichda. Ilgari u alohida tugma edi va ko'rinishni
+                // almashtirmay, ostiga qo'shilardi: ekranda ikkita katta jadval
+                // bo'lib, filtrlar yuqoridagisiga ta'sir qilar, pastdagisiga
+                // esa yo'q edi - "nega filtr ishlamadi" degan savol shundan
+                // tug'ilardi.
+                extraViews={[{
+                    id: 'venue',
+                    label: 'Xonalar bandligi',
+                    title: 'Qaysi xona qachon band. Faqat xonasi belgilangan faoliyatlar.',
+                    render: () => (
+                        <Card padding={false}>
+                            <div className="p-4">
+                                {/* CHEKLOVNI OCHIQ AYTISH: bu jadval faqat XONASI
+                                    belgilangan faoliyatni ko'rsatadi (db.js dagi
+                                    collectVenueOccupancy `venueLabel` bo'lmaganini
+                                    o'tkazib yuboradi). Busiz onlayn yoki joyi hali
+                                    aniqlanmagan tadbirni bu yerdan topolmagan odam
+                                    "tadbir yo'qolibdi" deb o'ylardi. */}
+                                <p className="text-[11px] text-gray-500 bg-slate-50 border border-gray-100 rounded-xl px-3 py-2 mb-3">
+                                    Bu jadval <b>qaysi xona qachon band</b> degan savolga javob beradi va
+                                    faqat xonasi belgilangan faoliyatlarni ko'rsatadi. Onlayn yoki joyi
+                                    hali aniqlanmagan tadbirlarni <b>Kalendar</b> yoki <b>Ro'yxat</b>
+                                    {' '}ko'rinishidan ko'ring. Chapdagi filtrlar bu jadvalga
+                                    ta'sir qilmaydi, shuning uchun ular vaqtincha yashirildi.
+                                </p>
+                                <VenueOccupancyCalendar
+                                    currentUsername={user?.username}
+                                    onCreateBooking={(venueLabel, day) => {
+                                        handleOpenModal(null, day);
+                                        // Xona nomi handleOpenModal formani tozalagandan
+                                        // KEYIN qo'yiladi, aks holda yo'qolib ketardi.
+                                        setFormData(prev => ({ ...prev, location: venueLabel }));
+                                    }}
+                                    onOpenBooking={(booking) => {
+                                        if (booking.kind === 'event') {
+                                            const ev = events.find(e => e.id === booking.id);
+                                            if (ev) handleOpenModal(ev);
+                                        } else {
+                                            navigate(`/admin/competitions/${booking.id}`);
+                                        }
+                                    }}
+                                />
+                            </div>
+                        </Card>
+                    ),
+                }]}
             />
 
             {/* MUSOBAQA YARATISH. Alohida oynada, chunki sehrgar ko'p qadamli

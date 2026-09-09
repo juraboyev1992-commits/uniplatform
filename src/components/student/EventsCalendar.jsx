@@ -160,6 +160,16 @@ const EventsCalendar = ({
     // Kun katagidagi "+" tugmasi. Berilmasa umuman chizilmaydi - talabaga
     // kalendardan tadbir yaratish huquqi yo'q.
     onCreateAt = null,
+    // Qo'shimcha ko'rinishlar (adminda "Xonalar bandligi"). Ular Kalendar va
+    // Ro'yxat bilan BIR XIL almashtirgichda turadi va ularni ALMASHTIRADI -
+    // ekranda har doim bitta jadval bo'ladi.
+    //
+    // Bunday ko'rinish boshqa manbadan o'qiydi va chapdagi filtrlarga
+    // bo'ysunmaydi, shuning uchun u faol bo'lganda filtr paneli ham, filtr
+    // tablari ham YASHIRILADI. Ishlayotganday ko'rinib, aslida hech narsa
+    // qilmaydigan boshqaruv - chalkashlikning eng keng tarqalgan sababi.
+    // [{ id, label, title, render: () => node }]
+    extraViews = [],
     // Tashqi o'zgarishdan keyin qayta o'qish uchun (masalan tadbir saqlangach).
     refreshToken = 0,
 }) => {
@@ -172,7 +182,9 @@ const EventsCalendar = ({
 
     const [kind, setKind] = useTabParam(KIND_IDS, defaultKind, 'kind');
     const [filterTab, setFilterTab] = useTabParam(FILTER_IDS, 'all', 'filter');
-    const [view, setView] = useTabParam(VIEW_IDS, 'calendar', 'view');
+    const [view, setView] = useTabParam(
+        [...VIEW_IDS, ...extraViews.map(v => v.id)], 'calendar', 'view'
+    );
 
     const [search, setSearch] = useState('');
     const [formatFilter, setFormatFilter] = useState([]); // ['league','cup']
@@ -211,6 +223,10 @@ const EventsCalendar = ({
         asInvitee.forEach(i => put(i, 'invitee'));
         return map;
     }, [user?.username, isAdmin]);
+
+    // Qo'shimcha ko'rinish faolmi. Faol bo'lsa filtr paneli va filtr tablari
+    // chizilmaydi - u ko'rinish ularga bo'ysunmaydi.
+    const activeExtra = extraViews.find(v => v.id === view) || null;
 
     const alertFor = (row) => teamAlerts.get(`${row.kind}-${row.id}`) || null;
     const alertIsUrgent = (a) => a?.daysLeft != null && a.daysLeft <= 1;
@@ -450,13 +466,30 @@ const EventsCalendar = ({
                     >
                         <List size={14} /> Ro'yxat
                     </button>
+                    {/* Qo'shimcha ko'rinishlar SHU YERDA - alohida tugma emas.
+                        Alohida turganda u ko'rinishni almashtirmay, ostiga
+                        qo'shilardi: ekranda ikkita katta jadval bo'lib,
+                        qaysi biri "joriy" ekani noaniq edi. */}
+                    {extraViews.map(v => (
+                        <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => setView(v.id)}
+                            title={v.title || v.label}
+                            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
+                                view === v.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'
+                            }`}
+                        >
+                            {v.label}
+                        </button>
+                    ))}
                     </div>
                 </div>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6">
-                {/* Filtrlar sidebar */}
-                <div className="w-full lg:w-64 shrink-0 bg-white rounded-3xl border border-gray-100 shadow-sm p-5 space-y-4 h-fit">
+                {/* Filtrlar sidebar - qo'shimcha ko'rinishda chizilmaydi. */}
+                <div className={`w-full lg:w-64 shrink-0 bg-white rounded-3xl border border-gray-100 shadow-sm p-5 space-y-4 h-fit ${activeExtra ? 'hidden' : ''}`}>
                     <div className="flex items-center justify-between">
                         <h3 className="text-sm font-black text-gray-900 flex items-center gap-1.5"><SlidersHorizontal size={14} /> Filtrlar</h3>
                     </div>
@@ -541,7 +574,7 @@ const EventsCalendar = ({
 
                 {/* Asosiy qism */}
                 <div className="flex-1 min-w-0 space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className={`flex flex-wrap items-center justify-between gap-3 ${activeExtra ? 'hidden' : ''}`}>
                         <div className="flex flex-wrap items-center gap-2">
                             {FILTER_TABS[isAdmin ? 'admin' : 'student'][kind].map(t => (
                                 <button
@@ -575,7 +608,7 @@ const EventsCalendar = ({
                         </div>
                     </div>
 
-                    {view === 'calendar' ? (
+                    {activeExtra ? activeExtra.render() : view === 'calendar' ? (
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <Card className="lg:col-span-3 p-0 overflow-hidden">
                                 <div className="p-4 border-b border-gray-100 flex items-center justify-between">
