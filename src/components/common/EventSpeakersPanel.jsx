@@ -88,6 +88,15 @@ const EventSpeakersPanel = ({ event, canEdit = true, actingUsername, onChanged }
     // sarlavha va o'nlab boshqa element bor. Ularni chop etishdan yashirish
     // uchun butun ilova bo'ylab print uslublari yozish kerak bo'lardi va
     // har yangi ekran o'sha uslublarni buzishi mumkin edi.
+    //
+    // MATN O'SHA OYNADA TAHRIRLANADI. Chop etayotgan odamga ko'pincha kichik
+    // tuzatish kerak bo'ladi: lavozim juda uzun va ikki qatorga sig'maydi,
+    // ismda xato bor, yoki "prof." deb qisqartirish kerak. Buning uchun
+    // orqaga qaytib yozuvni o'zgartirish, keyin qayta chop etish - ortiqcha
+    // yo'l, ustiga rasmiy yozuvni tablichka uchun buzish noto'g'ri bo'lardi.
+    //
+    // Shuning uchun tahrirlash FAQAT chop etish uchun: oynadagi o'zgarish
+    // tadbir yozuviga QAYTMAYDI. Oyna yopilsa, tuzatish ham ketadi.
     const handlePrint = () => {
         const list = filled;
         if (list.length === 0) return;
@@ -96,8 +105,8 @@ const EventSpeakersPanel = ({ event, canEdit = true, actingUsername, onChanged }
         // qirqiladi. Har yarmi 148mm balandlikda (A5).
         const cards = list.map(s => `
             <div class="card">
-                <div class="name">${esc(s.fullName)}</div>
-                ${s.position ? `<div class="pos">${esc(s.position)}</div>` : ''}
+                <div class="name" contenteditable="true" spellcheck="false">${esc(s.fullName)}</div>
+                <div class="pos" contenteditable="true" spellcheck="false">${esc(s.position)}</div>
             </div>`).join('');
 
         const html = `<!doctype html>
@@ -120,15 +129,55 @@ const EventSpeakersPanel = ({ event, canEdit = true, actingUsername, onChanged }
   /* Har ikkinchi kartochkadan keyin yangi varaq. */
   .card:nth-child(2n) { border-bottom: 0; page-break-after: always; }
   .card:last-child { page-break-after: auto; }
-  .name { font-size: 40pt; font-weight: 700; line-height: 1.15; }
-  .pos { font-size: 20pt; margin-top: 8mm; color: #333; line-height: 1.3; }
-  @media screen {
-    body { background: #eef0f6; padding: 16px; }
-    .sheet { background: #fff; margin: 0 auto; box-shadow: 0 2px 14px rgba(0,0,0,.15); }
+  .name { font-size: var(--name, 40pt); font-weight: 700; line-height: 1.15; outline: none; }
+  .pos  { font-size: var(--pos, 20pt); margin-top: 8mm; color: #333; line-height: 1.3; outline: none; }
+  /* Bo'sh lavozim maydoni ham tahrirlanishi kerak - aks holda uni keyin
+     to'ldirib bo'lmasdi. Chop etishda esa bo'shi ko'rinmaydi. */
+  .pos:empty::before { content: "Lavozimi"; color: #c9ccd6; }
+
+  .bar {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    padding: 10px 14px; background: #14172b; color: #fff;
+    font-family: system-ui, "Segoe UI", sans-serif; font-size: 13px;
   }
+  .bar button {
+    font: inherit; font-weight: 700; cursor: pointer;
+    border: 0; border-radius: 8px; padding: 7px 14px;
+    background: #4f46e5; color: #fff;
+  }
+  .bar button.ghost { background: rgba(255,255,255,.14); }
+  .bar .hint { color: #aeb3cc; margin-left: auto; }
+
+  @media screen {
+    body { background: #eef0f6; }
+    .sheet { background: #fff; margin: 16px auto; box-shadow: 0 2px 14px rgba(0,0,0,.15); }
+    /* Tahrirlash mumkinligi KO'RINIB TURSIN - aks holda odam matn ustiga
+       bosish mumkinligini bilmaydi. */
+    [contenteditable]:hover { background: #f4f5ff; border-radius: 6px; }
+    [contenteditable]:focus { background: #eef0fe; border-radius: 6px; }
+  }
+  @media print { .bar { display: none; } .pos:empty::before { content: ""; } }
 </style></head>
-<body><div class="sheet">${cards}</div>
-<script>window.onload = function () { window.print(); };<\/script>
+<body>
+  <div class="bar">
+    <button onclick="window.print()">Chop etish</button>
+    <button class="ghost" onclick="resize(-4)">A−</button>
+    <button class="ghost" onclick="resize(4)">A+</button>
+    <span class="hint">Matn ustiga bosib tahrirlang. O'zgarish faqat shu chop etish uchun — tadbir yozuviga qaytmaydi.</span>
+  </div>
+  <div class="sheet">${cards}</div>
+<script>
+  var nameSize = 40, posSize = 20;
+  function resize(step) {
+    // Ism va lavozim BIRGA o'zgaradi, nisbati saqlanadi: ularni alohida
+    // sozlash foydadan ko'ra chalkashlik keltirardi.
+    nameSize = Math.max(18, Math.min(72, nameSize + step));
+    posSize = Math.max(10, Math.min(40, posSize + Math.round(step / 2)));
+    document.documentElement.style.setProperty('--name', nameSize + 'pt');
+    document.documentElement.style.setProperty('--pos', posSize + 'pt');
+  }
+<\/script>
 </body></html>`;
 
         const w = window.open('', '_blank');
