@@ -481,6 +481,28 @@ const EventManagement = ({ defaultKind = 'events' }) => {
                             </div>
                         ))}
                     </div>
+                    {/* KLUBLAR SONI va KLUBLAR KATALOGIGA O'TISH. Ilgari ikkalasi
+                        alohida turardi: son statistikada, havola esa "Tezkor
+                        amallar" kartasida ("Klub tashkil etish"). O'sha karta
+                        olib tashlangan edi, chunki uchta tugmasidan ikkitasi
+                        endi shu ekranning o'zida bor (tadbir yaratish - yuqorida,
+                        turnir yaratish - musobaqa tabida) va ular takrorlanib
+                        qolardi. Uchinchisi - boshqa bo'limga o'tish - haqiqatan
+                        kerak edi, shuning uchun son bilan birga shu yerga
+                        qo'yildi. */}
+                    <button
+                        type="button"
+                        onClick={() => navigate('/admin/clubs-directory')}
+                        className="w-full mt-3 flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors text-left"
+                    >
+                        <span className="flex items-center gap-2 text-xs font-bold text-gray-700">
+                            <UsersRound size={14} className="text-indigo-500" />
+                            {clubs.length} ta klub
+                        </span>
+                        <span className="text-[11px] font-bold text-indigo-600 flex items-center gap-1">
+                            Klublar katalogi <ChevronRight size={12} />
+                        </span>
+                    </button>
                 </Card>
             </div>
 
@@ -506,6 +528,25 @@ const EventManagement = ({ defaultKind = 'events' }) => {
                     }
                     navigate(`/admin/competitions/${entry.id}`);
                 }}
+                // Kun katagidagi "+": tadbirda sana oldindan to'ldiriladi,
+                // musobaqada sehrgar ochiladi (unda sana o'z qadamida
+                // so'raladi, shuning uchun oldindan to'ldirilmaydi).
+                onCreateAt={(day, kind) => {
+                    if (kind === 'events') { setSelectedDate(day); handleOpenModal(null, day); return; }
+                    setIsCompWizardOpen(true);
+                }}
+                // Yaratish tugmasi filtr tablari qatorining o'ng tomonida.
+                // Nomi tabga qarab o'zgaradi: tadbir va musobaqa yaratish
+                // boshqa-boshqa ish va ular boshqa-boshqa oyna ochadi.
+                filterBarActions={(kind) => (kind === 'events' ? (
+                    <Button size="sm" icon={Plus} onClick={() => handleOpenModal(null, new Date())}>
+                        Tadbir yaratish
+                    </Button>
+                ) : (
+                    <Button size="sm" icon={Plus} onClick={() => setIsCompWizardOpen(true)}>
+                        Yangi tanlov
+                    </Button>
+                ))}
                 // "Xonalar bandligi" endi Kalendar va Ro'yxat bilan BIR XIL
                 // almashtirgichda. Ilgari u alohida tugma edi va ko'rinishni
                 // almashtirmay, ostiga qo'shilardi: ekranda ikkita katta jadval
