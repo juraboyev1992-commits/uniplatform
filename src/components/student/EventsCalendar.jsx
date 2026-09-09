@@ -40,17 +40,37 @@ const KIND_TABS = [
 ];
 const KIND_IDS = KIND_TABS.map(t => t.id);
 
+// O'RTADAGI TAB IKKI ROLDA IKKI XIL NARSANI ANGLATADI, shuning uchun nomi
+// ham boshqacha:
+//   talaba  -> "Mening tadbirlarim" = men ro'yxatdan o'tganlarim
+//   mas'ul  -> "Men yaratganlarim"  = men ochgan tadbir/musobaqalar
+// Mas'ul ishtirokchi emas - unga "mening tadbirlarim" deyish yolg'on
+// bo'lardi va tab har doim bo'sh chiqardi.
 const FILTER_TABS = {
-    events: [
-        { id: 'all', label: 'Barcha tadbirlar' },
-        { id: 'mine', label: 'Mening tadbirlarim' },
-        { id: 'archive', label: 'Arxiv' },
-    ],
-    competitions: [
-        { id: 'all', label: 'Barchasi' },
-        { id: 'mine', label: 'Mening musobaqa/turnirlarim' },
-        { id: 'archive', label: 'Arxiv' },
-    ],
+    student: {
+        events: [
+            { id: 'all', label: 'Barcha tadbirlar' },
+            { id: 'mine', label: 'Mening tadbirlarim' },
+            { id: 'archive', label: 'Arxiv' },
+        ],
+        competitions: [
+            { id: 'all', label: 'Barchasi' },
+            { id: 'mine', label: 'Mening musobaqa/turnirlarim' },
+            { id: 'archive', label: 'Arxiv' },
+        ],
+    },
+    admin: {
+        events: [
+            { id: 'all', label: 'Barcha tadbirlar' },
+            { id: 'mine', label: 'Men yaratganlarim' },
+            { id: 'archive', label: 'Arxiv' },
+        ],
+        competitions: [
+            { id: 'all', label: 'Barchasi' },
+            { id: 'mine', label: 'Men yaratganlarim' },
+            { id: 'archive', label: 'Arxiv' },
+        ],
+    },
 };
 const FILTER_IDS = ['all', 'mine', 'archive'];
 
@@ -232,7 +252,9 @@ const EventsCalendar = ({
             startDateTime: e.date,
             registeredCount: db.getRegistrationsForActivity(e.id, 'event')
                 .filter(r => r.status === 'registered').length,
-        })), [events, clubNameById, myIds]);
+            // Mas'ulning "Men yaratganlarim" tabi uchun.
+            createdByMe: !!user?.username && e.createdBy === user.username,
+        })), [events, clubNameById, myIds, user?.username]);
 
     const competitionRows = useMemo(() => competitions
         .filter(c => (c.moderationStatus || 'approved') === 'approved')
@@ -250,7 +272,9 @@ const EventsCalendar = ({
             startDateTime: c.startDate ? db.combineDateTime(c.startDate, c.startTime) : null,
             registeredCount: db.getRegistrationsForActivity(c.id, 'competition')
                 .filter(r => r.status === 'registered').length,
-        })), [competitions, clubNameById, myIds]);
+            // Musobaqada yaratuvchi `ownerUsername` da saqlanadi.
+            createdByMe: !!user?.username && c.ownerUsername === user.username,
+        })), [competitions, clubNameById, myIds, user?.username]);
 
     const allRows = kind === 'events' ? eventRows : competitionRows;
 
@@ -289,21 +313,25 @@ const EventsCalendar = ({
 
     const filterTabCounts = useMemo(() => ({
         all: preFilterTabRows.filter(r => r.statusBucket !== 'closed').length,
-        mine: preFilterTabRows.filter(r => r.isMine).length,
+        // Hisob FILTR BILAN bir xil qoidada bo'lishi shart, aks holda tabda
+        // "3" turib, ichida boshqa narsa chiqardi.
+        mine: preFilterTabRows.filter(r => (isAdmin ? r.createdByMe : r.isMine)).length,
         archive: preFilterTabRows.filter(r => r.statusBucket === 'closed').length,
-    }), [preFilterTabRows]);
+    }), [preFilterTabRows, isAdmin]);
 
     const filteredRows = useMemo(() => {
         let rows = preFilterTabRows;
         if (filterTab === 'all') rows = rows.filter(r => r.statusBucket !== 'closed');
-        else if (filterTab === 'mine') rows = rows.filter(r => r.isMine);
+        // "Mening" tabi rolga qarab boshqa narsani filtrlaydi: talabada
+        // ro'yxatdan o'tganlar, mas'ulda o'zi yaratganlar.
+        else if (filterTab === 'mine') rows = rows.filter(r => (isAdmin ? r.createdByMe : r.isMine));
         else if (filterTab === 'archive') rows = rows.filter(r => r.statusBucket === 'closed');
         return [...rows].sort((a, b) => {
             const aTime = a.date ? a.date.getTime() : 0;
             const bTime = b.date ? b.date.getTime() : 0;
             return sortDir === 'asc' ? aTime - bTime : bTime - aTime;
         });
-    }, [preFilterTabRows, filterTab, sortDir]);
+    }, [preFilterTabRows, filterTab, sortDir, isAdmin]);
 
     const totalPages = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(filteredRows.length / pageSize));
     const currentPage = Math.min(page, totalPages);
@@ -505,7 +533,7 @@ const EventsCalendar = ({
                 <div className="flex-1 min-w-0 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="flex flex-wrap items-center gap-2">
-                            {FILTER_TABS[kind].map(t => (
+                            {FILTER_TABS[isAdmin ? 'admin' : 'student'][kind].map(t => (
                                 <button
                                     key={t.id}
                                     type="button"

@@ -2232,9 +2232,12 @@ const mapEventFromSupabase = (row) => ({
     // tracking for events yet (those live in extra jsonb keys on competitions, which events don't have -
     // would need its own column(s) to add later).
     moderationStatus: row.moderation_status,
-    // Admin-only display (see EventManagement.jsx/ApprovalsTab.jsx) - undefined until the created_by
-    // column is added; every consumer already falls back to the club name when this is absent.
-    createdBy: row.created_by,
+    // Kim yaratgan. IKKI JOYDAN o'qiladi va bu shart: `createEvent` qiymatni
+    // `data.createdBy` ichiga yozadi, bu yerda esa faqat `created_by` USTUNI
+    // o'qilardi - ustun esa bu bazada yo'q. Natijada yaratuvchi har doim
+    // bo'sh chiqardi, garchi u saqlangan bo'lsa ham. Ustun keyinchalik
+    // qo'shilsa, u ustunlikka ega bo'ladi.
+    createdBy: row.created_by || row.data?.createdBy || null,
     // "Jamoa tarkibi" restriction (RegistrationSettingsFields.jsx) - undefined until the
     // team_composition_rule/team_course_rule columns are added; checkTeamComposition already treats
     // undefined as 'mixed' (no restriction), same graceful-default convention as createdBy above.
