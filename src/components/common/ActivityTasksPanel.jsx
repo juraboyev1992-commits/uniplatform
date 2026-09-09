@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ListChecks, Plus, Trash2, Sparkles, AlertTriangle } from 'lucide-react';
 import Button from './Button';
+import StudentPicker from './StudentPicker';
 import { db } from '../../services/db';
 import { TASK_STATUS, TASK_STATUS_ORDER, TASK_TEMPLATES, PARTICIPATION_ROLES, PARTICIPATION_ROLE_ORDER } from '../../config/activityLifecycle';
 
@@ -14,7 +15,9 @@ import { TASK_STATUS, TASK_STATUS_ORDER, TASK_TEMPLATES, PARTICIPATION_ROLES, PA
 const ActivityTasksPanel = ({ activityId, activityType, canManage, actingUsername, onChanged }) => {
     const [version, setVersion] = useState(0);
     const [title, setTitle] = useState('');
-    const [assignee, setAssignee] = useState('');
+    // Tanlangan odamning O'ZI saqlanadi, faqat identifikatori emas: forma
+    // ochiq turganda uning ismi ko'rinib turishi kerak.
+    const [assignee, setAssignee] = useState(null);
     const [role, setRole] = useState('');
     const [dueDate, setDueDate] = useState('');
     const [busy, setBusy] = useState(false);
@@ -37,13 +40,32 @@ const ActivityTasksPanel = ({ activityId, activityType, canManage, actingUsernam
     const handleAdd = () => run(async () => {
         await db.createActivityTask({
             activityId, activityType, title,
-            assigneeId: assignee.trim() || null,
+            // USERNAME saqlanadi, uuid emas. Tanlovda ikki xil hovuz
+            // qo'shiladi (sintetik talabalar va haqiqiy akkauntlar) va
+            // ikkinchisida `id` - uuid. Uni yozib qo'ysak, ro'yxatda odam
+            // ismi o'rniga uuid ko'rinardi.
+            assigneeId: assignee ? (assignee.username || assignee.id) : null,
             role: role || null,
             dueDate: dueDate || null,
             by: actingUsername,
         });
-        setTitle(''); setAssignee(''); setRole(''); setDueDate('');
+        setTitle(''); setAssignee(null); setRole(''); setDueDate('');
     });
+
+    // Yozuvda login turadi, ekranda esa F.I.Sh. kerak. Ikkala hovuzdan ham
+    // qidiriladi: haqiqiy akkauntlar sintetik talabalardan alohida
+    // ro'yxatda (db.getSyncedProfiles izohiga qarang).
+    const nameOf = useMemo(() => {
+        const byKey = new Map();
+        db.getMockStudents().forEach(st => byKey.set(st.id, st.fullName));
+        (db.getSyncedProfiles() || []).forEach(pr => {
+            if (pr.username && pr.fullName) byKey.set(pr.username, pr.fullName);
+            if (pr.id && pr.fullName) byKey.set(pr.id, pr.fullName);
+        });
+        // Topilmasa loginning o'zi qaytadi - bo'sh qoldirish "mas'ul yo'q"
+        // degan noto'g'ri taassurot berardi.
+        return (key) => byKey.get(key) || key;
+    }, [version]);
 
     const done = tasks.filter(t => t.status === 'done').length;
 
@@ -86,7 +108,7 @@ const ActivityTasksPanel = ({ activityId, activityType, canManage, actingUsernam
                                     {t.title}
                                 </p>
                                 <p className="text-[10px] text-gray-400 truncate">
-                                    {t.assigneeId || 'mas\'ul belgilanmagan'}
+                                    {t.assigneeId ? nameOf(t.assigneeId) : 'mas\'ul belgilanmagan'}
                                     {t.role && ` · ${PARTICIPATION_ROLES[t.role]?.short || t.role}`}
                                     {t.dueDate && ` · ${t.dueDate}`}
                                 </p>
@@ -129,11 +151,18 @@ const ActivityTasksPanel = ({ activityId, activityType, canManage, actingUsernam
                             placeholder="Vazifa nomi"
                             className="flex-1 min-w-[140px] px-3 py-2 border border-gray-200 rounded-xl text-xs"
                         />
-                        <input
-                            type="text" value={assignee} onChange={e => setAssignee(e.target.value)}
-                            placeholder="Mas'ul (username)"
-                            className="w-40 px-3 py-2 border border-gray-200 rounded-xl text-xs"
-                        />
+                        {/* Ilgari bu yerda oddiy matn maydoni turardi va LOGINNI
+                            QO'LDA yozish kerak edi. Loginni esa hech kim yoddan
+                            bilmaydi: mas'ul boshqa oynadan izlab topib, nusxalab
+                            kelishi kerak edi. Endi ism, talaba ID, guruh yoki
+                            login bo'yicha qidiriladi. */}
+                        <div className="w-full sm:w-64">
+                            <StudentPicker
+                                value={assignee}
+                                onSelect={setAssignee}
+                                placeholder="Mas'ulni qidiring..."
+                            />
+                        </div>
                         <select
                             value={role} onChange={e => setRole(e.target.value)}
                             className="px-2 py-2 border border-gray-200 rounded-xl text-xs bg-white"
