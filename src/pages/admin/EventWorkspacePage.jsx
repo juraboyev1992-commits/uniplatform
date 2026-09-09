@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, useSearchParams } from 'react-rout
 import { useTabParam } from '../../hooks/useTabParam';
 import {
     ArrowLeft, CalendarDays, ChevronRight, Calendar, MapPin, Users,
-    UserCheck, ListChecks, FileBarChart2, FileText, ShieldCheck, Settings,
+    UserCheck, ListChecks, FileBarChart2, ShieldCheck, Settings,
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
@@ -29,12 +29,18 @@ import { EVENT_TYPES, ACTIVITY_LEVELS } from '../../config/activityLifecycle';
 // harakat, uni buzish shart emas.
 
 const TABS = [
-    { id: 'attendance', label: 'Davomat va ball', icon: UserCheck, section: 'attendance' },
-    { id: 'tasks', label: 'Vazifalar', icon: ListChecks, section: 'tasks' },
-    { id: 'report', label: 'Hisobot', icon: FileBarChart2, section: 'report' },
-    { id: 'protocol', label: 'Bayonnoma', icon: FileText, section: 'protocol' },
-    { id: 'registration', label: "Ro'yxat", icon: Users, section: 'registration' },
-    { id: 'access', label: 'Vakolat', icon: ShieldCheck, section: 'delegation' },
+    { id: 'attendance', label: 'Davomat va ball', icon: UserCheck, sections: ['attendance'] },
+    { id: 'tasks', label: 'Vazifalar', icon: ListChecks, sections: ['tasks'] },
+    // Hisobot va Bayonnoma BITTA tabda. Ikkalasi ham faqat tadbir
+    // yakunlangandan keyin ochiladi va ketma-ket bajariladi: hisobot ->
+    // bayonnoma -> imzo -> hujjat. Ikki tabga bo'linganda mas'ul bitta
+    // ishning o'rtasida tab almashtirishga majbur bo'lardi.
+    //
+    // Musobaqada ular allaqachon bitta "Yakunlash" tabida turadi - endi
+    // ikki bo'lim bir xil mantiqda.
+    { id: 'finish', label: 'Yakunlash', icon: FileBarChart2, sections: ['report', 'protocol'] },
+    { id: 'registration', label: "Ro'yxat", icon: Users, sections: ['registration'] },
+    { id: 'access', label: 'Vakolat', icon: ShieldCheck, sections: ['delegation'] },
 ];
 
 const TAB_IDS = TABS.map(t => t.id);
@@ -123,7 +129,7 @@ const EventWorkspacePage = () => {
     // tablar unga baribir bo'sh chiqardi.
     const visibleTabs = canEditDetails ? TABS : TABS.filter(t => t.id === 'attendance');
     const activeTab = visibleTabs.some(t => t.id === tab) ? tab : 'attendance';
-    const activeSection = TABS.find(t => t.id === activeTab)?.section;
+    const activeSections = TABS.find(t => t.id === activeTab)?.sections || [];
 
     return (
         <div className="space-y-6">
@@ -224,7 +230,7 @@ const EventWorkspacePage = () => {
                         canManageAttendance={canManageAttendance}
                         actingUsername={user?.username || 'admin'}
                         onDataChanged={() => setVersion(v => v + 1)}
-                        sections={[activeSection]}
+                        sections={activeSections}
                         // E'lon "Davomat va ball" tabida turadi — tadbirdan oldingi
                         // yagona amal, unga alohida tab ochish ortiqcha.
                         showLinkedCompetition={activeTab === 'attendance'}

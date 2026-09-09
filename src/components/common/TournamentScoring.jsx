@@ -1107,7 +1107,7 @@ const TournamentScoring = ({
                         <nav className="flex items-center gap-1 overflow-x-auto">
                             {[
                                 { id: 'overview', label: 'Asosiy', icon: LayoutDashboard },
-                                { id: 'participants', label: 'Jamoalar', icon: Users },
+                                { id: 'participants', label: 'Ishtirokchilar', icon: Users },
                                 { id: 'reyting', label: 'Reyting', icon: BarChart3 },
                                 // Munozara match-based (debate_match) is a second match-based engine, sibling
                                 // to Sport (match_play) — same "Raundlar tab is the primary interface, no
@@ -1131,12 +1131,18 @@ const TournamentScoring = ({
                                 // which have their own dedicated per-match Davomat toggle inside "Raundlar" instead.
                                 ...(activeComp.type === 'team' && !['match_play', 'debate_match', 'court_match'].includes(activeComp.scoringMethod) && canManageAttendance()
                                     ? [{ id: 'davomat', label: 'Davomat', icon: ClipboardCheck }] : []),
-                                { id: 'results', label: 'Tanlov natijalari', icon: Trophy },
+                                // "Tanlov natijalari" FAQAT ball asosidagi musobaqalarda.
+                                // Match asosidagilarda (Sport, Munozara, TSUL Court) u
+                                // yo bo'sh yozuv edi ("boshqa tabga qarang"), yo Reyting
+                                // bilan AYNI manbadan (db.getDebateTeamRating) ayni
+                                // raqamlarni chizardi. Endi yakuniy o'rinlar Reyting
+                                // tabining tepasida turadi - bitta joyda.
+                                ...(!['match_play', 'debate_match', 'court_match'].includes(activeComp.scoringMethod)
+                                    ? [{ id: 'results', label: 'Tanlov natijalari', icon: Trophy }] : []),
                                 // Rasmiy yakun: bayonnoma -> imzo -> taqdirlash -> hujjatlar.
                                 ...(hasFullAdminAccess() || role === 'COORDINATOR'
                                     ? [{ id: 'yakunlash', label: 'Yakunlash', icon: FileBarChart2 }] : []),
                                 { id: 'apellyatsiya', label: 'Apellyatsiya', icon: AlertTriangle },
-                                { id: 'blankalar', label: 'Blankalar', icon: FileBarChart2 },
                                 ...(activeComp.tournamentEngine === 'knockout' ? [{ id: 'brackets', label: 'Brackets (Setka)', icon: GitMerge }] : []),
                                 { id: 'schedule', label: 'Jadval', icon: Clock },
                             ].map(tab => (
@@ -1705,31 +1711,21 @@ const TournamentScoring = ({
                         )}
 
                         {/* 4. RESULTS CENTER TAB (Reusing CompetitionResultsCenter component intact) */}
+                        {/* Natijalar markazi - eksport, sertifikat, jonli ekran, raund
+                            bo'yicha tahlil. U competitionScores qatorlariga qurilgan,
+                            match asosidagi musobaqalar esa u yerga hech narsa yozmaydi -
+                            shuning uchun tab ular uchun umuman chizilmaydi (yuqoridagi
+                            shartga qarang), yakuniy o'rinlar esa Reyting tabida turadi. */}
                         {activeTab === 'results' && (
-                            activeComp.scoringMethod === 'match_play' ? (
-                                // CompetitionResultsCenter is built entirely around the quiz/round-score
-                                // data shape (competitionScores) — a match_play competition never writes
-                                // there, so forcing it through would show empty/meaningless data rather
-                                // than a real error. Point to the tabs that actually carry sport data.
-                                <div className="p-12 text-center text-gray-400 text-sm">
-                                    Sport musobaqalari uchun natijalar "Reyting" (guruh jadvali) va "Raundlar" (uchrashuvlar) tablarida ko'rsatiladi.
-                                </div>
-                            ) : ['debate_match', 'court_match'].includes(activeComp.scoringMethod) ? (
-                                // Real final placement computed from finished matches (db.getDebateTeamRating),
-                                // instead of the dead-end notice that used to sit here — these engines never
-                                // write the per-round competitionScores rows CompetitionResultsCenter needs.
-                                <MatchResultsTab competition={activeComp} />
-                            ) : (
-                                <CompetitionResultsCenter
-                                    competition={activeComp}
-                                    scoresData={scoresData}
-                                    auditLogs={auditLogs}
-                                    debatePenalties={debatePenaltiesData}
-                                    userRole={role}
-                                    resultsHidden={resultsHidden}
-                                    canBypassResultsHidden={hasScoringAccess()}
-                                />
-                            )
+                            <CompetitionResultsCenter
+                                competition={activeComp}
+                                scoresData={scoresData}
+                                auditLogs={auditLogs}
+                                debatePenalties={debatePenaltiesData}
+                                userRole={role}
+                                resultsHidden={resultsHidden}
+                                canBypassResultsHidden={hasScoringAccess()}
+                            />
                         )}
 
                         {/* 5. BRACKETS TAB */}
@@ -1844,12 +1840,23 @@ const TournamentScoring = ({
                             overview tiles (participants/rounds-completed/audit-count) and its "chart
                             dashboard" block was decorative only — no real chart was ever rendered there. */}
                         {activeTab === 'reyting' && (
-                            <CompetitionRatingTab
-                                competition={activeComp}
-                                leaderboardData={leaderboardData}
-                                resultsHidden={resultsHidden}
-                                canBypassResultsHidden={hasScoringAccess()}
-                            />
+                            <>
+                                {/* Match asosidagi musobaqalarda YAKUNIY O'RINLAR shu
+                                    yerda, jadvalning tepasida. Ilgari u alohida "Tanlov
+                                    natijalari" tabida turardi va AYNI manbadan (
+                                    db.getDebateTeamRating) ayni raqamlarni chizardi -
+                                    ya'ni mas'ul bir xil narsani ikki tabdan ko'rardi.
+                                    Endi bir joyda: yuqorida yakun, pastida to'liq jadval. */}
+                                {['debate_match', 'court_match'].includes(activeComp.scoringMethod) && (
+                                    <MatchResultsTab competition={activeComp} />
+                                )}
+                                <CompetitionRatingTab
+                                    competition={activeComp}
+                                    leaderboardData={leaderboardData}
+                                    resultsHidden={resultsHidden}
+                                    canBypassResultsHidden={hasScoringAccess()}
+                                />
+                            </>
                         )}
                         {activeTab === 'raundlar' && activeComp.scoringMethod === 'match_play' && (
                             <CompetitionMatchesTab
@@ -1930,12 +1937,6 @@ const TournamentScoring = ({
                                 onScoreCorrected={() => setScoresVersion(v => v + 1)}
                             />
                         )}
-                        {activeTab === 'blankalar' && (
-                            <div className="p-12 text-center text-gray-400 text-sm">
-                                Blankalar — tez orada.
-                            </div>
-                        )}
-
                     </div>
                 </div>
             ) : (
