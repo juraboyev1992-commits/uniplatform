@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Calendar as CalendarIcon, Plus, Users, Clock, MapPin,
-    ChevronLeft, ChevronRight, GraduationCap, Trophy, UsersRound, Zap, TrendingUp
+    ChevronRight, GraduationCap, Trophy, UsersRound, Zap, TrendingUp
 } from 'lucide-react';
-import { format, startOfWeek, addDays, addMonths, startOfMonth, endOfMonth, endOfWeek, isSameMonth, isToday, isSameDay } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { uz } from 'date-fns/locale';
 import Card from '../common/Card';
 import Button from '../common/Button';
@@ -12,6 +12,7 @@ import Badge from '../common/Badge';
 import Modal from '../common/Modal';
 import CopyableId from '../common/CopyableId';
 import EventEditForm from './EventEditForm';
+import ActivityCalendar from './ActivityCalendar';
 import { DEFAULT_ACTIVITY_LEVEL, EVENT_TYPES, ACTIVITY_LEVELS } from '../../config/activityLifecycle';
 import VenueOccupancyCalendar from '../common/VenueOccupancyCalendar';
 import { db } from '../../services/db';
@@ -33,20 +34,8 @@ const EMPTY_FORM = {
     isSpiritual: false
 };
 
-const WEEKDAYS = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sha', 'Ya']; // same abbreviation set as student/EventsCalendar.jsx
-const MONTH_NAMES = [
-    'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun',
-    'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'
-];
-// Short forms for the week-range label ("17 Avg - 23 Avg 2026").
-const MONTH_SHORT = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
-
-const CALENDAR_VIEWS = [
-    { id: 'day', label: 'Kunlik' },
-    { id: 'week', label: 'Haftalik' },
-    { id: 'month', label: 'Oylik' },
-    { id: 'year', label: 'Yillik' }
-];
+// Oy nomlari, hafta kunlari va Kunlik/Haftalik/Oylik/Yillik rejimlari
+// ActivityCalendar.jsx ga ko'chdi - ular faqat o'sha gridga tegishli edi.
 
 // Bitta ma'lumot qatori. Qiymat yo'q bo'lsa QATORNING O'ZI chizilmaydi -
 // "Joy: —" degan qator ekranni to'ldiradi, lekin hech narsa aytmaydi.
@@ -155,9 +144,8 @@ const EventManagement = () => {
     const [scoreData, setScoreData] = useState({ userId: '', score: 0, placement: '' });
     const [saveError, setSaveError] = useState('');
     const [calendarView, setCalendarView] = useState('month');
-    // Kunlik/Haftalik/Oylik/Yillik for the Tadbirlar calendar itself. `currentMonth` doubles as the anchor
-    // date for every mode (not just months) — navigation steps by day/week/month/year accordingly.
-    const [calMode, setCalMode] = useState('month');
+    // Kalendar rejimi (Kunlik/Haftalik/Oylik/Yillik) endi ActivityCalendar
+    // ichida saqlanadi - u yerda ishlatiladi, bu yerda emas.
 
     const locationConflict = useMemo(() => {
         if (!formData.location.trim() || !formData.date) return null;
@@ -367,23 +355,13 @@ const EventManagement = () => {
         </div>
     );
 
-    // Month grid — same underlying date-fns logic as before (currentMonth/selectedDate state was
-    // already declared but had no UI to drive it; prev/next/"Bugun" controls added below are new,
-    // purely additive UI for state that already existed). "Kun"/"Hafta" toggle buttons render but stay
-    // disabled — no day/week view exists yet, and a clickable-but-inert button would be worse than an
-    // honestly-disabled one.
-    // Kalendar endi tadbir, musobaqa va Turlarni birga ko'rsatadi - Xonalar
-    // bandligi tabi bilan bir xil to'plam (db.getCalendarEntries). Ilgari bu yerda
-    // faqat `events` bor edi: Turlar umuman ko'rinmasdi, musobaqa esa yaratilishda
-    // tayyorlangan tadbir nusxasi orqali chiqardi (nusxa hamma vaqt ham
-    // yaratilmasdi).
-    const entriesOn = (day) => {
-        const key = format(day, 'yyyy-MM-dd');
-        return calendarEntries.filter(e => String(e.date).startsWith(key));
-    };
-
-    // Chiqilgan yozuvni ochish: tadbir tahrirlash oynasini, musobaqa va Tur esa
-    // musobaqa ish maydonini ochadi.
+    // Kun katagi va butun grid ALOHIDA komponentga ko'chirildi
+    // (ActivityCalendar.jsx): aynan shu kalendar endi musobaqalar tabida ham
+    // kerak, ikkinchi nusxa esa ikki gridni bir-biridan chetga chiqib
+    // ketishga qo'yib berardi.
+    //
+    // Chiqilgan yozuvni ochish: tadbir tahrirlash oynasini, musobaqa va Tur
+    // esa musobaqa ish maydonini ochadi.
     const openEntry = (entry, day) => {
         if (entry.kind === 'event') {
             const ev = events.find(e => e.id === entry.id);
@@ -393,218 +371,15 @@ const EventManagement = () => {
         navigate(`/admin/competitions/${entry.id}`);
     };
 
-    const ENTRY_CHIP = {
-        event: 'bg-indigo-600',
-        competition: 'bg-amber-500',
-        tur: 'bg-violet-500',
-    };
-
-    // One day cell, shared by the Kunlik/Haftalik/Oylik grids. Creating is a "+" in the corner rather than
-    // a click anywhere on the cell — the old whole-cell click fired whenever someone merely wanted to look
-    // at a busy day, and it matches how the room-occupancy calendar already works.
-    const renderDayCell = (day, { inMonth = true, minHeight = 92, maxChips = 2, showTime = false } = {}) => {
-        const dayEvents = entriesOn(day);
-        const todayCell = isToday(day);
-        return (
-            <div
-                key={day.toISOString()}
-                className={`relative p-2 rounded-xl border transition-colors overflow-hidden group/day ${
-                    !inMonth ? 'bg-gray-50 border-transparent' :
-                    todayCell ? 'bg-indigo-50 border-indigo-200' :
-                    'bg-white border-gray-100 hover:bg-gray-50'
-                }`}
-                style={{ minHeight }}
-            >
-                <span className={`text-xs font-bold ${todayCell ? 'text-indigo-600' : inMonth ? 'text-gray-400' : 'text-gray-300'}`}>
-                    {format(day, 'd')}
-                </span>
-                <div className="mt-1 space-y-1 pr-5">
-                    {dayEvents.slice(0, maxChips).map(e => (
-                        <button
-                            key={e.key}
-                            type="button"
-                            title={e.location ? `${e.title} — ${e.location}` : e.title}
-                            onClick={() => openEntry(e, day)}
-                            className={`block w-full text-left px-1.5 py-1 text-[10px] font-semibold text-white rounded-lg truncate ${ENTRY_CHIP[e.kind] || 'bg-indigo-600'}`}
-                        >
-                            {/* Time only where the cell is roomy enough (Kunlik/Haftalik) — in a month cell
-                                it would just crowd out the title. */}
-                            {showTime && e.date?.includes('T') && (
-                                <span className="opacity-80 mr-1">
-                                    {e.date.slice(11, 16)}{e.endTime ? `-${e.endTime}` : ''}
-                                </span>
-                            )}
-                            {e.title}
-                        </button>
-                    ))}
-                    {dayEvents.length > maxChips && (
-                        <div className="text-[10px] text-gray-400 font-semibold px-0.5">+{dayEvents.length - maxChips} yana</div>
-                    )}
-                </div>
-                <button
-                    type="button"
-                    title="Shu kunga tadbir qo'shish"
-                    onClick={() => { setSelectedDate(day); handleOpenModal(null, day); }}
-                    className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-sm opacity-0 group-hover/day:opacity-100 focus:opacity-100 transition-opacity"
-                >
-                    <Plus size={12} />
-                </button>
-            </div>
-        );
-    };
-
-    const renderCalendar = () => {
-        const weekStart = startOfWeek(currentMonth, { weekStartsOn: 1 });
-        const weekEnd = addDays(weekStart, 6);
-
-        // The header label is what tells you WHERE you are, so each mode gets its own.
-        const rangeLabel = calMode === 'day'
-            ? `${format(currentMonth, 'd')} ${MONTH_NAMES[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`
-            : calMode === 'week'
-                ? `${format(weekStart, 'd')} ${MONTH_SHORT[weekStart.getMonth()]} — ${format(weekEnd, 'd')} ${MONTH_SHORT[weekEnd.getMonth()]} ${weekEnd.getFullYear()}`
-                : calMode === 'month'
-                    ? `${MONTH_NAMES[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`
-                    : `${currentMonth.getFullYear()}`;
-
-        const step = (dir) => setCurrentMonth(d => {
-            if (calMode === 'day') return addDays(d, dir);
-            if (calMode === 'week') return addDays(d, dir * 7);
-            if (calMode === 'month') return addMonths(d, dir);
-            return new Date(d.getFullYear() + dir, d.getMonth(), 1);
-        });
-
-        let body = null;
-
-        if (calMode === 'day') {
-            // Same shape as the week grid, one column wide: weekday header above, full-width cell below,
-            // so switching Haftalik -> Kunlik reads as a zoom rather than a different screen.
-            const dayEvents = entriesOn(currentMonth);
-            body = (
-                <>
-                    <div className="mb-1">
-                        <div className="text-center text-[11px] font-bold text-gray-400 py-1.5 uppercase">
-                            {WEEKDAYS[(currentMonth.getDay() + 6) % 7]}
-                        </div>
-                    </div>
-                    {renderDayCell(currentMonth, { minHeight: 200, maxChips: 20, showTime: true })}
-                    <p className="text-[11px] text-gray-400 mt-2">
-                        {dayEvents.length > 0
-                            ? `Shu kuni ${dayEvents.length} ta tadbir bor.`
-                            : "Shu kuni tadbir yo'q."}
-                    </p>
-                </>
-            );
-        } else if (calMode === 'week') {
-            const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-            body = (
-                <>
-                    <div className="grid grid-cols-7 gap-1.5 mb-1">
-                        {WEEKDAYS.map(d => <div key={d} className="text-center text-[11px] font-bold text-gray-400 py-1.5 uppercase">{d}</div>)}
-                    </div>
-                    <div className="grid grid-cols-7 gap-1.5">
-                        {days.map(d => renderDayCell(d, { minHeight: 160, maxChips: 6, showTime: true }))}
-                    </div>
-                </>
-            );
-        } else if (calMode === 'month') {
-            const monthStart = startOfMonth(currentMonth);
-            const rows = [];
-            let days = [];
-            let day = startOfWeek(monthStart, { weekStartsOn: 1 });
-            const endDate = endOfWeek(endOfMonth(monthStart), { weekStartsOn: 1 });
-            while (day <= endDate) {
-                for (let i = 0; i < 7; i++) {
-                    days.push(renderDayCell(day, { inMonth: isSameMonth(day, monthStart) }));
-                    day = addDays(day, 1);
-                }
-                rows.push(<div key={day.toISOString()} className="grid grid-cols-7 gap-1.5">{days}</div>);
-                days = [];
-            }
-            body = (
-                <>
-                    <div className="grid grid-cols-7 gap-1.5 mb-1">
-                        {WEEKDAYS.map(d => <div key={d} className="text-center text-[11px] font-bold text-gray-400 py-1.5 uppercase">{d}</div>)}
-                    </div>
-                    <div className="space-y-1.5">{rows}</div>
-                </>
-            );
-        } else {
-            // Yillik: 12 month cards with their real event counts — clicking one drills into that month.
-            const year = currentMonth.getFullYear();
-            body = (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {MONTH_NAMES.map((name, idx) => {
-                        const count = calendarEntries.filter(e => {
-                            const d = new Date(e.date);
-                            return d.getFullYear() === year && d.getMonth() === idx;
-                        }).length;
-                        const isCurrent = new Date().getFullYear() === year && new Date().getMonth() === idx;
-                        return (
-                            <button
-                                key={name}
-                                type="button"
-                                onClick={() => { setCurrentMonth(new Date(year, idx, 1)); setCalMode('month'); }}
-                                className={`p-3 rounded-xl border text-left transition-colors ${
-                                    isCurrent ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-gray-100 hover:bg-gray-50'
-                                }`}
-                            >
-                                <p className={`text-sm font-bold ${isCurrent ? 'text-indigo-700' : 'text-gray-800'}`}>{name}</p>
-                                <p className="text-[11px] text-gray-400 mt-0.5">
-                                    {count > 0 ? `${count} ta tadbir` : 'Tadbir yo\'q'}
-                                </p>
-                            </button>
-                        );
-                    })}
-                </div>
-            );
-        }
-
-        return (
-            <Card className="lg:col-span-2" padding={false}>
-                <div className="p-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-lg font-bold text-gray-900">{rangeLabel}</h2>
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <Button variant="ghost" size="sm" icon={ChevronLeft} onClick={() => step(-1)} />
-                        <Button variant="secondary" size="sm" onClick={() => setCurrentMonth(new Date())}>Bugun</Button>
-                        <Button variant="ghost" size="sm" icon={ChevronRight} onClick={() => step(1)} />
-                        <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 ml-1">
-                            {CALENDAR_VIEWS.map(v => (
-                                <button
-                                    key={v.id}
-                                    type="button"
-                                    onClick={() => setCalMode(v.id)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                                        calMode === v.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                                    }`}
-                                >
-                                    {v.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-                <div className="p-4 bg-gray-50/50">
-                    {body}
-                    <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-gray-100">
-                        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500">
-                            <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" /> Klub tadbirlari
-                        </span>
-                        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500">
-                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Turnir/Musobaqa
-                        </span>
-                        {/* Tur - musobaqaning alohida kuni va xonasi bo'lgan bosqichi.
-                            Ilgari u faqat "Xonalar bandligi" tabida ko'rinardi. */}
-                        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500">
-                            <span className="w-2.5 h-2.5 rounded-full bg-violet-500" /> Musobaqa Turi
-                        </span>
-                        <span className="text-[11px] text-gray-400 ml-auto">
-                            Kun katagi ustiga borib <span className="font-semibold">+</span> tugmasi bilan tadbir qo'shasiz.
-                        </span>
-                    </div>
-                </div>
-            </Card>
-        );
-    };
+    const renderCalendar = () => (
+        <div className="lg:col-span-2">
+            <ActivityCalendar
+                entries={calendarEntries}
+                onOpenEntry={openEntry}
+                onCreateAt={(day) => { setSelectedDate(day); handleOpenModal(null, day); }}
+            />
+        </div>
+    );
 
     // Right sidebar: today's events, live stats, and shortcut buttons into other already-existing admin
     // flows (competitions/clubs pages) — no new data model, everything derived from `events`/`clubs`/
