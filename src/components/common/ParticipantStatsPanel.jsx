@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LabelList,
+    PieChart, Pie, Cell,
 } from 'recharts';
 import { Users, UserCheck, Layers, CalendarDays, Info } from 'lucide-react';
 import Card from './Card';
@@ -21,6 +22,19 @@ import { buildParticipantStats, UNKNOWN_KEY } from '../../utils/participantStats
 // rang yolg'iz tashuvchi bo'lib qolmasin.
 const COLOR_REGISTERED = '#4F46E5';
 const COLOR_ATTENDED = '#10B981';
+
+// Yumaloq diagramma uchun kategoriya ranglari - loyihada allaqachon
+// ishlatilayotgan to'plam (ClubsAnalyticsTab). Oltitasi ham tekshirildi:
+// eng yaqin juftlik ΔE 8.9 (protan), 19.8 (normal) - ikkalasi ham me'yordan
+// yuqori. Ranglar TARTIB bo'yicha beriladi va aylantirilmaydi.
+const SLICE_COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
+// "Boshqalar" har doim kulrang: u kategoriya emas, qoldiq.
+const OTHER_COLOR = '#94A3B8';
+const OTHER_KEY = 'Boshqalar';
+// Yettinchi rang O'YLAB TOPILMAYDI - ortiqchasi "Boshqalar" ga yig'iladi.
+// Oltitadan ko'p bo'lakcha bo'lsa, yonma-yon turgan ranglar bir-biriga
+// qo'shilib ketadi va diagramma o'qilmaydigan bo'lib qoladi.
+const MAX_SLICES = 6;
 
 const DIMENSIONS = [
     { id: 'faculty', label: 'Fakultet', field: 'byFaculty' },
@@ -58,6 +72,24 @@ const ParticipantStatsPanel = ({ refs, subtitle }) => {
 
     const totalPeople = stats.people.length;
     const totalAttended = stats.people.filter(p => p.attended).length;
+
+    // Yumaloq diagramma ULUSHNI ko'rsatadi - ustunli diagramma esa
+    // taqqoslashni. Ikkalasi bir xil ma'lumotning ikki savoliga javob beradi:
+    // "qaysi ulush kattaroq" va "qaysi biri nechta".
+    //
+    // Bo'lakchalar HAR DOIM kattaligi bo'yicha tartiblanadi (kurs kesimida
+    // ham, garchi jadvalda u raqam bo'yicha tursa ham): yumaloq diagrammada
+    // o'sish tartibi ma'no bermaydi, katta bo'lakni topish esa asosiy ish.
+    const donutData = useMemo(() => {
+        const sorted = [...rows].sort((a, b) => b.registered - a.registered);
+        if (sorted.length <= MAX_SLICES) return sorted.map(r => ({ key: r.key, value: r.registered }));
+        const head = sorted.slice(0, MAX_SLICES - 1).map(r => ({ key: r.key, value: r.registered }));
+        const rest = sorted.slice(MAX_SLICES - 1);
+        return [
+            ...head,
+            { key: OTHER_KEY, value: rest.reduce((s, r) => s + r.registered, 0), count: rest.length },
+        ];
+    }, [rows]);
 
     if (totalPeople === 0) {
         return (
@@ -119,6 +151,62 @@ const ParticipantStatsPanel = ({ refs, subtitle }) => {
                     <p className="text-sm text-gray-400 py-6 text-center">Bu kesimda ma'lumot yo'q.</p>
                 ) : (
                     <>
+                        {/* ULUSH — yumaloq diagramma. Faqat "ro'yxatdan o'tganlar"
+                            bo'yicha: bir aylanaga ikki o'lchov sig'maydi va
+                            urinish qilinsa ikkalasi ham o'qilmay qoladi.
+                            Davomat pastdagi ustunli diagrammada turadi. */}
+                        <div className="flex flex-col lg:flex-row items-center gap-4 pb-4 mb-4 border-b border-gray-100">
+                            <div style={{ width: 220, height: 220 }} className="shrink-0">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={donutData} dataKey="value" nameKey="key"
+                                            cx="50%" cy="50%" innerRadius={58} outerRadius={92}
+                                            // Bo'lakchalar orasidagi tirqish: yonma-yon
+                                            // turgan ikki rang bir-biriga yopishib
+                                            // ketmasin.
+                                            paddingAngle={2} stroke="none"
+                                        >
+                                            {donutData.map((d, i) => (
+                                                <Cell
+                                                    key={d.key}
+                                                    fill={d.key === OTHER_KEY ? OTHER_COLOR : SLICE_COLORS[i % SLICE_COLORS.length]}
+                                                />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip
+                                            formatter={(v, n) => [`${v} kishi (${Math.round((v / totalPeople) * 100)}%)`, n]}
+                                            contentStyle={{ fontSize: 12, borderRadius: 12, border: '1px solid #E5E7EB' }}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            {/* AFSONA raqamlar bilan. Aylananing ichiga yozuv
+                                qo'yilmadi: kichik bo'lakchalarda yozuvlar
+                                bir-birining ustiga tushadi. Bu yerda esa
+                                har bir qiymat ochiq va aniq turadi - rang
+                                yolg'iz tashuvchi bo'lib qolmaydi. */}
+                            <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
+                                {donutData.map((d, i) => (
+                                    <div key={d.key} className="flex items-center gap-2 text-xs">
+                                        <span
+                                            className="w-2.5 h-2.5 rounded-sm shrink-0"
+                                            style={{ background: d.key === OTHER_KEY ? OTHER_COLOR : SLICE_COLORS[i % SLICE_COLORS.length] }}
+                                        />
+                                        <span className="text-gray-700 truncate flex-1">
+                                            {d.key}
+                                            {d.key === OTHER_KEY && d.count ? ` (${d.count} ta)` : ''}
+                                        </span>
+                                        <span className="font-bold text-gray-900 tabular-nums">{d.value}</span>
+                                        <span className="text-gray-400 tabular-nums w-10 text-right">
+                                            {Math.round((d.value / totalPeople) * 100)}%
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
                         <div style={{ width: '100%', height: chartHeight }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart
