@@ -109,9 +109,17 @@ const SocialActivityIndex = () => {
         setUploadFileName('');
     };
 
-    const handleSubmitApplication = () => {
+    const [submitError, setSubmitError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+
+    // ASYNC: ariza endi bazaga yoziladi. Ilgari chaqiruv `await` siz edi va
+    // yozuv serverga yetib bormasidan oyna yopilardi; xato bo'lsa esa talaba
+    // hech narsa ko'rmasdi - ariza yuborilgandek tuyulardi.
+    const handleSubmitApplication = async () => {
         if (!uploadCriteriaKey || !uploadTitle.trim()) return;
-        db.createSocialApplication({
+        setSubmitError(''); setSubmitting(true);
+        try {
+        await db.createSocialApplication({
             studentId: user.username,
             studentFullName: user.fullName,
             facultyAtSubmission: user.faculty,
@@ -126,6 +134,11 @@ const SocialActivityIndex = () => {
         loadMyApplications();
         resetUploadForm();
         setShowUploadModal(false);
+        } catch (e) {
+            setSubmitError(e?.message || 'Ariza yuborilmadi.');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     // HAQIQIY INDEKS.
@@ -1174,17 +1187,25 @@ const SocialActivityIndex = () => {
                         </label>
                     </div>
 
+                    {/* XATO KO'RINISHI SHART: yozuv endi serverga ketadi va
+                        u yerda rad etilishi mumkin (jadval yo'q, tarmoq uzildi).
+                        Xabar bo'lmasa talaba ariza yuborildi deb o'ylab ketardi. */}
+                    {submitError && (
+                        <p className="text-[11px] font-semibold text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 mb-3">
+                            {submitError}
+                        </p>
+                    )}
                     <div className="flex space-x-3">
-                        <Button variant="secondary" className="flex-1" onClick={() => { setShowUploadModal(false); resetUploadForm(); }}>
+                        <Button variant="secondary" className="flex-1" disabled={submitting} onClick={() => { setShowUploadModal(false); resetUploadForm(); }}>
                             Bekor qilish
                         </Button>
                         <Button
                             variant="primary"
                             className="flex-1"
-                            disabled={!uploadCriteriaKey || !uploadTitle.trim()}
+                            disabled={!uploadCriteriaKey || !uploadTitle.trim() || submitting}
                             onClick={handleSubmitApplication}
                         >
-                            Yuborish
+                            {submitting ? 'Yuborilmoqda...' : 'Yuborish'}
                         </Button>
                     </div>
                 </div>

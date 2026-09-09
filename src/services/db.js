@@ -418,6 +418,12 @@ const buildSocialActivitySeed = () => {
 // barcha joyni o'zgartirishni talab qilardi. O'rniga yangi ball yozuvlari shu navbatga
 // tushadi, bulkReviewSocialApplications esa ularni bitta so'rov bilan serverga yozadi.
 const pendingSocialScoreWrites = [];
+// Arizaning O'ZI va tarix yozuvi ham shu navbatga tushadi. `applySocial-
+// ApplicationReview` sof sinxron qoladi (uni async qilish uni chaqiradigan
+// hamma joyni o'zgartirishni talab qilardi), yozishni esa bulk funksiya
+// bitta so'rov bilan bajaradi - ball yozuvlarida allaqachon shu naqsh bor.
+const pendingSocialAppWrites = [];
+const pendingSocialLogWrites = [];
 
 const applySocialApplicationReview = (dbData, applicationId, action, reviewer, comment) => {
     const idx = dbData.socialActivityApplications.findIndex(a => a.id === applicationId);
@@ -479,8 +485,9 @@ const applySocialApplicationReview = (dbData, applicationId, action, reviewer, c
         scoringSourceCode
     };
     dbData.socialActivityApplications[idx] = updated;
+    pendingSocialAppWrites.push(updated);
 
-    dbData.socialActivityAuditLogs.push({
+    const logEntry = {
         id: 'salog_' + Math.random().toString(36).substr(2, 9),
         applicationId,
         action: toStatus.toUpperCase(),
@@ -490,9 +497,45 @@ const applySocialApplicationReview = (dbData, applicationId, action, reviewer, c
         comment: comment || '',
         pointsAwarded: updated.pointsAwarded,
         time: timestamp
-    });
+    };
+    dbData.socialActivityAuditLogs.push(logEntry);
+    pendingSocialLogWrites.push(logEntry);
 
     return updated;
+};
+
+// Ariza va tarix yozuvini bazaga yozadigan yagona joy. Jadval yo'q bo'lsa
+// TUSHUNARLI xabar beriladi: "saqlandi" deb ko'rsatib, aslida hech qayerga
+// yozmaslik - eng yomon holat.
+const socialTableError = (error) => {
+    const missing = /relation .*social_activity_(applications|audit_logs).* does not exist/i.test(error?.message || '');
+    return new Error(missing
+        ? 'Ariza saqlanmadi: `social_activity_applications` jadvali topilmadi. '
+          + 'Supabase SQL Editor da `supabase/social_activity_applications.sql` ni bir marta ishga tushiring.'
+        : 'Ariza saqlanmadi: ' + (error?.message || ''));
+};
+
+const socialAppRow = (a) => ({
+    id: a.id, student_id: a.studentId || null, criteria_key: a.criteriaKey || null,
+    status: a.status || null, submitted_at: a.submittedAt || null, data: a,
+});
+
+const flushSocialWrites = async () => {
+    if (pendingSocialAppWrites.length > 0) {
+        const rows = pendingSocialAppWrites.map(socialAppRow);
+        pendingSocialAppWrites.length = 0;
+        const { error } = await supabase.from('social_activity_applications').upsert(rows);
+        if (error) throw socialTableError(error);
+    }
+    if (pendingSocialLogWrites.length > 0) {
+        const rows = pendingSocialLogWrites.map(l => ({
+            id: l.id, application_id: l.applicationId || null,
+            action: l.action || null, time: l.time || null, data: l,
+        }));
+        pendingSocialLogWrites.length = 0;
+        const { error } = await supabase.from('social_activity_audit_logs').insert(rows);
+        if (error) throw socialTableError(error);
+    }
 };
 
 // Seeds one default active scoring source per canonical criteria (appliesTo: 'student'), so approvals
@@ -2709,7 +2752,7 @@ const syncCoreDataFromSupabase = async () => {
     const [
         coreRes, venueRes, schRes, testRes, poydevorRes, marifatRes, culturalRes,
         caResSingle, sdocRes, cjrRes, sportRes, housRes, passportRes, talentRes,
-        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes, delegationRes
+        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes, delegationRes, socialAppRes
     ] = await Promise.all([
         Promise.all([
             supabase.from('clubs').select('*'),
@@ -2832,7 +2875,11 @@ const syncCoreDataFromSupabase = async () => {
             supabase.from('tutor_group_assignments').select('*')
         ]),
         supabase.from('student_recognitions').select('*'),
-        supabase.from('event_delegations').select('*')
+        supabase.from('event_delegations').select('*'),
+        Promise.all([
+            supabase.from('social_activity_applications').select('*'),
+            supabase.from('social_activity_audit_logs').select('*')
+        ])
     ]);
 
     const [
@@ -3333,6 +3380,27 @@ const syncCoreDataFromSupabase = async () => {
     }
 
     // Rag'bat puli / mukofot reestri - alohida SQL fayl (supabase/student_recognitions.sql).
+    // Ijtimoiy faollik arizalari (supabase/social_activity_applications.sql).
+    // Jadval yo'q bo'lsa MAHALLIY ro'yxat tegilmaydi - o'sha brauzerdagi
+    // arizalar joyida qoladi va ilova avvalgidek ishlayveradi.
+    const [
+        { data: socialAppRows, error: socialAppErr },
+        { data: socialLogRows, error: socialLogErr },
+    ] = socialAppRes;
+    if (socialAppErr || socialLogErr) {
+        console.warn(
+            "[ijtimoiy faollik] jadvallar o'qilmadi - supabase/social_activity_applications.sql ishga tushirilganmi?",
+            socialAppErr || socialLogErr
+        );
+        dbData.socialApplicationsBackendReady = false;
+    } else {
+        dbData.socialActivityApplications = (socialAppRows || [])
+            .map(r => ({ ...(r.data || {}), id: r.id }));
+        dbData.socialActivityAuditLogs = (socialLogRows || [])
+            .map(r => ({ ...(r.data || {}), id: r.id }));
+        dbData.socialApplicationsBackendReady = true;
+    }
+
     // Tadbir vakolati - alohida jadval (supabase/event_delegations.sql).
     // Jadval yo'q bo'lsa ilova ishlashda davom etadi: vakolat ro'yxati bo'sh
     // chiqadi, qolgan hamma narsa o'z holida qoladi.
@@ -8697,7 +8765,9 @@ export const db = {
     // SOCIAL ACTIVITY MODULE (Ijtimoiy faollik)
     getSocialApplications: () => getDB().socialActivityApplications || [],
     getSocialApplicationById: (id) => (getDB().socialActivityApplications || []).find(a => a.id === id),
-    createSocialApplication: (data) => {
+    // ASYNC: ariza endi bazaga yoziladi. Ilgari u faqat localStorage da
+    // qolardi va admin boshqa kompyuterda uni umuman ko'rmasdi.
+    createSocialApplication: async (data) => {
         const dbData = getDB();
         if (!dbData.socialActivityApplications) dbData.socialActivityApplications = [];
         if (!dbData.socialActivityAuditLogs) dbData.socialActivityAuditLogs = [];
@@ -8715,7 +8785,7 @@ export const db = {
         };
         dbData.socialActivityApplications.push(newApplication);
 
-        dbData.socialActivityAuditLogs.push({
+        const submitLog = {
             id: 'salog_' + Math.random().toString(36).slice(2, 11),
             applicationId: newApplication.id,
             action: 'SUBMITTED',
@@ -8725,7 +8795,12 @@ export const db = {
             comment: '',
             pointsAwarded: null,
             time: timestamp
-        });
+        };
+        dbData.socialActivityAuditLogs.push(submitLog);
+
+        pendingSocialAppWrites.push(newApplication);
+        pendingSocialLogWrites.push(submitLog);
+        await flushSocialWrites();
 
         saveDB(dbData);
         return newApplication;
@@ -8764,6 +8839,10 @@ export const db = {
             pendingSocialScoreWrites.length = 0;
             if (error) throw error;
         }
+
+        // Arizaning O'ZI va tarix yozuvi ham serverga ketadi. Ilgari faqat ball
+        // yozuvi ko'chardi va admin boshqa kompyuterda arizani ko'rmasdi.
+        await flushSocialWrites();
 
         saveDB(dbData);
         return updated;
