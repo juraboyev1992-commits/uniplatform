@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, useSearchParams } from 'react-rout
 import { useTabParam } from '../../hooks/useTabParam';
 import {
     ArrowLeft, CalendarDays, ChevronRight, Calendar, MapPin, Users,
-    UserCheck, ListChecks, FileBarChart2, ShieldCheck, Settings,
+    UserCheck, ListChecks, FileBarChart2, ShieldCheck, Settings, Mic,
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
@@ -31,6 +31,10 @@ import { EVENT_TYPES, ACTIVITY_LEVELS } from '../../config/activityLifecycle';
 const TABS = [
     { id: 'attendance', label: 'Davomat va ball', icon: UserCheck, sections: ['attendance'] },
     { id: 'tasks', label: 'Vazifalar', icon: ListChecks, sections: ['tasks'] },
+    // Spikerlar va dastur - tadbirdan OLDIN to'ldiriladi, shuning uchun
+    // vazifalardan keyin va yakunlashdan oldin turadi: tablar ishning
+    // haqiqiy ketma-ketligini takrorlaydi.
+    { id: 'speakers', label: 'Spikerlar va dastur', icon: Mic, sections: ['speakers'] },
     // Hisobot va Bayonnoma BITTA tabda. Ikkalasi ham faqat tadbir
     // yakunlangandan keyin ochiladi va ketma-ket bajariladi: hisobot ->
     // bayonnoma -> imzo -> hujjat. Ikki tabga bo'linganda mas'ul bitta

@@ -5629,6 +5629,91 @@ export const db = {
         }
         return updated;
     },
+    // --- SPIKERLAR VA TADBIR DASTURI ---
+    //
+    // Xodim xonani band qilib, tadbir boshlanguncha to'ldiradigan narsalar:
+    // chiqish qiluvchilarning F.I.Sh. va lavozimi (stol tablichkasi shundan
+    // bosiladi) va dastur fayli.
+    //
+    // Spikerlar PLATFORMA FOYDALANUVCHILARI EMAS - ular ko'pincha tashqi
+    // mehmon (vazirlik xodimi, boshqa universitet vakili). Shuning uchun ular
+    // `profiles` bilan bog'lanmaydi, qo'lda yoziladi.
+    setEventSpeakers: async (eventId, speakers) => {
+        const clean = (speakers || [])
+            .map(sp => ({
+                id: sp.id || ('spk_' + Math.random().toString(36).slice(2, 9)),
+                fullName: (sp.fullName || '').trim(),
+                position: (sp.position || '').trim(),
+            }))
+            // Ikkalasi ham bo'sh qator saqlanmaydi - forma odatda bitta bo'sh
+            // qator bilan ochiladi va u yozuvga tushib qolmasligi kerak.
+            .filter(sp => sp.fullName || sp.position);
+        return db.updateEvent(eventId, { speakers: clean });
+    },
+
+    // Dastur fayli. Bitta tadbirda BITTA dastur bo'ladi - yangisi eskisining
+    // ustiga yoziladi (`upsert: true`) va eski fayl ombordan o'chiriladi.
+    // Versiya tarixi ataylab yuritilmaydi: dastur tadbirgacha bir necha marta
+    // o'zgaradi va har o'zgarishni saqlash omborni keraksiz to'ldirardi.
+    uploadEventProgram: async ({ eventId, file, uploadedBy }) => {
+        await assertAuthenticated();
+        if (!file) throw new Error('Fayl tanlanmagan');
+
+        const ext = (file.name?.split('.').pop() || 'pdf').toLowerCase();
+        const filePath = `${eventId}/dastur.${ext}`;
+
+        const { error: upErr } = await supabase.storage
+            .from('event-documents')
+            .upload(filePath, file, { contentType: file.type || 'application/octet-stream', upsert: true });
+        if (upErr) {
+            const missingBucket = /bucket not found/i.test(upErr.message || '');
+            throw new Error(missingBucket
+                ? "Fayl yuklanmadi: `event-documents` ombori topilmadi. "
+                  + 'Supabase SQL Editor da `supabase/event_documents.sql` ni bir marta ishga tushiring.'
+                : 'Fayl yuklanmadi: ' + upErr.message);
+        }
+
+        // Eski fayl boshqa kengaytmada bo'lsa (masalan .docx o'rniga .pdf
+        // yuklandi) - u ombordagi joyida qolib ketardi. Shuning uchun yangi
+        // yozuvdan farq qilsa, eskisi o'chiriladi.
+        const previous = (getDB().events || []).find(e => e.id === eventId)?.programFile;
+        if (previous?.filePath && previous.filePath !== filePath) {
+            try { await supabase.storage.from('event-documents').remove([previous.filePath]); }
+            catch (e) { console.warn("Eski dastur fayli o'chirilmadi:", e.message); }
+        }
+
+        return db.updateEvent(eventId, {
+            programFile: {
+                fileName: file.name,
+                filePath,
+                sizeLabel: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+                uploadedBy: uploadedBy || null,
+                uploadedAt: new Date().toISOString(),
+            },
+        });
+    },
+
+    // Ombor YOPIQ, shuning uchun to'g'ridan-to'g'ri havola ishlamaydi -
+    // vaqtinchalik imzolangan havola beriladi (bir soat).
+    getEventProgramUrl: async (filePath) => {
+        if (!filePath) return null;
+        const { data, error } = await supabase.storage
+            .from('event-documents').createSignedUrl(filePath, 3600);
+        if (error) return null;
+        return data?.signedUrl || null;
+    },
+
+    removeEventProgram: async (eventId) => {
+        const current = (getDB().events || []).find(e => e.id === eventId)?.programFile;
+        if (current?.filePath) {
+            try { await supabase.storage.from('event-documents').remove([current.filePath]); }
+            catch (e) { console.warn("Dastur fayli ombordan o'chirilmadi:", e.message); }
+        }
+        // Yozuv HAR HOLDA tozalanadi: fayl ombordan o'chmasa ham, ilovada
+        // "ochib bo'lmaydigan dastur" osilib turmasligi kerak.
+        return db.updateEvent(eventId, { programFile: null });
+    },
+
     // Trivial club-scoped competition count, needed by the Clubs Directory card/profile stat row and
     // Statistika tab - competitions don't have their own per-club index, so this filters the flat list.
     // Approved-only (see createCompetition's moderationStatus) since every caller of this is a
@@ -5762,7 +5847,11 @@ export const db = {
         // Ustunga tushmaydigan maydonlar - tadbir turi, darajasi, ball sozlamasi,
         // e'lon va ball berilgan vaqtlari - `data` jsonb ichiga yoziladi. Ro'yxat
         // ATAYLAB aniq: noma'lum kalitlar jimgina bazaga tushib ketmasin.
-        const LIFECYCLE_KEYS = ['eventType', 'level', 'isSpiritual', 'pointOverrides', 'pointsAwardedAt', 'announcedAt'];
+        // `speakers` va `programFile` shu ro'yxatga QO'SHILISHI SHART: bu
+        // ro'yxat `data` ustuniga yoziladigan maydonlarning oq ro'yxati va
+        // unda bo'lmagan maydon jimgina tashlanardi - saqlagandek ko'rinib,
+        // aslida hech narsa yozilmasdi.
+        const LIFECYCLE_KEYS = ['eventType', 'level', 'isSpiritual', 'pointOverrides', 'pointsAwardedAt', 'announcedAt', 'speakers', 'programFile'];
         const dataPatch = {};
         LIFECYCLE_KEYS.forEach(k => { if (updates[k] !== undefined) dataPatch[k] = updates[k]; });
         if (Object.keys(dataPatch).length > 0) {

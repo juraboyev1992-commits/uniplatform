@@ -7,6 +7,7 @@ import RegistrationStatusBadge from '../activities/RegistrationStatusBadge';
 import ActivityRegistrationPanel from '../activities/ActivityRegistrationPanel';
 import ActivityAttendancePanel from '../common/ActivityAttendancePanel';
 import ActivityTasksPanel from '../common/ActivityTasksPanel';
+import EventSpeakersPanel from '../common/EventSpeakersPanel';
 import ActivityReportPanel from '../common/ActivityReportPanel';
 import ActivityFinalizationTab from '../common/ActivityFinalizationTab';
 import { db } from '../../services/db';
@@ -23,7 +24,7 @@ import {
 //   ClubProfilePage    -> oyna ichida, hammasi ketma-ket (`sections` berilmaydi)
 //
 // Shu sabab `sections` propi bor: berilmasa hammasi chiqadi.
-const ALL_SECTIONS = ['registration', 'attendance', 'tasks', 'announce', 'report', 'protocol', 'delegation'];
+const ALL_SECTIONS = ['registration', 'attendance', 'tasks', 'speakers', 'announce', 'report', 'protocol', 'delegation'];
 
 const EventManagementPanel = ({
     event, user, hasClubRole, isAdmin, isManagement,
@@ -246,6 +247,18 @@ const EventManagementPanel = ({
                 <ActivityTasksPanel
                     activityId={event.id} activityType="event"
                     canManage={canEditDetails} actingUsername={actingUsername}
+                    onChanged={refresh}
+                />
+            )}
+
+            {/* Spikerlar va dastur. Bu tadbirdan OLDIN to'ldiriladigan narsa,
+                shuning uchun vazifalar bilan yonma-yon turadi: ikkalasi ham
+                tayyorgarlik ishi. */}
+            {shows('speakers') && canEditDetails && (
+                <EventSpeakersPanel
+                    event={event}
+                    canEdit={canEditDetails}
+                    actingUsername={actingUsername}
                     onChanged={refresh}
                 />
             )}
