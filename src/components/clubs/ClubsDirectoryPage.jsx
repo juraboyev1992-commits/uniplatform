@@ -59,10 +59,17 @@ const ClubsDirectoryPage = () => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [directionFilter, setDirectionFilter] = useState('');
-    // Qamrov: barcha klublar / faqat meniki. Yo'nalish filtridan ALOHIDA
+    // Qamrov: mening klublarim / barcha klublar. Yo'nalish filtridan ALOHIDA
     // turadi va u bilan birga ishlaydi - "mening sport klublarim" ham
     // so'ralishi mumkin.
-    const [scope, setScope] = useState('all'); // 'all' | 'mine'
+    //
+    // `null` = foydalanuvchi hali tanlamagan. Sukut qiymat SHU YERDA
+    // qotirilmaydi, chunki u a'zolikka bog'liq: a'zosi bor odamga o'z
+    // klublari, a'zoligi yo'q odamga (masalan administrator) butun ro'yxat
+    // ochilishi kerak. `useState` esa faqat BIR MARTA ishlaydi va o'sha
+    // paytda a'zolik ro'yxati hali hisoblanmagan bo'lishi mumkin - shuning
+    // uchun qiymat har chizishda hosil qilinadi (pastda `effectiveScope`).
+    const [scope, setScope] = useState(null); // null | 'all' | 'mine'
     const [viewMode, setViewMode] = useState('grid'); // 'grid' (katalog) | 'list' (ro'yxat)
     // Defaults to 'all' — the whole roster stays visible in one screen exactly like before this control
     // existed; paging is opt-in for whoever wants 10/20/30/100-at-a-time instead.
@@ -125,6 +132,12 @@ const ClubsDirectoryPage = () => {
         [myInvolvement]
     );
 
+    // Amaldagi qamrov. Foydalanuvchi tanlagan bo'lsa - o'shanisi; tanlamagan
+    // bo'lsa a'zoligi bor odamga "Mening klublarim", a'zoligi yo'q odamga
+    // butun ro'yxat. A'zoligi yo'q odamga bo'sh ro'yxat ochilishi mumkin
+    // emas - bu "klub yo'q" degan noto'g'ri taassurot berardi.
+    const effectiveScope = scope ?? (myInvolvement.length > 0 ? 'mine' : 'all');
+
     // Lavozimdagilar tepada: talaba "boshqaradigan klubim qaysi" degan
     // savolga bir qarashda javob topsin.
     const myManagedClubs = useMemo(
@@ -144,10 +157,10 @@ const ClubsDirectoryPage = () => {
         return rankedClubs.filter(c => {
             const matchesSearch = !q || c.name.toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q) || String(c.displayNumber) === q;
             const matchesDirection = !directionFilter || c.direction === directionFilter;
-            const matchesScope = scope === 'all' || involvementByClubId.has(c.id);
+            const matchesScope = effectiveScope === 'all' || involvementByClubId.has(c.id);
             return matchesSearch && matchesDirection && matchesScope;
         });
-    }, [rankedClubs, searchQuery, directionFilter, scope, involvementByClubId]);
+    }, [rankedClubs, searchQuery, directionFilter, effectiveScope, involvementByClubId]);
 
     const totalPages = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(filteredClubs.length / pageSize));
     const currentPageClamped = Math.min(currentPage, totalPages);
@@ -236,10 +249,10 @@ const ClubsDirectoryPage = () => {
                         <h3 className="font-bold text-gray-900">Mening klublarim</h3>
                         <button
                             type="button"
-                            onClick={() => setScope(scope === 'mine' ? 'all' : 'mine')}
+                            onClick={() => setScope(effectiveScope === 'mine' ? 'all' : 'mine')}
                             className="text-xs font-bold text-indigo-600 hover:text-indigo-700"
                         >
-                            {scope === 'mine' ? 'Barcha klublarni ko\'rsatish' : 'Ro\'yxatni faqat menikiga cheklash'}
+                            {effectiveScope === 'mine' ? 'Barcha klublarni ko\'rsatish' : 'Ro\'yxatni faqat menikiga cheklash'}
                         </button>
                     </div>
 
@@ -325,16 +338,23 @@ const ClubsDirectoryPage = () => {
                 birga ishlaydi. */}
             {myInvolvement.length > 0 && (
                 <div className="flex gap-2">
+                    {/* MENING KLUBLARIM BIRINCHI va sukut bo'yicha ochiq.
+                        Talaba bu bo'limga kirganda birinchi savoli "men qaysi
+                        klubdaman" bo'ladi, "universitetda qanday klublar bor"
+                        emas - o'sha savol ikkinchi o'rinda turadi.
+                        A'zoligi bo'lmagan odamda bu qator umuman chizilmaydi
+                        (yuqoridagi shart), ya'ni unga baribir butun ro'yxat
+                        ochiladi. */}
                     {[
-                        { id: 'all', label: `Barcha klublar (${clubsWithStats.length})` },
                         { id: 'mine', label: `Mening klublarim (${myInvolvement.length})` },
+                        { id: 'all', label: `Barcha klublar (${clubsWithStats.length})` },
                     ].map(s => (
                         <button
                             key={s.id}
                             type="button"
                             onClick={() => { setScope(s.id); setCurrentPage(1); }}
                             className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-                                scope === s.id ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                effectiveScope === s.id ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                         >
                             {s.label}
