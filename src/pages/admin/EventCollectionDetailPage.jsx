@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Card from '../../components/common/Card';
+import ParticipantStatsPanel from '../../components/common/ParticipantStatsPanel';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
 import Modal from '../../components/common/Modal';
@@ -18,11 +19,15 @@ import {
     TIE_BREAK_FIELDS, DEFAULT_TIE_BREAK_ORDER, mergeScoringConfig,
 } from '../../config/eventCollections.js';
 
-const TAB_IDS = ['overview', 'activities', 'ranking', 'settings'];
+const TAB_IDS = ['overview', 'activities', 'ranking', 'stats', 'settings'];
 const TABS = [
     { id: 'overview', label: "Umumiy ko'rinish" },
     { id: 'activities', label: 'Faoliyatlar' },
     { id: 'ranking', label: 'Reyting' },
+    // Statistika REYTINGDAN KEYIN va sozlamalardan oldin. Reyting "kim
+    // yutdi" degan savolga javob beradi, statistika esa "kim qatnashdi" -
+    // ikkinchisi birinchisining izohi, shuning uchun yonida turadi.
+    { id: 'stats', label: 'Statistika' },
     { id: 'settings', label: 'Sozlamalar' },
 ];
 const SCOPE_IDS = ['students', 'faculties', 'tutors', 'courses', 'groups'];
@@ -69,6 +74,14 @@ const EventCollectionDetailPage = () => {
         );
     }
     const { collection, config, overview, activityRows, studentRows, facultyRows, tutorRows, courseRows, groupRows, dailyParticipation } = analytics;
+
+    // Oddiy hosila, `useMemo` emas: bu qator erta `return` dan KEYIN turadi va
+    // shu joyda yangi hook qo'shish hooklar tartibini buzardi. Qayta hisoblash
+    // xavfi yo'q - ParticipantStatsPanel massiv identitetiga emas, mazmuniga
+    // qarab hisoblaydi.
+    const statsRefs = (activityRows || []).map(r => ({
+        activityId: r.activityId, activityType: r.activityType,
+    }));
 
     // Tyutor username -> ko'rinadigan ism (mavjud bo'lsa).
     const tutorNameByUsername = useMemo(() => {
@@ -163,6 +176,18 @@ const EventCollectionDetailPage = () => {
                     collectionId={id} activityRows={activityRows} busy={busy} setBusy={setBusy} setError={setError}
                     bump={bump} isPickerOpen={isPickerOpen} setIsPickerOpen={setIsPickerOpen} user={user}
                     navigate={navigate}
+                />
+            )}
+
+            {/* To'plamdagi HAMMA faoliyat bo'yicha yig'ma statistika. Hisob
+                alohida tadbir va musobaqanikiga AYNI (utils/participantStats.js),
+                shuning uchun yig'indi ular bilan to'g'ri keladi. Bir odam bir
+                necha faoliyatda qatnashsa bir marta sanaladi - "45 ishtirokchi"
+                odam sonini bildirishi kerak, yozilishlar sonini emas. */}
+            {tab === 'stats' && (
+                <ParticipantStatsPanel
+                    refs={statsRefs}
+                    subtitle={`"${collection.name}" to'plamidagi ${statsRefs.length} ta faoliyat bo'yicha`}
                 />
             )}
 

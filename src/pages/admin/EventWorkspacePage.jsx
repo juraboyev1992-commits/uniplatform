@@ -3,12 +3,13 @@ import { useParams, useNavigate, useLocation, useSearchParams } from 'react-rout
 import { useTabParam } from '../../hooks/useTabParam';
 import {
     ArrowLeft, CalendarDays, ChevronRight, Calendar, MapPin, Users,
-    UserCheck, ListChecks, FileBarChart2, FileText, ShieldCheck, Settings,
+    UserCheck, ListChecks, FileBarChart2, FileText, ShieldCheck, Settings, PieChart,
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
 import Card from '../../components/common/Card';
 import EventManagementPanel from '../../components/admin/EventManagementPanel';
+import ParticipantStatsPanel from '../../components/common/ParticipantStatsPanel';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import { EVENT_TYPES, ACTIVITY_LEVELS } from '../../config/activityLifecycle';
@@ -34,6 +35,9 @@ const TABS = [
     { id: 'protocol', label: 'Bayonnoma', icon: FileText, section: 'protocol' },
     { id: 'registration', label: "Ro'yxat", icon: Users, section: 'registration' },
     { id: 'access', label: 'Vakolat', icon: ShieldCheck, section: 'delegation' },
+    // Statistika OXIRIDA: u ish emas, natijani o'qish. Ish tablari (davomat,
+    // vazifalar, hisobot) oldinda turishi kerak.
+    { id: 'stats', label: 'Statistika', icon: PieChart, section: null },
 ];
 
 const TAB_IDS = TABS.map(t => t.id);
@@ -51,6 +55,17 @@ const EventWorkspacePage = () => {
         () => (event?.clubId ? db.getClubs().find(c => c.id === event.clubId) : null),
         [event]
     );
+
+    // Statistika QAYSI yozuvlardan o'qilishi kerak. Musobaqaga bog'langan
+    // tadbirda ro'yxatdan o'tishlar MUSOBAQAGA yoziladi, tadbirga emas
+    // (EventManagementPanel ham aynan shunday hal qiladi) - shuni hisobga
+    // olmasa, bunday tadbirda statistika har doim bo'sh chiqardi.
+    const statsRefs = useMemo(() => {
+        if (!event) return [];
+        return event.linkedCompetitionId
+            ? [{ activityId: event.linkedCompetitionId, activityType: 'competition' }]
+            : [{ activityId: event.id, activityType: 'event' }];
+    }, [event]);
 
     // Tab manzilda saqlanadi (havola yuborilganda o'sha tab ochiladi) va har
     // almashtirish tarixga yoziladi — orqaga bosilganda oldingi tabga qaytadi.
@@ -200,6 +215,16 @@ const EventWorkspacePage = () => {
                 </div>
             </div>
 
+            {/* Statistika BUTUN kengligida turadi va boshqaruv panelidan
+                tashqarida: u faoliyatni o'tkazish emas, natijani o'qish.
+                `EventManagementPanel` ichiga qo'yilsa, uning bo'lim mantiqiga
+                (`sections`) sun'iy ravishda bog'lanib qolardi. */}
+            {activeTab === 'stats' ? (
+                <ParticipantStatsPanel
+                    refs={statsRefs}
+                    subtitle={`"${event.title}" bo'yicha`}
+                />
+            ) : (
             <Card>
                 <div className="p-6">
                     <EventManagementPanel
@@ -236,6 +261,7 @@ const EventWorkspacePage = () => {
                     )}
                 </div>
             </Card>
+            )}
         </div>
     );
 };
