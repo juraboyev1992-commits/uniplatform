@@ -104,21 +104,27 @@ const QuizScoringGrid = ({
         onScoresChanged?.();
     };
 
-    const handleSeatChange = (participantId, value) => {
-        db.setParticipantSeat(competition.id, participantId, value === '' ? null : Number(value));
+    const handleSeatChange = async (participantId, value) => {
+        try {
+            await db.setParticipantSeat(competition.id, participantId, value === '' ? null : Number(value));
+        } catch (e) { alert(e.message); return; }
         setVersion(v => v + 1);
     };
 
-    const handlePointsChange = (questionIndex, value) => {
+    const handlePointsChange = async (questionIndex, value) => {
         if (value === '') { setEditingPointsIdx(null); return; }
-        db.setCompetitionQuestionPoints(competition.id, questionIndex, Number(value));
+        try {
+            await db.setCompetitionQuestionPoints(competition.id, questionIndex, Number(value));
+        } catch (e) { alert(e.message); return; }
         setEditingPointsIdx(null);
         setVersion(v => v + 1);
         onScoresChanged?.();
     };
 
-    const handleTypeChange = (questionIndex, questionType) => {
-        db.setCompetitionQuestionType(competition.id, questionIndex, questionType);
+    const handleTypeChange = async (questionIndex, questionType) => {
+        try {
+            await db.setCompetitionQuestionType(competition.id, questionIndex, questionType);
+        } catch (e) { alert(e.message); return; }
         setVersion(v => v + 1);
     };
 
@@ -202,7 +208,7 @@ const QuizScoringGrid = ({
             const participantId = String(row[0]);
             if (!participants.some(p => p.id === participantId)) continue;
             const seat = row[2];
-            if (seat !== '' && seat != null) db.setParticipantSeat(competition.id, participantId, Number(seat));
+            if (seat !== '' && seat != null) await db.setParticipantSeat(competition.id, participantId, Number(seat));
             for (let i = 0; i < questionButtons.length; i++) {
                 const q = questionButtons[i];
                 const cell = row[3 + i];

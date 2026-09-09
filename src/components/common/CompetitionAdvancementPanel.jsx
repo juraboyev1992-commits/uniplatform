@@ -93,8 +93,12 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
     // Real activity log — every mutating action here (by admin OR a manage_groups delegate) gets one row,
     // so admin can always see what was actually done regardless of who did it (transparency requirement
     // for delegating this away). See db.js's logCompetitionGroupAction/getCompetitionGroupActionLogs.
+    // Tarix endi bazaga yoziladi (hamma hakam bir xil tarixni ko'radi). Bu
+    // IKKILAMCHI yozuv: agar u yozilmasa ham asosiy amal bajarilgan bo'ladi,
+    // shuning uchun xato foydalanuvchiga ko'rsatilmaydi, faqat konsolga.
     const logAction = (action, details) => {
-        db.logCompetitionGroupAction(competition.id, action, details, actingUsername);
+        db.logCompetitionGroupAction(competition.id, action, details, actingUsername)
+            .catch(e => console.warn('[musobaqa tarixi] yozilmadi:', e));
     };
     const groupLabelById = (groupId) => (db.getScoringGroups(competition.id).find(g => g.id === groupId)?.label) || groupId;
 
@@ -119,21 +123,21 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
     // override always wins, matching the explicit "hozirgi holat ham qolaversin" requirement. Reads fresh
     // from db.js directly (not the memoized `groups`/`groupMap`) so it can run synchronously right after a
     // group is created, before the next render recomputes those memos.
-    const handleAutoAssignByFaculty = () => {
+    const handleAutoAssignByFaculty = async () => {
         const freshGroups = db.getScoringGroups(competition.id);
         const freshGroupMap = db.getParticipantGroupMap(competition.id);
         if (freshGroups.length === 0) return 0;
         let assignedCount = 0;
-        competition.participants.forEach(p => {
-            if (freshGroupMap.get(p.id)) return;
+        for (const p of competition.participants) {
+            if (freshGroupMap.get(p.id)) continue;
             const inferredFaculty = competition.type === 'team' ? db.inferTeamFaculty(p.id) : p.faculty;
             const inferredCourse = competition.type === 'team' ? db.inferTeamCourse(p.id) : p.course;
             const matchedGroup = freshGroups.find(g => groupMatchesParticipant(g, inferredFaculty, inferredCourse));
             if (matchedGroup) {
-                db.setParticipantGroup(competition.id, p.id, matchedGroup.id, actingUsername);
+                await db.setParticipantGroup(competition.id, p.id, matchedGroup.id, actingUsername);
                 assignedCount++;
             }
-        });
+        }
         if (assignedCount > 0) logAction('AUTO_ASSIGN', `${assignedCount} ta ishtirokchi fakultet/kurs bo'yicha avtomatik biriktirildi`);
         return assignedCount;
     };
@@ -152,7 +156,7 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
         }
         return a;
     };
-    const handleRandomBalancedAssign = ({ avoidFaculty, avoidCourse, balanceSizes }) => {
+    const handleRandomBalancedAssign = async ({ avoidFaculty, avoidCourse, balanceSizes }) => {
         const freshGroups = db.getScoringGroups(competition.id);
         if (freshGroups.length < 2) return 'need_groups';
         const freshGroupMap = db.getParticipantGroupMap(competition.id);
@@ -199,7 +203,7 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
                     if (balanceSizes) return counts.get(g.id) < counts.get(best.id) ? g : best;
                     return best;
                 });
-                db.setParticipantGroup(competition.id, p.id, target.id, actingUsername);
+                await db.setParticipantGroup(competition.id, p.id, target.id, actingUsername);
                 counts.set(target.id, counts.get(target.id) + 1);
                 if (key != null) {
                     const tc = crowdCounts.get(target.id);
@@ -289,12 +293,12 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
         refresh();
     };
 
-    const handleAddGroup = () => {
+    const handleAddGroup = async () => {
         if (!newGroupLabel.trim()) return;
         db.upsertScoringGroup(competition.id, { label: newGroupLabel.trim() }, actingUsername);
         logAction('CREATE_GROUP', `Guruh qo'shildi: "${newGroupLabel.trim()}"`);
         setNewGroupLabel('');
-        handleAutoAssignByFaculty(); // the new group's label might now match previously-unassigned teams
+        await handleAutoAssignByFaculty(); // the new group's label might now match previously-unassigned teams
         refresh();
     };
 
@@ -365,7 +369,7 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
     // (har tanlangan fakultet x har tanlangan kurs) as compound, explicitly-matched groups — e.g. 2
     // fakultet x 2 kurs ticked = 4 groups, each requiring BOTH to match on auto-assign. Off (or no kurs
     // ticked) behaves exactly as before: one group per fakultet alone.
-    const handleAddSelectedFacultyGroups = () => {
+    const handleAddSelectedFacultyGroups = async () => {
         if (selectedNewFaculties.length === 0) return;
         let created = 0;
         if (splitByCourseToo && selectedNewCourses.length > 0) {
@@ -384,20 +388,20 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
         logAction('CREATE_GROUP', `${created} ta fakultet guruhi qo'shildi (${selectedNewFaculties.join(', ')})`);
         setSelectedNewFaculties([]);
         setSelectedNewCourses([]);
-        handleAutoAssignByFaculty();
+        await handleAutoAssignByFaculty();
         refresh();
     };
 
     // Standalone — kurs bo'yicha, fakultetga bog'liq bo'lmagan guruh(lar) (masalan "hamma fakultetning
     // 1-kursi bitta guruhda saralansin" holati uchun).
-    const handleAddSelectedPureCourseGroups = () => {
+    const handleAddSelectedPureCourseGroups = async () => {
         if (selectedPureCourses.length === 0) return;
         selectedPureCourses.forEach(course => {
             db.upsertScoringGroup(competition.id, { label: `${course}-kurs`, matchCourse: course }, actingUsername);
         });
         logAction('CREATE_GROUP', `${selectedPureCourses.length} ta kurs guruhi qo'shildi (${selectedPureCourses.join(', ')})`);
         setSelectedPureCourses([]);
-        handleAutoAssignByFaculty();
+        await handleAutoAssignByFaculty();
         refresh();
     };
 
@@ -412,8 +416,10 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
         }
     };
 
-    const handleAssignGroup = (participantId, groupId) => {
-        db.setParticipantGroup(competition.id, participantId, groupId || null, actingUsername);
+    const handleAssignGroup = async (participantId, groupId) => {
+        try {
+            await db.setParticipantGroup(competition.id, participantId, groupId || null, actingUsername);
+        } catch (e) { alert(e.message); return; }
         logAction('ASSIGN', `${participantName(participantId)} → ${groupId ? groupLabelById(groupId) : "guruhsiz"}`);
         refresh();
     };
@@ -421,9 +427,13 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
     // Bulk version of the same call — for 30-50 jamoa, ticking several rows and assigning them all to one
     // guruh in a single click is far faster than opening each row's own dropdown one at a time (which is
     // still there, unchanged, for one-off corrections).
-    const handleBulkAssignGroup = () => {
+    const handleBulkAssignGroup = async () => {
         if (!bulkTargetGroupId || selectedParticipantIds.length === 0) return;
-        selectedParticipantIds.forEach(pid => db.setParticipantGroup(competition.id, pid, bulkTargetGroupId, actingUsername));
+        try {
+            for (const pid of selectedParticipantIds) {
+                await db.setParticipantGroup(competition.id, pid, bulkTargetGroupId, actingUsername);
+            }
+        } catch (e) { alert(e.message); refresh(); return; }
         logAction('BULK_ASSIGN', `${selectedParticipantIds.length} ta ishtirokchi → ${groupLabelById(bulkTargetGroupId)}`);
         setSelectedParticipantIds([]);
         refresh();
@@ -432,10 +442,12 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
         setSelectedParticipantIds(prev => prev.includes(pid) ? prev.filter(id => id !== pid) : [...prev, pid]);
     };
 
-    const handleSetTopN = (groupId, value) => {
+    const handleSetTopN = async (groupId, value) => {
         const n = value === '' ? null : Number(value);
         if (n !== null && (!Number.isFinite(n) || n < 0)) return;
-        db.setAdvancementRule(competition.id, selectedBoundary, groupId, n, actingUsername);
+        try {
+            await db.setAdvancementRule(competition.id, selectedBoundary, groupId, n, actingUsername);
+        } catch (e) { alert(e.message); return; }
         logAction('SET_TOP_N', `${groupLabelById(groupId)}: top-${n ?? '—'} (bosqich ${selectedBoundary})`);
         refresh();
     };
@@ -452,22 +464,24 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
         setPickOrder(prev => (prev.includes(id) ? prev : [...prev, id]));
     };
 
-    const handleSaveResolution = (groupKey, tiedParticipantIds) => {
+    const handleSaveResolution = async (groupKey, tiedParticipantIds) => {
         if (pickOrder.length !== tiedParticipantIds.length) return;
-        db.recordTiebreakResolution(
-            competition.id,
-            { context: isFinal ? 'final_placement' : 'advancement', turBoundary: isFinal ? null : selectedBoundary, groupKey, tiedParticipantIds, resolvedOrder: pickOrder },
-            actingUsername
-        );
+        try {
+            await db.recordTiebreakResolution(
+                competition.id,
+                { context: isFinal ? 'final_placement' : 'advancement', turBoundary: isFinal ? null : selectedBoundary, groupKey, tiedParticipantIds, resolvedOrder: pickOrder },
+                actingUsername
+            );
+        } catch (e) { alert(e.message); return; }
         logAction('RESOLVE_TIEBREAK', `Tengma-teng natija hal qilindi (${tiedParticipantIds.length} ishtirokchi)`);
         setPickOrder([]);
         refresh();
     };
 
-    const handleFreeze = () => {
+    const handleFreeze = async () => {
         try {
-            if (isFinal) db.freezeFinalPlacement(competition.id, actingUsername);
-            else db.freezeAdvancement(competition.id, selectedBoundary, actingUsername);
+            if (isFinal) await db.freezeFinalPlacement(competition.id, actingUsername);
+            else await db.freezeAdvancement(competition.id, selectedBoundary, actingUsername);
             logAction('FREEZE', isFinal ? "Yakuniy o'rinlar chiqarildi" : `Finalga chiqarildi (bosqich ${selectedBoundary})`);
             refresh();
         } catch (e) {
@@ -706,8 +720,8 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
                             <span className="text-[11px] text-gray-500">Ro'yxatni fakultet/kurs bo'yicha qayta tekshirish</span>
                             <Button
                                 variant="ghost" size="sm" icon={Wand2}
-                                onClick={() => {
-                                    const n = handleAutoAssignByFaculty();
+                                onClick={async () => {
+                                    const n = await handleAutoAssignByFaculty();
                                     refresh();
                                     if (n === 0) alert("Mos fakultet/kurs topilmadi yoki barcha ishtirokchilar allaqachon biriktirilgan — qolganlarini pastdan qo'lda tanlang.");
                                 }}
@@ -755,8 +769,8 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
                             </div>
                             <Button
                                 variant="outline" size="sm" icon={Shuffle}
-                                onClick={() => {
-                                    const n = handleRandomBalancedAssign(randomConstraints);
+                                onClick={async () => {
+                                    const n = await handleRandomBalancedAssign(randomConstraints);
                                     if (n === 'need_groups') { alert("Kamida 2 ta guruh kerak."); return; }
                                     refresh();
                                     if (n === 0) alert('Guruhsiz ishtirokchi qolmagan.');

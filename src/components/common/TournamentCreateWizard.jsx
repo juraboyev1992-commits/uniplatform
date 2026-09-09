@@ -706,12 +706,12 @@ const TournamentCreateWizard = ({ contextType = null, contextId = null, onCreate
                         const group = db.upsertScoringGroup(created.id, { label: labelFor(v) }, user?.username);
                         groupIdByValue.set(v, group.id);
                     });
-                    created.participants.forEach(p => {
+                    for (const p of created.participants) {
                         const v = valueFor(p);
                         if (v != null && groupIdByValue.has(v)) {
-                            db.setParticipantGroup(created.id, p.id, groupIdByValue.get(v), user?.username);
+                            await db.setParticipantGroup(created.id, p.id, groupIdByValue.get(v), user?.username);
                         }
-                    });
+                    }
                 } catch {
                     // Non-fatal — admin can create/assign guruhlar by hand from the advancement panel.
                 }
@@ -748,13 +748,13 @@ const TournamentCreateWizard = ({ contextType = null, contextId = null, onCreate
                     try {
                         const realGroups = db.getScoringGroups(created.id);
                         const targetGroupIds = realGroups.length > 0 ? realGroups.map(g => g.id) : ['__global__'];
-                        Object.entries(data.advancementPlan).forEach(([turBoundary, rule]) => {
-                            if (rule?.topN !== 'all' && !(Number(rule?.topN) > 0)) return;
+                        for (const [turBoundary, rule] of Object.entries(data.advancementPlan)) {
+                            if (rule?.topN !== 'all' && !(Number(rule?.topN) > 0)) continue;
                             const topN = resolveTopN(rule.topN);
-                            targetGroupIds.forEach(groupId => {
-                                db.setAdvancementRule(created.id, Number(turBoundary), groupId, topN, user?.username);
-                            });
-                        });
+                            for (const groupId of targetGroupIds) {
+                                await db.setAdvancementRule(created.id, Number(turBoundary), groupId, topN, user?.username);
+                            }
+                        }
                     } catch {
                         // Non-fatal — admin can set Top N by hand from the advancement panel.
                     }

@@ -95,8 +95,10 @@ const CompetitionRoundsTab = ({ competition, hasFullAdminAccess, canManageGroups
         return new Map(roles.map(r => [r.participantId, r.role]));
     }, [competition.id, roleRoundIndex, version]);
 
-    const handleSetCaseRole = (participantId, role) => {
-        db.setCompetitionCaseRole(competition.id, roleRoundIndex, participantId, role, actingUsername);
+    const handleSetCaseRole = async (participantId, role) => {
+        try {
+            await db.setCompetitionCaseRole(competition.id, roleRoundIndex, participantId, role, actingUsername);
+        } catch (e) { alert(e.message); return; }
         refresh();
     };
 

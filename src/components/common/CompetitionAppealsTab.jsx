@@ -40,7 +40,7 @@ const CompetitionAppealsTab = ({ competition, hasFullAdminAccess, actingUsername
         onScoreCorrected?.();
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!formReason.trim()) return;
         let proposedValue = null;
         if (isAutoCorrectable) {
@@ -48,22 +48,26 @@ const CompetitionAppealsTab = ({ competition, hasFullAdminAccess, actingUsername
                 ? (formProposed === 'true' ? true : formProposed === 'false' ? false : null)
                 : Number(formProposed) || 0;
         }
-        db.createAppeal({
-            competitionId: competition.id,
-            round: Number(formRound),
-            participantId: formParticipantId,
-            submittedBy: actingUsername,
-            reason: formReason.trim(),
-            proposedValue
-        });
+        try {
+            await db.createAppeal({
+                competitionId: competition.id,
+                round: Number(formRound),
+                participantId: formParticipantId,
+                submittedBy: actingUsername,
+                reason: formReason.trim(),
+                proposedValue
+            });
+        } catch (e) { alert(e.message); return; }
         setFormReason('');
         setShowForm(false);
         refresh();
     };
 
-    const handleDecide = (appeal, status) => {
+    const handleDecide = async (appeal, status) => {
         const comment = status === 'rejected' ? (window.prompt("Rad etish sababi (ixtiyoriy):") || '') : null;
-        db.decideAppeal(appeal.id, status, actingUsername, comment, actingUsername);
+        try {
+            await db.decideAppeal(appeal.id, status, actingUsername, comment, actingUsername);
+        } catch (e) { alert(e.message); return; }
         refresh();
     };
 

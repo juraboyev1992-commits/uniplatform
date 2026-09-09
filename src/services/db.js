@@ -598,6 +598,26 @@ const persistCriteriaSubcategory = async (sub) => {
     if (error) throw socialConfigTableError(error);
 };
 
+// Musobaqa o'tkazish yozuvlari va sertifikatlar uchun yagona yozuvchi.
+//
+// Ettita jadval bir xil shaklda (`id`, `competition_id`, `data`), shuning
+// uchun har biriga alohida funksiya yozilmadi - qo'shimcha ustunlar
+// chaqiruvda beriladi.
+const competitionOpsTableError = (error) => {
+    const missing = /relation .*(competition_participant|competition_advancement|competition_tiebreak|competition_appeal|competition_group_action|competition_case_roles|competition_question_points|issued_certificates).* does not exist/i.test(error?.message || '');
+    return new Error(missing
+        ? 'Saqlanmadi: musobaqa jadvallari topilmadi. '
+          + 'Supabase SQL Editor da `supabase/competition_operations.sql` ni bir marta ishga tushiring.'
+        : 'Saqlanmadi: ' + (error?.message || ''));
+};
+
+const persistCompetitionRow = async (table, row, extra = {}) => {
+    const { error } = await supabase.from(table).upsert({
+        id: row.id, competition_id: row.competitionId || null, ...extra, data: row,
+    });
+    if (error) throw competitionOpsTableError(error);
+};
+
 const socialAppRow = (a) => ({
     id: a.id, student_id: a.studentId || null, criteria_key: a.criteriaKey || null,
     status: a.status || null, submitted_at: a.submittedAt || null, data: a,
@@ -2835,7 +2855,7 @@ const syncCoreDataFromSupabase = async () => {
     const [
         coreRes, venueRes, schRes, testRes, poydevorRes, marifatRes, culturalRes,
         caResSingle, sdocRes, cjrRes, sportRes, housRes, passportRes, talentRes,
-        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes, delegationRes, socialAppRes, compDelegRes, clubPosRes, socialCfgRes
+        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes, delegationRes, socialAppRes, compDelegRes, clubPosRes, socialCfgRes, compOpsRes
     ] = await Promise.all([
         Promise.all([
             supabase.from('clubs').select('*'),
@@ -2973,6 +2993,20 @@ const syncCoreDataFromSupabase = async () => {
             supabase.from('social_scoring_sources').select('*'),
             supabase.from('social_criteria_categories').select('*'),
             supabase.from('social_criteria_subcategories').select('*')
+        ]),
+        // Musobaqa o'tkazish yozuvlari (supabase/competition_operations.sql).
+        Promise.all([
+            supabase.from('competition_participant_groups').select('*'),
+            supabase.from('competition_participant_seats').select('*'),
+            supabase.from('competition_advancement_rules').select('*'),
+            supabase.from('competition_tiebreak_resolutions').select('*'),
+            supabase.from('competition_advancement_results').select('*'),
+            supabase.from('competition_appeals').select('*'),
+            supabase.from('competition_appeal_audit_logs').select('*'),
+            supabase.from('competition_group_action_logs').select('*'),
+            supabase.from('competition_case_roles').select('*'),
+            supabase.from('competition_question_points').select('*'),
+            supabase.from('issued_certificates').select('*')
         ])
     ]);
 
@@ -3587,6 +3621,40 @@ const syncCoreDataFromSupabase = async () => {
     } else {
         dbData.studentRecognitions = (recRows || []).map(mapStudentRecognitionFromSupabase);
         dbData.studentRecognitionsBackendReady = true;
+    }
+
+    // Musobaqa o'tkazish yozuvlari (supabase/competition_operations.sql).
+    // Hammasi bir xil shaklda: `data` jsonb ichida butun obyekt, `id` esa
+    // ustunda - shuning uchun bitta xaritalash yetarli.
+    //
+    // Jadval yo'q bo'lsa MAHALLIY ro'yxatlar tegilmaydi: SQL ishga
+    // tushirilmagan brauzerda musobaqa avvalgidek ishlashda davom etadi,
+    // faqat yozuvlar o'sha kompyuterda qoladi.
+    const compOpsErr = compOpsRes.find(r => r.error)?.error;
+    if (compOpsErr) {
+        console.warn(
+            "[musobaqa yozuvlari] jadvallar o'qilmadi - supabase/competition_operations.sql ishga tushirilganmi?",
+            compOpsErr
+        );
+        dbData.competitionOpsBackendReady = false;
+    } else {
+        const unwrap = (res) => (res.data || []).map(r => ({ ...(r.data || {}), id: r.id }));
+        const [
+            pGroupsRes, pSeatsRes, advRulesRes, tiebreakRes, advResultsRes,
+            appealsRes, appealLogsRes, grpLogsRes, caseRolesRes, qPointsRes, certsRes
+        ] = compOpsRes;
+        dbData.competitionParticipantGroupAssignments = unwrap(pGroupsRes);
+        dbData.competitionParticipantSeats    = unwrap(pSeatsRes);
+        dbData.competitionAdvancementRules    = unwrap(advRulesRes);
+        dbData.competitionTiebreakResolutions = unwrap(tiebreakRes);
+        dbData.competitionAdvancementResults  = unwrap(advResultsRes);
+        dbData.competitionAppeals             = unwrap(appealsRes);
+        dbData.competitionAppealAuditLogs     = unwrap(appealLogsRes);
+        dbData.competitionGroupActionLogs     = unwrap(grpLogsRes);
+        dbData.competitionCaseRoles           = unwrap(caseRolesRes);
+        dbData.competitionQuestionPoints      = unwrap(qPointsRes);
+        dbData.certificates                   = unwrap(certsRes);
+        dbData.competitionOpsBackendReady = true;
     }
 
     saveDB(dbData);
@@ -6209,10 +6277,23 @@ export const db = {
     // CERTIFICATES
     getCertificates: () => getDB().certificates,
     getUserCertificates: (userId) => getDB().certificates.filter(c => c.userId === userId),
-    issueCertificate: (certData) => {
+    // Sertifikatlarni turli odamlar beradi, shuning uchun ular umumiy bazada
+    // turishi shart: aks holda har kim faqat o'zi bergan sertifikatni ko'radi
+    // va ayni talabaga ikkinchi marta berilishi hech qayerda sezilmaydi.
+    // `id` ham vaqt tamg'asi emas: ikki odam bir soniyada bersa, bittasi
+    // ikkinchisining yozuvini almashtirib yuborardi.
+    issueCertificate: async (certData) => {
         const dbData = getDB();
-        const newCert = { ...certData, id: Date.now().toString(), displayNumber: nextDisplayNumber(dbData.certificates), issueDate: new Date().toISOString() };
+        const newCert = {
+            ...certData,
+            id: 'cert_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+            displayNumber: nextDisplayNumber(dbData.certificates),
+            issueDate: new Date().toISOString()
+        };
         dbData.certificates.push(newCert);
+        await persistCompetitionRow('issued_certificates', newCert, {
+            student_id: newCert.userId != null ? String(newCert.userId) : null
+        });
         saveDB(dbData);
         return newCert;
     },
@@ -7749,14 +7830,15 @@ export const db = {
             .filter(l => l.competitionId === compId)
             .sort((a, b) => new Date(b.time) - new Date(a.time));
     },
-    logCompetitionGroupAction: (compId, action, details, actingUsername) => {
+    logCompetitionGroupAction: async (compId, action, details, actingUsername) => {
         const dbData = getDB();
         if (!dbData.competitionGroupActionLogs) dbData.competitionGroupActionLogs = [];
         const entry = {
-            id: 'grpLog_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+            id: 'grpLog_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
             competitionId: compId, action, details, actingUsername, time: new Date().toISOString()
         };
         dbData.competitionGroupActionLogs.push(entry);
+        await persistCompetitionRow('competition_group_action_logs', entry, { action });
         saveDB(dbData);
         return entry;
     },
@@ -7846,11 +7928,11 @@ export const db = {
             .filter(a => a.competitionId === compId)
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     },
-    createAppeal: ({ competitionId, round, participantId, submittedBy, reason, proposedValue = null, proposedCriteriaScores = null }) => {
+    createAppeal: async ({ competitionId, round, participantId, submittedBy, reason, proposedValue = null, proposedCriteriaScores = null }) => {
         const dbData = getDB();
         if (!dbData.competitionAppeals) dbData.competitionAppeals = [];
         const appeal = {
-            id: 'appeal_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+            id: 'appeal_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
             competitionId,
             round,
             participantId,
@@ -7865,6 +7947,7 @@ export const db = {
             createdAt: new Date().toISOString()
         };
         dbData.competitionAppeals.push(appeal);
+        await persistCompetitionRow('competition_appeals', appeal, { participant_id: participantId, status: 'pending' });
         saveDB(dbData);
         return appeal;
     },
@@ -7873,7 +7956,7 @@ export const db = {
     // a single-judge model). Accepting replays the correction through the exact same db.saveRoundScores
     // path every other score write uses, so it gets the identical audit trail - never a bypass write
     // directly into competitionScores.
-    decideAppeal: (appealId, status, reviewer, comment, judge, device) => {
+    decideAppeal: async (appealId, status, reviewer, comment, judge, device) => {
         const dbData = getDB();
         const appeal = (dbData.competitionAppeals || []).find(a => a.id === appealId);
         if (!appeal) throw new Error('Apellyatsiya topilmadi');
@@ -7883,8 +7966,8 @@ export const db = {
         appeal.decidedAt = new Date().toISOString();
         appeal.decisionComment = comment || null;
         if (!dbData.competitionAppealAuditLogs) dbData.competitionAppealAuditLogs = [];
-        dbData.competitionAppealAuditLogs.push({
-            id: 'appealLog_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+        const logEntry = {
+            id: 'appealLog_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
             appealId,
             competitionId: appeal.competitionId,
             fromStatus,
@@ -7892,7 +7975,12 @@ export const db = {
             reviewer,
             comment: comment || null,
             time: appeal.decidedAt
-        });
+        };
+        dbData.competitionAppealAuditLogs.push(logEntry);
+        // Qaror avval bazaga yoziladi: agar yozilmasa, ariza beruvchi javobni
+        // umuman ko'rmaydi, lekin ball allaqachon tuzatilgan bo'lardi.
+        await persistCompetitionRow('competition_appeals', appeal, { participant_id: appeal.participantId, status });
+        await persistCompetitionRow('competition_appeal_audit_logs', logEntry, { appeal_id: appealId });
         saveDB(dbData);
         if (status === 'accepted' && appeal.proposedValue !== null) {
             db.saveRoundScores(
@@ -7911,21 +7999,25 @@ export const db = {
         const data = getDB();
         return (data.competitionCaseRoles || []).filter(r => r.competitionId === compId && (round == null || r.round === round));
     },
-    setCompetitionCaseRole: (compId, round, participantId, role, assignedBy) => {
+    setCompetitionCaseRole: async (compId, round, participantId, role, assignedBy) => {
         const dbData = getDB();
         if (!dbData.competitionCaseRoles) dbData.competitionCaseRoles = [];
-        const existing = dbData.competitionCaseRoles.find(r => r.competitionId === compId && r.round === round && r.participantId === participantId);
-        if (existing) {
-            existing.role = role;
+        let row = dbData.competitionCaseRoles.find(r => r.competitionId === compId && r.round === round && r.participantId === participantId);
+        if (row) {
+            row.role = role;
+            row.assignedBy = assignedBy;
+            row.assignedAt = new Date().toISOString();
         } else {
-            dbData.competitionCaseRoles.push({
-                id: 'caserole_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+            row = {
+                id: 'caserole_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
                 competitionId: compId, round, participantId, role, assignedBy,
                 assignedAt: new Date().toISOString()
-            });
+            };
+            dbData.competitionCaseRoles.push(row);
         }
+        await persistCompetitionRow('competition_case_roles', row, { participant_id: participantId });
         saveDB(dbData);
-        return dbData.competitionCaseRoles.find(r => r.competitionId === compId && r.round === round && r.participantId === participantId);
+        return row;
     },
 
     // Zakovat "Natija kiritish" grid overlays (correct_answer only) - same upsert-by-key idiom as
@@ -7934,63 +8026,69 @@ export const db = {
         const data = getDB();
         return (data.competitionQuestionPoints || []).filter(r => r.competitionId === compId);
     },
-    setCompetitionQuestionPoints: (compId, questionIndex, points) => {
+    setCompetitionQuestionPoints: async (compId, questionIndex, points) => {
         const dbData = getDB();
         if (!dbData.competitionQuestionPoints) dbData.competitionQuestionPoints = [];
-        const existing = dbData.competitionQuestionPoints.find(r => r.competitionId === compId && r.questionIndex === questionIndex);
+        let row = dbData.competitionQuestionPoints.find(r => r.competitionId === compId && r.questionIndex === questionIndex);
         const now = new Date().toISOString();
-        if (existing) {
-            existing.points = points;
-            existing.updatedAt = now;
+        if (row) {
+            row.points = points;
+            row.updatedAt = now;
         } else {
-            dbData.competitionQuestionPoints.push({
-                id: 'qpts_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+            row = {
+                id: 'qpts_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
                 competitionId: compId, questionIndex, points, updatedAt: now
-            });
+            };
+            dbData.competitionQuestionPoints.push(row);
         }
+        await persistCompetitionRow('competition_question_points', row);
         saveDB(dbData);
-        return dbData.competitionQuestionPoints.find(r => r.competitionId === compId && r.questionIndex === questionIndex);
+        return row;
     },
     // "Savol turi" - a per-question label ('standard'|'blitz'|'bonus'), purely informational/categorical.
     // Reuses the same competitionQuestionPoints record as the point-value override (same key), never
     // affects scoring math - display/filtering metadata only, same spirit as competitionCaseRoles.
-    setCompetitionQuestionType: (compId, questionIndex, questionType) => {
+    setCompetitionQuestionType: async (compId, questionIndex, questionType) => {
         const dbData = getDB();
         if (!dbData.competitionQuestionPoints) dbData.competitionQuestionPoints = [];
-        const existing = dbData.competitionQuestionPoints.find(r => r.competitionId === compId && r.questionIndex === questionIndex);
+        let row = dbData.competitionQuestionPoints.find(r => r.competitionId === compId && r.questionIndex === questionIndex);
         const now = new Date().toISOString();
-        if (existing) {
-            existing.questionType = questionType;
-            existing.updatedAt = now;
+        if (row) {
+            row.questionType = questionType;
+            row.updatedAt = now;
         } else {
-            dbData.competitionQuestionPoints.push({
-                id: 'qpts_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+            row = {
+                id: 'qpts_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
                 competitionId: compId, questionIndex, points: null, questionType, updatedAt: now
-            });
+            };
+            dbData.competitionQuestionPoints.push(row);
         }
+        await persistCompetitionRow('competition_question_points', row);
         saveDB(dbData);
-        return dbData.competitionQuestionPoints.find(r => r.competitionId === compId && r.questionIndex === questionIndex);
+        return row;
     },
     getCompetitionParticipantSeats: (compId) => {
         const data = getDB();
         return (data.competitionParticipantSeats || []).filter(r => r.competitionId === compId);
     },
-    setParticipantSeat: (compId, participantId, seatNumber) => {
+    setParticipantSeat: async (compId, participantId, seatNumber) => {
         const dbData = getDB();
         if (!dbData.competitionParticipantSeats) dbData.competitionParticipantSeats = [];
-        const existing = dbData.competitionParticipantSeats.find(r => r.competitionId === compId && r.participantId === participantId);
+        let row = dbData.competitionParticipantSeats.find(r => r.competitionId === compId && r.participantId === participantId);
         const now = new Date().toISOString();
-        if (existing) {
-            existing.seatNumber = seatNumber;
-            existing.updatedAt = now;
+        if (row) {
+            row.seatNumber = seatNumber;
+            row.updatedAt = now;
         } else {
-            dbData.competitionParticipantSeats.push({
-                id: 'seat_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+            row = {
+                id: 'seat_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
                 competitionId: compId, participantId, seatNumber, updatedAt: now
-            });
+            };
+            dbData.competitionParticipantSeats.push(row);
         }
+        await persistCompetitionRow('competition_participant_seats', row, { participant_id: participantId });
         saveDB(dbData);
-        return dbData.competitionParticipantSeats.find(r => r.competitionId === compId && r.participantId === participantId);
+        return row;
     },
     getCompetitionRoundParticipantStatus: (compId, roundGroupIndex) => {
         const data = getDB();
@@ -8137,19 +8235,24 @@ export const db = {
             .forEach(a => map.set(a.participantId, a.groupId));
         return map;
     },
-    setParticipantGroup: (compId, participantId, groupId, actor) => {
+    // ASYNC: guruh taqsimoti endi bazaga yoziladi. Musobaqani bir necha
+    // hakam har xil kompyuterdan baholaydi va ilgari biri taqsimlagan
+    // guruhlarni ikkinchisi umuman ko'rmasdi.
+    setParticipantGroup: async (compId, participantId, groupId, actor) => {
         const dbData = getDB();
         if (!dbData.competitionParticipantGroupAssignments) dbData.competitionParticipantGroupAssignments = [];
         const now = new Date().toISOString();
-        const existing = dbData.competitionParticipantGroupAssignments.find(a => a.competitionId === compId && a.participantId === participantId);
-        if (existing) {
-            existing.groupId = groupId; existing.updatedAt = now; existing.updatedBy = actor;
+        let row = dbData.competitionParticipantGroupAssignments.find(a => a.competitionId === compId && a.participantId === participantId);
+        if (row) {
+            row.groupId = groupId; row.updatedAt = now; row.updatedBy = actor;
         } else {
-            dbData.competitionParticipantGroupAssignments.push({
-                id: 'pgroup_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+            row = {
+                id: 'pgroup_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
                 competitionId: compId, participantId, groupId, updatedAt: now, updatedBy: actor
-            });
+            };
+            dbData.competitionParticipantGroupAssignments.push(row);
         }
+        await persistCompetitionRow('competition_participant_groups', row, { participant_id: participantId });
         saveDB(dbData);
     },
     getAdvancementRules: (compId, turBoundary = null) => {
@@ -8157,21 +8260,23 @@ export const db = {
         return (data.competitionAdvancementRules || [])
             .filter(r => r.competitionId === compId && (turBoundary === null || r.turBoundary === turBoundary));
     },
-    setAdvancementRule: (compId, turBoundary, groupId, topN, actor) => {
+    setAdvancementRule: async (compId, turBoundary, groupId, topN, actor) => {
         const dbData = getDB();
         if (!dbData.competitionAdvancementRules) dbData.competitionAdvancementRules = [];
         const now = new Date().toISOString();
-        const existing = dbData.competitionAdvancementRules.find(
+        let row = dbData.competitionAdvancementRules.find(
             r => r.competitionId === compId && r.turBoundary === turBoundary && r.groupId === groupId
         );
-        if (existing) {
-            existing.topN = topN; existing.updatedAt = now; existing.updatedBy = actor;
+        if (row) {
+            row.topN = topN; row.updatedAt = now; row.updatedBy = actor;
         } else {
-            dbData.competitionAdvancementRules.push({
-                id: 'advrule_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+            row = {
+                id: 'advrule_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
                 competitionId: compId, turBoundary, groupId, topN, updatedAt: now, updatedBy: actor
-            });
+            };
+            dbData.competitionAdvancementRules.push(row);
         }
+        await persistCompetitionRow('competition_advancement_rules', row);
         saveDB(dbData);
     },
     getTiebreakResolution: (compId, context, turBoundary, groupKey) => {
@@ -8180,23 +8285,25 @@ export const db = {
             r => r.competitionId === compId && r.context === context && r.turBoundary === turBoundary && r.groupKey === groupKey
         ) || null;
     },
-    recordTiebreakResolution: (compId, { context, turBoundary, groupKey, tiedParticipantIds, resolvedOrder }, actor) => {
+    recordTiebreakResolution: async (compId, { context, turBoundary, groupKey, tiedParticipantIds, resolvedOrder }, actor) => {
         const dbData = getDB();
         if (!dbData.competitionTiebreakResolutions) dbData.competitionTiebreakResolutions = [];
         const now = new Date().toISOString();
-        const existing = dbData.competitionTiebreakResolutions.find(
+        let row = dbData.competitionTiebreakResolutions.find(
             r => r.competitionId === compId && r.context === context && r.turBoundary === turBoundary && r.groupKey === groupKey
         );
-        if (existing) {
-            existing.tiedParticipantIds = tiedParticipantIds; existing.resolvedOrder = resolvedOrder;
-            existing.enteredBy = actor; existing.enteredAt = now;
+        if (row) {
+            row.tiedParticipantIds = tiedParticipantIds; row.resolvedOrder = resolvedOrder;
+            row.enteredBy = actor; row.enteredAt = now;
         } else {
-            dbData.competitionTiebreakResolutions.push({
-                id: 'tiebreak_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+            row = {
+                id: 'tiebreak_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
                 competitionId: compId, context, turBoundary, groupKey, tiedParticipantIds, resolvedOrder,
                 enteredBy: actor, enteredAt: now
-            });
+            };
+            dbData.competitionTiebreakResolutions.push(row);
         }
+        await persistCompetitionRow('competition_tiebreak_resolutions', row);
         saveDB(dbData);
     },
 
@@ -8368,7 +8475,7 @@ export const db = {
         };
     },
 
-    freezeAdvancement: (compId, turBoundary, actor) => {
+    freezeAdvancement: async (compId, turBoundary, actor) => {
         const preview = db.computeFacultyAdvancement(compId, turBoundary);
         if (!preview) throw new Error("Musobaqa yoki Tur topilmadi");
         if (preview.unassignedParticipantIds.length > 0) {
@@ -8391,7 +8498,7 @@ export const db = {
             r => r.competitionId === compId && r.context === 'advancement' && r.turBoundary === turBoundary
         );
         const record = {
-            id: existingIdx > -1 ? dbData.competitionAdvancementResults[existingIdx].id : 'advfreeze_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+            id: existingIdx > -1 ? dbData.competitionAdvancementResults[existingIdx].id : 'advfreeze_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
             competitionId: compId, context: 'advancement', turBoundary,
             advancedParticipantIds: preview.allAdvancingParticipantIds,
             byGroup: preview.groups.map(g => ({ groupId: g.groupId, participantIds: g.advancing, tiebreakUsed: g.tiebreakUsed })),
@@ -8399,6 +8506,7 @@ export const db = {
         };
         if (existingIdx > -1) dbData.competitionAdvancementResults[existingIdx] = record;
         else dbData.competitionAdvancementResults.push(record);
+        await persistCompetitionRow('competition_advancement_results', record, { context: 'advancement' });
         saveDB(dbData);
         return record;
     },
@@ -8460,7 +8568,7 @@ export const db = {
         return { placements, unresolvedClusters };
     },
 
-    freezeFinalPlacement: (compId, actor) => {
+    freezeFinalPlacement: async (compId, actor) => {
         const preview = db.computeFinalPlacement(compId);
         if (!preview) throw new Error("Musobaqa yoki Turlar topilmadi");
         if (preview.unresolvedClusters.length > 0) throw new Error("Ba'zi o'rinlarda teng ball hali hal qilinmagan");
@@ -8471,13 +8579,14 @@ export const db = {
             r => r.competitionId === compId && r.context === 'final_placement'
         );
         const record = {
-            id: existingIdx > -1 ? dbData.competitionAdvancementResults[existingIdx].id : 'finalfreeze_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+            id: existingIdx > -1 ? dbData.competitionAdvancementResults[existingIdx].id : 'finalfreeze_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
             competitionId: compId, context: 'final_placement', turBoundary: null,
             placements: preview.placements,
             frozenAt: now, frozenBy: actor
         };
         if (existingIdx > -1) dbData.competitionAdvancementResults[existingIdx] = record;
         else dbData.competitionAdvancementResults.push(record);
+        await persistCompetitionRow('competition_advancement_results', record, { context: 'final_placement' });
         saveDB(dbData);
         return record;
     },
@@ -8486,8 +8595,9 @@ export const db = {
     // admin judgment, not a derived formula. Thin wrapper over the existing db.issueCertificate (first
     // real caller was Phase 8's Results Center certificate wiring) - `category` is just an additional
     // field on the same certificate record, no new storage or engine.
-    issueNomination: (compId, participantId, category, issuedBy) => {
+    issueNomination: async (compId, participantId, category, issuedBy) => {
         return db.issueCertificate({
+            competitionId: compId,
             userId: participantId,
             title: category,
             category,

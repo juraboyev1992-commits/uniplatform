@@ -538,15 +538,19 @@ const CompetitionResultsCenter = ({
     // the issued record may not surface on that identity's own certificates page in this demo dataset —
     // it is still a genuine, persisted record, not a fabricated/decorative one.
     const [issuedCertificate, setIssuedCertificate] = useState(null);
-    const handleIssueCertificate = () => {
+    const handleIssueCertificate = async () => {
         if (!drawerParticipant || !competition) return;
-        const cert = db.issueCertificate({
-            userId: drawerParticipant.id,
-            title: `${competition.name} — ${drawerParticipant.rank ? drawerParticipant.rank + '-o\'rin' : 'ishtirokchi'}`,
-            clubName: competition.name,
-            role: competition.type === 'team' ? "Jamoa a'zosi" : 'Ishtirokchi',
-            placement: drawerParticipant.rank || null
-        });
+        let cert;
+        try {
+            cert = await db.issueCertificate({
+                competitionId: competition.id,
+                userId: drawerParticipant.id,
+                title: `${competition.name} — ${drawerParticipant.rank ? drawerParticipant.rank + '-o\'rin' : 'ishtirokchi'}`,
+                clubName: competition.name,
+                role: competition.type === 'team' ? "Jamoa a'zosi" : 'Ishtirokchi',
+                placement: drawerParticipant.rank || null
+            });
+        } catch (e) { alert(e.message); return; }
         setIssuedCertificate(cert);
     };
 
@@ -554,9 +558,12 @@ const CompetitionResultsCenter = ({
     // competition) — a manual, holistic admin judgment, not a derived formula. Thin wrapper over the
     // same db.issueCertificate path (via db.issueNomination), so it's a genuine persisted record too.
     const [nominationCategory, setNominationCategory] = useState(NOMINATION_CATEGORIES[0]);
-    const handleIssueNomination = () => {
+    const handleIssueNomination = async () => {
         if (!drawerParticipant || !competition) return;
-        const cert = db.issueNomination(competition.id, drawerParticipant.id, nominationCategory, userRole);
+        let cert;
+        try {
+            cert = await db.issueNomination(competition.id, drawerParticipant.id, nominationCategory, userRole);
+        } catch (e) { alert(e.message); return; }
         setIssuedCertificate(cert);
     };
 
