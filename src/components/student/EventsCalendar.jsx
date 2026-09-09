@@ -21,6 +21,7 @@ import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
 import Pagination from '../../components/common/Pagination';
 import ActivityQuickViewModal from './ActivityQuickViewModal';
+import RegistrationStatusBadge from '../activities/RegistrationStatusBadge';
 import MyActivityPanel from './MyActivityPanel';
 import { useTabParam } from '../../hooks/useTabParam';
 import { db } from '../../services/db';
@@ -153,6 +154,22 @@ const EventsCalendar = () => {
     const alertFor = (row) => teamAlerts.get(`${row.kind}-${row.id}`) || null;
     const alertIsUrgent = (a) => a?.daysLeft != null && a.daysLeft <= 1;
 
+    // RO'YXATDAN O'TISH OCHIQMI — kalendar katakchasidagi kichik belgi uchun.
+    // Talaba ilgari buni faqat har bir tadbirni birma-bir ochib ko'rgandagina
+    // bilardi. Belgi FAQAT harakat kutilayotganda chiqadi: ro'yxat talab
+    // qilinsa, hozir ochiq bo'lsa, joy bo'lsa va odam hali yozilmagan bo'lsa.
+    // "Yopilgan" yoki "hali ochilmagan" holat uchun belgi qo'yilmaydi - undan
+    // hozir qiladigan ish yo'q, ya'ni u shovqin.
+    const needsRegistration = (row) => {
+        const a = row.activity;
+        if (!a || !a.registrationRequired || row.isMine) return false;
+        if (row.statusBucket === 'closed') return false;
+        const { state } = db.getRegistrationWindowState(a, row.startDateTime);
+        if (state !== 'open') return false;
+        const full = a.maxParticipants != null && row.registeredCount >= a.maxParticipants;
+        return !full || !!a.waitlistEnabled;
+    };
+
     const events = useMemo(() => db.getEvents(), []);
     const competitions = useMemo(() => db.getCompetitions(), []);
 
@@ -174,6 +191,14 @@ const EventsCalendar = () => {
             participantCount: (e.registrations || e.participants || []).length,
             isMine: myIds.events.has(e.id),
             collection: db.getActiveCollectionForActivity('event', e.id),
+            // Ro'yxat nishoni uchun XOM yozuv ham kerak: nishon
+            // registrationRequired, maxParticipants, opensAt/closesAt va
+            // locationType ni o'zi o'qiydi. Qayta yozib chiqilsa, ikki nusxa
+            // vaqt o'tib bir-biridan chetga chiqib ketardi.
+            activity: e,
+            startDateTime: e.date,
+            registeredCount: db.getRegistrationsForActivity(e.id, 'event')
+                .filter(r => r.status === 'registered').length,
         })), [events, clubNameById, myIds]);
 
     const competitionRows = useMemo(() => competitions
@@ -188,6 +213,10 @@ const EventsCalendar = () => {
             participantCount: (c.participants || []).length,
             isMine: myIds.competitions.has(c.id),
             collection: db.getActiveCollectionForActivity('competition', c.id),
+            activity: c,
+            startDateTime: c.startDate ? db.combineDateTime(c.startDate, c.startTime) : null,
+            registeredCount: db.getRegistrationsForActivity(c.id, 'competition')
+                .filter(r => r.status === 'registered').length,
         })), [competitions, clubNameById, myIds]);
 
     const allRows = kind === 'events' ? eventRows : competitionRows;
@@ -490,11 +519,13 @@ const EventsCalendar = () => {
                                                     {dayRows.slice(0, 2).map(r => {
                                                         const alert = alertFor(r);
                                                         const urgent = alertIsUrgent(alert);
+                                                        const openReg = needsRegistration(r);
                                                         return (
                                                             <div
                                                                 key={r.key}
                                                                 title={[
                                                                     r.collection ? `${r.title} - ${r.collection.name}` : r.title,
+                                                                    openReg && "Ro'yxatdan o'tish ochiq",
                                                                     alert && (alert.role === 'captain'
                                                                         ? `Jamoangiz to'lmagan: ${alert.accepted}/${alert.need}`
                                                                         : 'Jamoa taklifiga javob bermagansiz'),
@@ -513,6 +544,15 @@ const EventsCalendar = () => {
                                                                 {alert && <Users size={9} className="shrink-0" />}
                                                                 {!alert && r.collection && <Layers size={9} className="shrink-0" />}
                                                                 <span className="truncate">{r.title}</span>
+                                                                {/* RO'YXAT OCHIQ - kichik oq nuqta. Matn
+                                                                    sig'maydi (katakcha 10px shrift), nuqta
+                                                                    esa "bu yerda men uchun ish bor" degan
+                                                                    savolga javob beradi. Ma'nosi `title`
+                                                                    da yozilgan, ya'ni nuqta yolg'iz
+                                                                    tashuvchi emas. */}
+                                                                {openReg && (
+                                                                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white shrink-0" />
+                                                                )}
                                                             </div>
                                                         );
                                                     })}
@@ -557,6 +597,19 @@ const EventsCalendar = () => {
                                                 {row.clubName && <Badge variant="default" size="sm">{row.clubName}</Badge>}
                                                 {row.format && <Badge variant="primary" size="sm">{FORMAT_LABELS[row.format]}</Badge>}
                                                 {row.isMine && <Badge variant="success" size="sm">Men qatnashaman</Badge>}
+                                                {/* RO'YXAT HOLATI — ochiq / hali ochilmagan / to'lgan /
+                                                    yopilgan, va bo'sh joy soni yoki qolgan vaqt.
+                                                    Ro'yxatdan o'tgan odamga ko'rsatilmaydi: uning ishi
+                                                    tugagan, "3 ta bo'sh joy" unga hech narsa bermaydi.
+                                                    Ro'yxat talab qilinmasa nishon o'zi hech narsa
+                                                    chizmaydi (faqat Online/Gibrid bo'lsa - o'shani). */}
+                                                {!row.isMine && row.activity && (
+                                                    <RegistrationStatusBadge
+                                                        activity={row.activity}
+                                                        startDateTime={row.startDateTime}
+                                                        registeredCount={row.registeredCount}
+                                                    />
+                                                )}
                                                 {/* Ro'yxat ko'rinishida belgi MATN bilan - bu yerda
                                                     joy bor, ya'ni "nima qilishim kerak" degan savolga
                                                     kalendar katakchasidan ko'ra to'liqroq javob beriladi. */}
