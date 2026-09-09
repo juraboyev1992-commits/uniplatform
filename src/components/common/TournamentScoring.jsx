@@ -6,7 +6,7 @@ import {
     Keyboard, HelpCircle, UserCheck, AlertTriangle, Download, Maximize2, Minimize2,
     RefreshCw, Filter, ChevronUp, ChevronDown, Minus, Calendar, LayoutDashboard,
     Share2, Compass, GitMerge, FileBarChart2, BarChart3, CheckCircle, AlertCircle, Zap,
-    SlidersHorizontal, ArrowUpDown, LayoutGrid, List, Lock, ClipboardCheck, Gavel, PieChart
+    SlidersHorizontal, ArrowUpDown, LayoutGrid, List, Lock, ClipboardCheck, Gavel
 } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
@@ -1139,9 +1139,6 @@ const TournamentScoring = ({
                                 { id: 'blankalar', label: 'Blankalar', icon: FileBarChart2 },
                                 ...(activeComp.tournamentEngine === 'knockout' ? [{ id: 'brackets', label: 'Brackets (Setka)', icon: GitMerge }] : []),
                                 { id: 'schedule', label: 'Jadval', icon: Clock },
-                                // Statistika OXIRIDA: u musobaqani o'tkazish emas,
-                                // natijani o'qish. Ish tablari oldinda qoladi.
-                                { id: 'statistika', label: 'Statistika', icon: PieChart },
                             ].map(tab => (
                                 <button
                                     key={tab.id}
@@ -1181,11 +1178,30 @@ const TournamentScoring = ({
 
                         {/* 2. PARTICIPANTS TAB (delegated to CompetitionParticipantsTab.jsx) */}
                         {activeTab === 'participants' && (
-                            <CompetitionParticipantsTab
-                                competition={activeComp}
-                                leaderboardData={leaderboardData}
-                                role={role}
-                            />
+                            <>
+                                <CompetitionParticipantsTab
+                                    competition={activeComp}
+                                    leaderboardData={leaderboardData}
+                                    role={role}
+                                />
+                                {/* Statistika SHU TABNING davomi, alohida tab emas:
+                                    "kim qatnashyapti" va "ular qaysi fakultet/kurs/
+                                    tyutordan" - bitta savolning ikki qismi. Alohida
+                                    tab qilinsa, mas'ul bir xil narsani ikki joydan
+                                    qidirishga majbur bo'lardi.
+                                    Eski "Tahlillar" tabi bilan chalkashtirmaslik
+                                    kerak: u Asosiy'dagi ko'rsatkichlarni takrorlagani
+                                    va bo'sh "diagrammalar paneli" bo'lgani uchun
+                                    ataylab olib tashlangan edi. Bu esa boshqa
+                                    savolga javob beradi va haqiqiy yozuvlarga
+                                    (ro'yxatdan o'tishlar + davomat) tayanadi. */}
+                                <div className="p-6 pt-0">
+                                    <ParticipantStatsPanel
+                                        refs={[{ activityId: activeComp.id, activityType: 'competition' }]}
+                                        subtitle={`"${activeComp.name}" bo'yicha`}
+                                    />
+                                </div>
+                            </>
                         )}
 
                         {/* 3. LIVE SCORING TAB (Original existing scoring logic preserved) */}
@@ -1817,24 +1833,6 @@ const TournamentScoring = ({
                                         canEdit={canManageSchedule()}
                                     />
                                 )}
-                            </div>
-                        )}
-
-                        {/* 7. STATISTIKA TAB
-                            Eski "Tahlillar" tabi ataylab olib tashlangan edi: undagi uchta
-                            katak "Asosiy" dagi ko'rsatkichlarni takrorlardi va "diagrammalar
-                            paneli" deb yozilgan blokda hech qanday diagramma yo'q edi.
-                            Bu tab uning o'rnini bosmaydi - u boshqa savolga javob beradi:
-                            ishtirokchilar QAYSI fakultet, kurs, guruh va tyutordan.
-                            Ma'lumot haqiqiy yozuvlardan (ro'yxatdan o'tishlar + davomat)
-                            olinadi, hisob esa tadbir va to'plam bilan AYNI (utils/participantStats.js) -
-                            shuning uchun to'plamdagi yig'indi alohida musobaqalarnikiga to'g'ri keladi. */}
-                        {activeTab === 'statistika' && (
-                            <div className="p-6">
-                                <ParticipantStatsPanel
-                                    refs={[{ activityId: activeComp.id, activityType: 'competition' }]}
-                                    subtitle={`"${activeComp.name}" bo'yicha`}
-                                />
                             </div>
                         )}
 

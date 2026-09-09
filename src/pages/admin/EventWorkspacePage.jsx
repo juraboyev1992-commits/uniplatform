@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, useSearchParams } from 'react-rout
 import { useTabParam } from '../../hooks/useTabParam';
 import {
     ArrowLeft, CalendarDays, ChevronRight, Calendar, MapPin, Users,
-    UserCheck, ListChecks, FileBarChart2, FileText, ShieldCheck, Settings, PieChart,
+    UserCheck, ListChecks, FileBarChart2, FileText, ShieldCheck, Settings,
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
@@ -35,9 +35,6 @@ const TABS = [
     { id: 'protocol', label: 'Bayonnoma', icon: FileText, section: 'protocol' },
     { id: 'registration', label: "Ro'yxat", icon: Users, section: 'registration' },
     { id: 'access', label: 'Vakolat', icon: ShieldCheck, section: 'delegation' },
-    // Statistika OXIRIDA: u ish emas, natijani o'qish. Ish tablari (davomat,
-    // vazifalar, hisobot) oldinda turishi kerak.
-    { id: 'stats', label: 'Statistika', icon: PieChart, section: null },
 ];
 
 const TAB_IDS = TABS.map(t => t.id);
@@ -215,16 +212,6 @@ const EventWorkspacePage = () => {
                 </div>
             </div>
 
-            {/* Statistika BUTUN kengligida turadi va boshqaruv panelidan
-                tashqarida: u faoliyatni o'tkazish emas, natijani o'qish.
-                `EventManagementPanel` ichiga qo'yilsa, uning bo'lim mantiqiga
-                (`sections`) sun'iy ravishda bog'lanib qolardi. */}
-            {activeTab === 'stats' ? (
-                <ParticipantStatsPanel
-                    refs={statsRefs}
-                    subtitle={`"${event.title}" bo'yicha`}
-                />
-            ) : (
             <Card>
                 <div className="p-6">
                     <EventManagementPanel
@@ -261,6 +248,18 @@ const EventWorkspacePage = () => {
                     )}
                 </div>
             </Card>
+
+            {/* Statistika RO'YXAT tabining davomi: "kim yozildi" degan savol
+                bilan "ular qaysi fakultet/kurs/tyutordan" degan savol bitta
+                savolning ikki qismi. Alohida tab qilinsa, mas'ul bir xil
+                narsani ikki joydan qidirishga majbur bo'lardi.
+                Ro'yxat panelidan KEYIN va butun kenglikda - jadval va
+                diagramma tor ustunga sig'maydi. */}
+            {activeTab === 'registration' && canEditDetails && (
+                <ParticipantStatsPanel
+                    refs={statsRefs}
+                    subtitle={`"${event.title}" bo'yicha`}
+                />
             )}
         </div>
     );
