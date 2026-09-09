@@ -525,6 +525,44 @@ const competitionDelegationTableError = (error) => {
         : 'Vakolat saqlanmadi: ' + (error?.message || ''));
 };
 
+// Klub lavozimlari va arizalari uchun yozuvchilar. Jadval yo'q bo'lsa
+// TUSHUNARLI xabar beriladi - "saqlandi" deb ko'rsatib, aslida hech qayerga
+// yozmaslik eng yomon holat.
+const clubPositionTableError = (error) => {
+    const missing = /relation .*club_position.* does not exist/i.test(error?.message || '');
+    return new Error(missing
+        ? 'Saqlanmadi: `club_positions` jadvallari topilmadi. '
+          + 'Supabase SQL Editor da `supabase/club_positions.sql` ni bir marta ishga tushiring.'
+        : 'Saqlanmadi: ' + (error?.message || ''));
+};
+
+const persistClubPosition = async (pos) => {
+    const { error } = await supabase.from('club_positions').upsert({
+        id: pos.id, club_id: pos.clubId || null, title: pos.title || null,
+        status: pos.status || null, data: pos,
+    });
+    if (error) throw clubPositionTableError(error);
+};
+
+const persistClubPositionApplication = async (app) => {
+    const { error } = await supabase.from('club_position_applications').upsert({
+        id: app.id, position_id: app.positionId || null, club_id: app.clubId || null,
+        student_id: app.studentId || null, status: app.status || null, data: app,
+    });
+    if (error) throw clubPositionTableError(error);
+};
+
+// Tarix yozuvi jimgina o'tkazib yuboriladi: u yozilmagani uchun asosiy amal
+// bekor bo'lmasligi kerak.
+const persistClubPositionLog = async (log) => {
+    try {
+        await supabase.from('club_position_audit_logs').insert({
+            id: log.id, application_id: log.applicationId || null,
+            action: log.action || null, time: log.time || null, data: log,
+        });
+    } catch (e) { console.warn('Lavozim tarixi yozilmadi:', e.message); }
+};
+
 const socialAppRow = (a) => ({
     id: a.id, student_id: a.studentId || null, criteria_key: a.criteriaKey || null,
     status: a.status || null, submitted_at: a.submittedAt || null, data: a,
@@ -2762,7 +2800,7 @@ const syncCoreDataFromSupabase = async () => {
     const [
         coreRes, venueRes, schRes, testRes, poydevorRes, marifatRes, culturalRes,
         caResSingle, sdocRes, cjrRes, sportRes, housRes, passportRes, talentRes,
-        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes, delegationRes, socialAppRes, compDelegRes
+        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes, delegationRes, socialAppRes, compDelegRes, clubPosRes
     ] = await Promise.all([
         Promise.all([
             supabase.from('clubs').select('*'),
@@ -2890,7 +2928,12 @@ const syncCoreDataFromSupabase = async () => {
             supabase.from('social_activity_applications').select('*'),
             supabase.from('social_activity_audit_logs').select('*')
         ]),
-        supabase.from('competition_delegations').select('*')
+        supabase.from('competition_delegations').select('*'),
+        Promise.all([
+            supabase.from('club_positions').select('*'),
+            supabase.from('club_position_applications').select('*'),
+            supabase.from('club_position_audit_logs').select('*')
+        ])
     ]);
 
     const [
@@ -3391,6 +3434,25 @@ const syncCoreDataFromSupabase = async () => {
     }
 
     // Rag'bat puli / mukofot reestri - alohida SQL fayl (supabase/student_recognitions.sql).
+    // Klub lavozimlari va arizalari (supabase/club_positions.sql).
+    const [
+        { data: posRows, error: posErr },
+        { data: posAppRows, error: posAppErr },
+        { data: posLogRows, error: posLogErr },
+    ] = clubPosRes;
+    if (posErr || posAppErr || posLogErr) {
+        console.warn(
+            "[klub lavozimlari] jadvallar o'qilmadi - supabase/club_positions.sql ishga tushirilganmi?",
+            posErr || posAppErr || posLogErr
+        );
+        dbData.clubPositionsBackendReady = false;
+    } else {
+        dbData.clubPositions = (posRows || []).map(r => ({ ...(r.data || {}), id: r.id }));
+        dbData.clubPositionApplications = (posAppRows || []).map(r => ({ ...(r.data || {}), id: r.id }));
+        dbData.clubPositionAuditLogs = (posLogRows || []).map(r => ({ ...(r.data || {}), id: r.id }));
+        dbData.clubPositionsBackendReady = true;
+    }
+
     // Musobaqa vakolati (supabase/competition_delegations.sql). Tadbir
     // vakolati bilan bir xil naqsh: jadval yo'q bo'lsa mahalliy ro'yxat
     // tegilmaydi va ilova ishlashda davom etadi.
@@ -4787,7 +4849,9 @@ export const db = {
     // (SMM/media/event-coordinator/volunteer) positions a club coordinator opens for students to apply to.
     getClubPositions: (clubId) => (getDB().clubPositions || []).filter(p => p.clubId === clubId),
     getPositionById: (id) => (getDB().clubPositions || []).find(p => p.id === id),
-    createClubPosition: (data) => {
+    // ASYNC: lavozim endi bazaga yoziladi. Ilgari faqat localStorage da
+    // qolardi va boshqa kompyuterdagi talaba ochiq lavozimni ko'rmasdi.
+    createClubPosition: async (data) => {
         const dbData = getDB();
         if (!dbData.clubPositions) dbData.clubPositions = [];
         const maxSlots = POSITION_MAX_SLOTS[data.title];
@@ -4810,14 +4874,16 @@ export const db = {
             displayNumber: nextDisplayNumber(dbData.clubPositions)
         };
         dbData.clubPositions.push(newPosition);
+        await persistClubPosition(newPosition);
         saveDB(dbData);
         return newPosition;
     },
-    closeClubPosition: (id) => {
+    closeClubPosition: async (id) => {
         const dbData = getDB();
         const idx = (dbData.clubPositions || []).findIndex(p => p.id === id);
         if (idx === -1) return null;
         dbData.clubPositions[idx].status = 'closed';
+        await persistClubPosition(dbData.clubPositions[idx]);
         saveDB(dbData);
         return dbData.clubPositions[idx];
     },
@@ -4828,7 +4894,9 @@ export const db = {
     getPositionApplications: (positionId) => (getDB().clubPositionApplications || []).filter(a => a.positionId === positionId),
     getClubPositionApplications: (clubId) => (getDB().clubPositionApplications || []).filter(a => a.clubId === clubId),
     getStudentPositionApplications: (studentId) => (getDB().clubPositionApplications || []).filter(a => a.studentId === studentId),
-    applyForPosition: (positionId, studentId, motivation) => {
+    // ASYNC: ariza endi bazaga yoziladi. Ilgari koordinator boshqa
+    // kompyuterda arizani umuman ko'rmasdi.
+    applyForPosition: async (positionId, studentId, motivation) => {
         const dbData = getDB();
         const position = (dbData.clubPositions || []).find(p => p.id === positionId);
         if (!position) throw new Error('Lavozim topilmadi');
@@ -4859,7 +4927,7 @@ export const db = {
         if (!dbData.clubPositionApplications) dbData.clubPositionApplications = [];
         dbData.clubPositionApplications.push(application);
         if (!dbData.clubPositionAuditLogs) dbData.clubPositionAuditLogs = [];
-        dbData.clubPositionAuditLogs.push({
+        const submitLog = {
             id: 'poslog_' + Date.now().toString(),
             applicationId: application.id,
             action: 'SUBMITTED',
@@ -4868,7 +4936,12 @@ export const db = {
             reviewer: studentId,
             comment: '',
             time: application.submittedAt
-        });
+        };
+        dbData.clubPositionAuditLogs.push(submitLog);
+
+        await persistClubPositionApplication(application);
+        await persistClubPositionLog(submitLog);
+
         saveDB(dbData);
         return application;
     },
@@ -4925,6 +4998,9 @@ export const db = {
 
             const posIdx = dbData.clubPositions.findIndex(p => p.id === position.id);
             dbData.clubPositions[posIdx].filledCount = (dbData.clubPositions[posIdx].filledCount || 0) + 1;
+            // To'lgan o'rinlar soni ham serverga: aks holda boshqa kompyuterda
+            // lavozim hali bo'sh ko'rinib, ikkinchi odam ariza berib qo'yardi.
+            await persistClubPosition(dbData.clubPositions[posIdx]);
 
             // Ariza orqali tayinlash ham `assignPosition` bilan BIR XIL yo'ldan
             // yuradi. Ilgari bu yerda a'zolik faqat brauzerga yozilardi va
@@ -4948,7 +5024,7 @@ export const db = {
 
         dbData.clubPositionApplications[idx] = application;
         if (!dbData.clubPositionAuditLogs) dbData.clubPositionAuditLogs = [];
-        dbData.clubPositionAuditLogs.push({
+        const reviewLog = {
             id: 'poslog_' + Date.now().toString(),
             applicationId,
             action: action.toUpperCase(),
@@ -4957,7 +5033,15 @@ export const db = {
             reviewer,
             comment: comment || '',
             time: timestamp
-        });
+        };
+        dbData.clubPositionAuditLogs.push(reviewLog);
+
+        // Arizaning yangi holati ham serverga. Ilgari a'zolik roli ko'char,
+        // ariza esa brauzerda qolardi - keyin "bu odam nega koordinator
+        // bo'lgan" degan savolga javob topib bo'lmasdi.
+        await persistClubPositionApplication(application);
+        await persistClubPositionLog(reviewLog);
+
         saveDB(dbData);
         return application;
     },

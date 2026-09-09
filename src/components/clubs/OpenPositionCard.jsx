@@ -47,7 +47,7 @@ const OpenPositionCard = ({ position, applicationCount, onRefresh }) => {
 
             {canManage ? (
                 !isClosed && (
-                    <Button variant="outline" size="sm" onClick={() => { db.closeClubPosition(position.id); onRefresh(); }}>
+                    <Button variant="outline" size="sm" onClick={async () => { await db.closeClubPosition(position.id); onRefresh(); }}>
                         Yopish
                     </Button>
                 )

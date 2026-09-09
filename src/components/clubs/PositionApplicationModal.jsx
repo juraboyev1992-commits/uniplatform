@@ -26,11 +26,12 @@ const PositionApplicationModal = ({ isOpen, onClose, position, onSubmitted }) =>
         ));
     }, [user?.username, position?.clubId, position?.title, club]);
 
-    const handleSubmit = (e) => {
+    // ASYNC: ariza endi bazaga yoziladi.
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (!user) return;
         try {
-            db.applyForPosition(position.id, user.username, motivation);
+            await db.applyForPosition(position.id, user.username, motivation);
             setMotivation('');
             setError('');
             onSubmitted();

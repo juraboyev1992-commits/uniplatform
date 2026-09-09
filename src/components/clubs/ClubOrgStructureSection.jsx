@@ -54,10 +54,12 @@ const ClubOrgStructureSection = ({ club, refreshKey, onRefresh }) => {
         return map;
     }, [positions, refreshKey]);
 
-    const handleCreatePosition = (e) => {
+    // ASYNC: lavozim endi bazaga yoziladi. `await` siz xato yo'qolar va
+    // lavozim yaratilgandek ko'rinardi.
+    const handleCreatePosition = async (e) => {
         e.preventDefault();
         try {
-            db.createClubPosition({
+            await db.createClubPosition({
                 clubId: club.id,
                 kind: 'internal',
                 title: form.title,
