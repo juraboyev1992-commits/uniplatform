@@ -12,7 +12,7 @@ import Badge from '../common/Badge';
 import Modal from '../common/Modal';
 import CopyableId from '../common/CopyableId';
 import EventEditForm from './EventEditForm';
-import { DEFAULT_ACTIVITY_LEVEL } from '../../config/activityLifecycle';
+import { DEFAULT_ACTIVITY_LEVEL, EVENT_TYPES, ACTIVITY_LEVELS } from '../../config/activityLifecycle';
 import VenueOccupancyCalendar from '../common/VenueOccupancyCalendar';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
@@ -48,6 +48,88 @@ const CALENDAR_VIEWS = [
     { id: 'year', label: 'Yillik' }
 ];
 
+// Bitta ma'lumot qatori. Qiymat yo'q bo'lsa QATORNING O'ZI chizilmaydi -
+// "Joy: —" degan qator ekranni to'ldiradi, lekin hech narsa aytmaydi.
+const SummaryRow = ({ icon: Icon, label, value }) => {
+    if (value === null || value === undefined || value === '') return null;
+    return (
+        <div className="flex items-start gap-2 text-sm">
+            <Icon size={14} className="text-gray-400 shrink-0 mt-0.5" />
+            <span className="text-gray-500 shrink-0">{label}:</span>
+            <span className="text-gray-900 font-medium min-w-0">{value}</span>
+        </div>
+    );
+};
+
+// TADBIR HAQIDA QISQACHA — mavjud tadbir bosilganda birinchi ko'rinadigan
+// ekran. Uch savolga javob beradi: bu qanday tadbir, ro'yxat qanday ketyapti
+// va endi nima qilaman.
+const EventSummary = ({ event, club, onOpenWorkspace, onEdit }) => {
+    const registered = db.getRegistrationsForActivity(event.id, 'event')
+        .filter(r => r.status === 'registered').length;
+    const [datePart, timePart] = (event.date || '').split('T');
+    const isDone = event.status === 'completed';
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                    <h3 className="text-lg font-extrabold text-gray-900">{event.title}</h3>
+                    {event.description && (
+                        <p className="text-sm text-gray-500 mt-1 whitespace-pre-line">{event.description}</p>
+                    )}
+                </div>
+                <Badge variant={isDone ? 'default' : 'success'} size="sm">
+                    {isDone ? 'Yakunlangan' : 'Rejalashtirilgan'}
+                </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 bg-slate-50 rounded-xl p-3">
+                <SummaryRow icon={CalendarIcon} label="Sana"
+                            value={datePart ? new Date(event.date).toLocaleDateString('uz-UZ') : null} />
+                <SummaryRow icon={Clock} label="Vaqt"
+                            value={timePart ? `${timePart.slice(0, 5)}${event.endTime ? ` — ${event.endTime}` : ''}` : null} />
+                <SummaryRow icon={MapPin} label="Joy" value={event.location} />
+                <SummaryRow icon={UsersRound} label="Klub" value={club?.name} />
+                <SummaryRow icon={Zap} label="Turi" value={EVENT_TYPES[event.eventType]?.label} />
+                <SummaryRow icon={TrendingUp} label="Daraja" value={ACTIVITY_LEVELS[event.level]?.label} />
+                {/* Ro'yxat TALAB QILINMASA, "0 kishi" deb yozilmaydi: nol
+                    "hech kim yozilmadi" degani, bu yerda esa "ro'yxat umuman
+                    yuritilmaydi" - butunlay boshqa narsa. */}
+                <SummaryRow
+                    icon={Users} label="Ro'yxatdan o'tgan"
+                    value={event.registrationRequired
+                        ? `${registered} kishi${event.maxParticipants ? ` / ${event.maxParticipants}` : ''}`
+                        : "Ro'yxat talab qilinmaydi"}
+                />
+            </div>
+
+            <div className="space-y-2">
+                {/* BOSHQARISH birinchi va asosiy tugma: tadbir ustiga bosgan
+                    odam ko'pincha davomat qilish yoki hisobotni ko'rish uchun
+                    keladi, tahrirlash uchun emas. */}
+                <button
+                    type="button"
+                    onClick={onOpenWorkspace}
+                    className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors text-left"
+                >
+                    <span>
+                        <span className="block text-sm font-bold text-white">Boshqarish sahifasi</span>
+                        <span className="block text-[11px] text-indigo-100">
+                            Davomat, ball, vazifalar, hisobot, bayonnoma va ro'yxat
+                        </span>
+                    </span>
+                    <ChevronRight size={16} className="text-white shrink-0" />
+                </button>
+
+                <Button variant="outline" className="w-full" onClick={onEdit}>
+                    Tahrirlash
+                </Button>
+            </div>
+        </div>
+    );
+};
+
 const EventManagement = () => {
     const navigate = useNavigate();
     const { user, hasClubRole } = useAuth();
@@ -55,6 +137,15 @@ const EventManagement = () => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [isEventModalOpen, setIsEventModalOpen] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState(null);
+    // Oyna ikki holatda ishlaydi: MAVJUD tadbir bosilganda avval qisqacha
+    // ma'lumot ('view'), yangi tadbir yaratilayotganda esa to'g'ridan-to'g'ri
+    // forma ('edit').
+    //
+    // Ilgari mavjud tadbir bosilishi bilan tahrirlash formasi ochilardi. Bu
+    // ikki tomondan noto'g'ri edi: eng ko'p uchraydigan ish "bu tadbir qanday
+    // edi" deb QARASH, tahrirlash esa kamdan-kam; ustiga to'ldirilgan forma
+    // tasodifiy o'zgartirishga ochiq turardi.
+    const [modalMode, setModalMode] = useState('edit'); // 'view' | 'edit'
     const [events, setEvents] = useState([]);
     // Kalendar ko'rsatadigan to'liq to'plam: tadbir + musobaqa + Tur.
     // `events` esa tahrirlash oynasi va statistika uchun asl tadbirlar ro'yxati.
@@ -115,6 +206,7 @@ const EventManagement = () => {
 
     const handleOpenModal = (event = null, date = new Date()) => {
         setSaveError('');
+        setModalMode(event ? 'view' : 'edit');
         if (event) {
             const [datePart, timePart] = event.date.split('T');
             setSelectedEvent(event);
@@ -748,6 +840,22 @@ const EventManagement = () => {
                     : "Yangi tadbir"}
             >
                 <div className="space-y-4 p-2">
+                    {/* QISQACHA MA'LUMOT — mavjud tadbir bosilganda birinchi
+                        ko'rinadigan narsa. Bu yerdan ikki yo'l ochiladi:
+                        boshqarish sahifasi (davomat, ball, hisobot) va
+                        tahrirlash. Tahrirlash ATAYLAB ikkinchi qadam: forma
+                        o'zi ochilib tursa, qaramoqchi bo'lgan odam ham
+                        tasodifan biror maydonni o'zgartirib yuborishi mumkin. */}
+                    {selectedEvent && modalMode === 'view' && (
+                        <EventSummary
+                            event={selectedEvent}
+                            club={clubs.find(c => c.id === selectedEvent.clubId)}
+                            onOpenWorkspace={() => navigate(`/admin/events/${selectedEvent.id}`)}
+                            onEdit={() => setModalMode('edit')}
+                        />
+                    )}
+
+                    {modalMode === 'edit' && (
                     <EventEditForm
                         event={selectedEvent}
                         formData={formData}
@@ -787,11 +895,14 @@ const EventManagement = () => {
                             </button>
                         )}
                     />
+                    )}
 
                     {/* O'chirish oynaning eng ostida va qizil - tasodifan bosilmasin.
                         Ball berilgan yoki hujjat berilgan tadbirni db qatlami o'zi
-                        rad etadi, sababini aytib. */}
-                    {selectedEvent && (
+                        rad etadi, sababini aytib.
+                        FAQAT tahrirlash holatida: qarash uchun ochgan odamning
+                        ko'z oldida o'chirish tugmasi turishi kerak emas. */}
+                    {selectedEvent && modalMode === 'edit' && (
                         <div className="border-t pt-4 space-y-2">
                             {deleteError && (
                                 <p className="text-[11px] font-semibold text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
