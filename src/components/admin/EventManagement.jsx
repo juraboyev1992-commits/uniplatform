@@ -532,6 +532,7 @@ const EventManagement = ({ defaultKind = 'events' }) => {
                     <>
                         <button
                             type="button"
+                            title="Qaysi xona qachon band. Faqat xonasi belgilangan faoliyatlar."
                             onClick={() => setShowVenues(v => !v)}
                             className={`px-3.5 py-2 rounded-2xl text-xs font-bold transition-colors border ${
                                 showVenues
@@ -546,6 +547,19 @@ const EventManagement = ({ defaultKind = 'events' }) => {
                 footer={showVenues && (
                     <Card padding={false}>
                         <div className="p-4">
+                            {/* CHEKLOVNI OCHIQ AYTISH. Bu jadval faqat XONASI
+                                belgilangan faoliyatni ko'rsatadi (db.js dagi
+                                collectVenueOccupancy `venueLabel` bo'lmaganini
+                                o'tkazib yuboradi). Buni yozmasak, onlayn yoki
+                                joyi hali aniqlanmagan tadbirni bu yerdan
+                                topolmagan odam "tadbir yo'qolibdi" deb
+                                o'ylardi. */}
+                            <p className="text-[11px] text-gray-500 bg-slate-50 border border-gray-100 rounded-xl px-3 py-2 mb-3">
+                                Bu jadval <b>qaysi xona qachon band</b> degan savolga javob beradi va
+                                faqat xonasi belgilangan faoliyatlarni ko'rsatadi. Onlayn yoki joyi
+                                hali aniqlanmagan tadbirlarni <b>Kalendar</b> yoki <b>Ro'yxat</b>
+                                {' '}ko'rinishidan ko'ring.
+                            </p>
                             <VenueOccupancyCalendar
                                 currentUsername={user?.username}
                                 onCreateBooking={(venueLabel, day) => {

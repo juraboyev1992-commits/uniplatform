@@ -433,6 +433,7 @@ const EventsCalendar = ({
                     <button
                         type="button"
                         onClick={() => setView('calendar')}
+                        title="Oy bo'yicha: qaysi kuni nima bor"
                         className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
                             view === 'calendar' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'
                         }`}
@@ -442,6 +443,7 @@ const EventsCalendar = ({
                     <button
                         type="button"
                         onClick={() => setView('list')}
+                        title="Ketma-ket ro'yxat: qidiruv, saralash va tafsilotlar bilan"
                         className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
                             view === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'
                         }`}
