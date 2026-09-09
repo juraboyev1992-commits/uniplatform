@@ -413,6 +413,79 @@ const EventManagement = ({ defaultKind = 'events' }) => {
                 </div>
             )}
 
+            {/* BUGUNGI KUN va QISQACHA STATISTIKA.
+                Ilgari ular o'ng yon ustunda turardi. Yon ustun olib tashlandi
+                (uning o'rnida endi filtrlar paneli), lekin ma'lumotning o'zi
+                kerak: mas'ul ekranni ochgan zahoti "bugun nima bor" va
+                "umumiy hajm qanday" degan savollarga javob olishi kerak.
+                Shuning uchun ular ro'yxat TEPASIDA, keng qatorda turadi -
+                uchinchi ustun qo'shilsa, ekran juda tor bo'lib qolardi. */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <Card padding={false} className="lg:col-span-2">
+                    <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                        <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                            <CalendarIcon size={16} className="text-indigo-500" /> Bugungi tadbir va musobaqalar
+                        </h3>
+                        <Badge variant="primary" size="sm">{todayEvents.length} ta</Badge>
+                    </div>
+                    <div className="p-4 space-y-2 max-h-64 overflow-y-auto">
+                        {todayEvents.length === 0 ? (
+                            <p className="text-center text-sm text-gray-400 py-6">Bugun hech narsa yo'q</p>
+                        ) : todayEvents.map(e => (
+                            <button
+                                key={e.key}
+                                type="button"
+                                onClick={() => {
+                                    if (e.kind === 'event') {
+                                        const ev = events.find(x => x.id === e.id);
+                                        if (ev) handleOpenModal(ev);
+                                        return;
+                                    }
+                                    navigate(`/admin/competitions/${e.id}`);
+                                }}
+                                className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors text-left"
+                            >
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${e.kind === 'event' ? 'bg-indigo-100 text-indigo-600' : 'bg-amber-100 text-amber-600'}`}>
+                                    {e.kind === 'event' ? <Users size={16} /> : <Trophy size={16} />}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <p className="text-sm font-bold text-gray-900 truncate">{e.title}</p>
+                                        <Badge variant={e.kind === 'event' ? 'default' : 'primary'} size="sm">
+                                            {e.kind === 'event' ? 'Tadbir' : e.kind === 'tur' ? 'Tur' : 'Musobaqa'}
+                                        </Badge>
+                                    </div>
+                                    <p className="text-[11px] text-gray-400 flex items-center gap-1.5 mt-0.5">
+                                        <span className="flex items-center gap-1"><Clock size={10} /> {format(new Date(e.date), 'HH:mm')}</span>
+                                        {e.location && <span className="flex items-center gap-1 truncate"><MapPin size={10} /> {e.location}</span>}
+                                    </p>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </Card>
+
+                <Card>
+                    <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-3">
+                        <TrendingUp size={16} className="text-indigo-500" /> Qisqacha statistika
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                        {[
+                            { icon: CalendarIcon, value: events.length, label: 'Tadbirlar' },
+                            { icon: Trophy, value: db.getCompetitions().length, label: 'Musobaqalar' },
+                            { icon: Users, value: students.length, label: 'Talabalar' },
+                            { icon: GraduationCap, value: facultyCount, label: 'Fakultetlar' },
+                        ].map(st => (
+                            <div key={st.label} className="bg-gray-50 rounded-xl p-3 text-center">
+                                <st.icon className="w-4 h-4 text-indigo-500 mx-auto mb-1" />
+                                <p className="text-lg font-black text-gray-900">{st.value}</p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase">{st.label}</p>
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+            </div>
+
             {/* KO'RISH QISMI - talaba panelidagi AYNI komponent (EventsCalendar).
                 Ilgari bu yerda butunlay boshqa tuzilish turardi: o'z tab qatori,
                 o'z kalendari, o'z ro'yxati. Ya'ni bir xil ish ikki panelda ikki
@@ -435,11 +508,11 @@ const EventManagement = ({ defaultKind = 'events' }) => {
                     }
                     navigate(`/admin/competitions/${entry.id}`);
                 }}
+                // "Yangi tadbir" tugmasi BU YERDA YO'Q: u sarlavhaning o'ng
+                // tomonida turadi. Ikki joyda bo'lgani foydalanuvchiga ikki xil
+                // amal borday tuyulardi, aslida esa bitta ish edi.
                 headerActions={
                     <>
-                        <Button size="sm" icon={Plus} onClick={() => handleOpenModal(null, new Date())}>
-                            Yangi tadbir
-                        </Button>
                         <button
                             type="button"
                             onClick={() => setShowVenues(v => !v)}
