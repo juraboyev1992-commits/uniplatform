@@ -19,15 +19,19 @@ import {
     TIE_BREAK_FIELDS, DEFAULT_TIE_BREAK_ORDER, mergeScoringConfig,
 } from '../../config/eventCollections.js';
 
-const TAB_IDS = ['overview', 'activities', 'ranking', 'stats', 'settings'];
+// `id` ATAYLAB 'overview' bo'lib qoladi, garchi yorlig'i "Statistika" bo'lsa
+// ham: id manzilda turadi (`?tab=`), o'zgartirilsa avval yuborilgan havolalar
+// ishlamay qolardi. Qisqa umr ko'rgan 'stats' idsi olib tashlandi - noma'lum
+// id sukut tabga tushadi, u esa aynan shu tab, ya'ni eski havola ham
+// to'g'ri joyga olib boradi.
+const TAB_IDS = ['overview', 'activities', 'ranking', 'settings'];
 const TABS = [
-    { id: 'overview', label: "Umumiy ko'rinish" },
+    // "Umumiy ko'rinish" emas, "Statistika": har bir tab o'ziga xos
+    // ko'rinish, shuning uchun bu nom hech narsani ajratmasdi. Tab ichida
+    // esa boshidan oxirigacha raqam va diagramma turadi.
+    { id: 'overview', label: 'Statistika' },
     { id: 'activities', label: 'Faoliyatlar' },
     { id: 'ranking', label: 'Reyting' },
-    // Statistika REYTINGDAN KEYIN va sozlamalardan oldin. Reyting "kim
-    // yutdi" degan savolga javob beradi, statistika esa "kim qatnashdi" -
-    // ikkinchisi birinchisining izohi, shuning uchun yonida turadi.
-    { id: 'stats', label: 'Statistika' },
     { id: 'settings', label: 'Sozlamalar' },
 ];
 const SCOPE_IDS = ['students', 'faculties', 'tutors', 'courses', 'groups'];
@@ -168,7 +172,11 @@ const EventCollectionDetailPage = () => {
             </div>
 
             {tab === 'overview' && (
-                <OverviewTab overview={overview} dailyParticipation={dailyParticipation} scopeLabel={scopeLabel} tutorNameByUsername={tutorNameByUsername} />
+                <OverviewTab
+                    overview={overview} dailyParticipation={dailyParticipation}
+                    scopeLabel={scopeLabel} tutorNameByUsername={tutorNameByUsername}
+                    statsRefs={statsRefs} collectionName={collection.name}
+                />
             )}
 
             {tab === 'activities' && (
@@ -176,18 +184,6 @@ const EventCollectionDetailPage = () => {
                     collectionId={id} activityRows={activityRows} busy={busy} setBusy={setBusy} setError={setError}
                     bump={bump} isPickerOpen={isPickerOpen} setIsPickerOpen={setIsPickerOpen} user={user}
                     navigate={navigate}
-                />
-            )}
-
-            {/* To'plamdagi HAMMA faoliyat bo'yicha yig'ma statistika. Hisob
-                alohida tadbir va musobaqanikiga AYNI (utils/participantStats.js),
-                shuning uchun yig'indi ular bilan to'g'ri keladi. Bir odam bir
-                necha faoliyatda qatnashsa bir marta sanaladi - "45 ishtirokchi"
-                odam sonini bildirishi kerak, yozilishlar sonini emas. */}
-            {tab === 'stats' && (
-                <ParticipantStatsPanel
-                    refs={statsRefs}
-                    subtitle={`"${collection.name}" to'plamidagi ${statsRefs.length} ta faoliyat bo'yicha`}
                 />
             )}
 
@@ -235,7 +231,7 @@ const TopCallout = ({ label, name, sub }) => (
     </div>
 );
 
-const OverviewTab = ({ overview, dailyParticipation, scopeLabel, tutorNameByUsername }) => (
+const OverviewTab = ({ overview, dailyParticipation, scopeLabel, tutorNameByUsername, statsRefs, collectionName }) => (
     <div className="space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KpiCard icon={Calendar} label="Faoliyatlar" value={fmtNum(overview.activityCount)} />
@@ -286,6 +282,19 @@ const OverviewTab = ({ overview, dailyParticipation, scopeLabel, tutorNameByUser
                     </ResponsiveContainer>
                 </div>
             </Card>
+        )}
+
+        {/* ISHTIROKCHILAR KESIMI - shu tabning davomi.
+            Yuqoridagi kataklar "nechta" degan savolga javob beradi, bu blok
+            esa "kimlar" degan savolga. Ikkalasi bitta savolning ikki qismi,
+            shuning uchun alohida tab qilinmadi: mas'ul bir xil to'plam
+            haqidagi raqamlarni ikki joydan qidirmasin.
+            Eng pastda turadi - avval umumiy manzara, keyin tafsilot. */}
+        {statsRefs && statsRefs.length > 0 && (
+            <ParticipantStatsPanel
+                refs={statsRefs}
+                subtitle={`${statsRefs.length} ta faoliyat bo'yicha${collectionName ? ` — "${collectionName}"` : ''}`}
+            />
         )}
     </div>
 );
