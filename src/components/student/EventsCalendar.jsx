@@ -14,7 +14,8 @@ import {
     Clock,
     LayoutGrid,
     List,
-    Layers
+    Layers,
+    Plus
 } from 'lucide-react';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -152,6 +153,13 @@ const EventsCalendar = ({
     headerActions = null,
     // Ro'yxat va kalendar ostida chiziladigan qo'shimcha blok.
     footer = null,
+    // Filtr tablari qatorining O'NG tomonidagi amal (adminda yaratish
+    // tugmasi). Funksiya sifatida beriladi va joriy tabni oladi: tadbir va
+    // musobaqa uchun yaratish boshqa-boshqa ish.
+    filterBarActions = null,
+    // Kun katagidagi "+" tugmasi. Berilmasa umuman chizilmaydi - talabaga
+    // kalendardan tadbir yaratish huquqi yo'q.
+    onCreateAt = null,
     // Tashqi o'zgarishdan keyin qayta o'qish uchun (masalan tadbir saqlangach).
     refreshToken = 0,
 }) => {
@@ -546,16 +554,23 @@ const EventsCalendar = ({
                                 </button>
                             ))}
                         </div>
-                        {view === 'list' && (
-                            <select
-                                value={sortDir}
-                                onChange={e => setSortDir(e.target.value)}
-                                className="px-3.5 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 bg-white outline-none"
-                            >
-                                <option value="asc">Eng yaqin</option>
-                                <option value="desc">Eng yangi</option>
-                            </select>
-                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {view === 'list' && (
+                                <select
+                                    value={sortDir}
+                                    onChange={e => setSortDir(e.target.value)}
+                                    className="px-3.5 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 bg-white outline-none"
+                                >
+                                    <option value="asc">Eng yaqin</option>
+                                    <option value="desc">Eng yangi</option>
+                                </select>
+                            )}
+                            {/* Yaratish tugmasi shu yerda: filtr tablari bilan bir
+                                qatorda, ro'yxatning ustida. Ish "ro'yxatni ko'rish ->
+                                yangisini qo'shish" ketma-ketligida boradi, shuning
+                                uchun tugma o'sha ro'yxatning yonida turishi kerak. */}
+                            {typeof filterBarActions === 'function' ? filterBarActions(kind) : filterBarActions}
+                        </div>
                     </div>
 
                     {view === 'calendar' ? (
@@ -584,11 +599,26 @@ const EventsCalendar = ({
                                             return (
                                                 <div
                                                     key={dayNum}
-                                                    className={`h-24 p-2 rounded-xl border border-gray-100 transition-all overflow-hidden ${
+                                                    className={`relative group/day h-24 p-2 rounded-xl border border-gray-100 transition-all overflow-hidden ${
                                                         isToday ? 'bg-indigo-50 border-indigo-200' : 'bg-white hover:bg-gray-50'
                                                     }`}
                                                 >
                                                     <span className={`text-sm font-bold ${isToday ? 'text-indigo-600' : 'text-gray-400'}`}>{dayNum}</span>
+                                                    {/* SHU KUNGA YARATISH. Butun katak emas, burchakdagi
+                                                        kichik "+": katakni bosish bilan yaratilsa, band
+                                                        kunga shunchaki qaramoqchi bo'lgan odam ham
+                                                        yaratish oynasini ochib yuborardi. Sichqoncha
+                                                        olib borilganda paydo bo'ladi. */}
+                                                    {onCreateAt && (
+                                                        <button
+                                                            type="button"
+                                                            title={kind === 'events' ? "Shu kunga tadbir qo'shish" : "Shu kunga tanlov qo'shish"}
+                                                            onClick={(e) => { e.stopPropagation(); onCreateAt(new Date(viewYear, viewMonth, dayNum), kind); }}
+                                                            className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-sm opacity-0 group-hover/day:opacity-100 focus:opacity-100 transition-opacity z-10"
+                                                        >
+                                                            <Plus size={12} />
+                                                        </button>
+                                                    )}
                                                     {dayRows.slice(0, 2).map(r => {
                                                         const alert = alertFor(r);
                                                         const urgent = alertIsUrgent(alert);

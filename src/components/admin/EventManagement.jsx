@@ -13,6 +13,7 @@ import Modal from '../common/Modal';
 import CopyableId from '../common/CopyableId';
 import EventEditForm from './EventEditForm';
 import EventsCalendar from '../student/EventsCalendar';
+import TournamentCreateWizard from '../common/TournamentCreateWizard';
 import { DEFAULT_ACTIVITY_LEVEL, EVENT_TYPES, ACTIVITY_LEVELS } from '../../config/activityLifecycle';
 import VenueOccupancyCalendar from '../common/VenueOccupancyCalendar';
 import { db } from '../../services/db';
@@ -148,6 +149,10 @@ const EventManagement = ({ defaultKind = 'events' }) => {
     // Xonalar bandligi endi alohida tab emas, YONMA-YON ochiladigan blok:
     // u kalendarning muqobili emas, uni to'ldiradi ("qaysi xona bo'sh").
     const [showVenues, setShowVenues] = useState(false);
+    // Musobaqa yaratish sehrgari. `/admin/competitions` endi umumiy ro'yxat
+    // ekranini ko'rsatadi, ya'ni TournamentScoring ichidagi "Yangi Musobaqa"
+    // tugmasiga yo'l qolmagan edi - yaratish YO'LI UMUMAN YO'QOLGANDI.
+    const [isCompWizardOpen, setIsCompWizardOpen] = useState(false);
     // Tadbir saqlangach EventsCalendar ma'lumotni qayta o'qishi uchun.
     const [version, setVersion] = useState(0);
     // Kalendar rejimi (Kunlik/Haftalik/Oylik/Yillik) endi ActivityCalendar
@@ -350,14 +355,10 @@ const EventManagement = ({ defaultKind = 'events' }) => {
                         <p className="text-white/70 text-sm mt-1">Universitet hayotidagi barcha qiziqarli voqealardan xabardor bo'ling</p>
                     </div>
                 </div>
-                <Button
-                    variant="secondary"
-                    className="bg-white text-indigo-700 hover:bg-white/90 shrink-0"
-                    icon={Plus}
-                    onClick={() => handleOpenModal(null, new Date())}
-                >
-                    Yangi Tadbir
-                </Button>
+                {/* Yaratish tugmasi sarlavhadan FILTR TABLARI qatoriga
+                    ko'chirildi: ish "ro'yxatni ko'rish -> yangisini qo'shish"
+                    ketma-ketligida boradi va tugma o'sha ro'yxatning yonida
+                    turgani qulayroq. */}
             </div>
         </div>
     );
@@ -511,6 +512,22 @@ const EventManagement = ({ defaultKind = 'events' }) => {
                 // "Yangi tadbir" tugmasi BU YERDA YO'Q: u sarlavhaning o'ng
                 // tomonida turadi. Ikki joyda bo'lgani foydalanuvchiga ikki xil
                 // amal borday tuyulardi, aslida esa bitta ish edi.
+                // Kun katagidagi "+": tadbirda sana oldindan to'ldiriladi,
+                // musobaqada sehrgar ochiladi (unda sana o'z qadamida
+                // so'raladi, shuning uchun oldindan to'ldirilmaydi).
+                onCreateAt={(day, kind) => {
+                    if (kind === 'events') { setSelectedDate(day); handleOpenModal(null, day); return; }
+                    setIsCompWizardOpen(true);
+                }}
+                filterBarActions={(kind) => (kind === 'events' ? (
+                    <Button size="sm" icon={Plus} onClick={() => handleOpenModal(null, new Date())}>
+                        Tadbir yaratish
+                    </Button>
+                ) : (
+                    <Button size="sm" icon={Plus} onClick={() => setIsCompWizardOpen(true)}>
+                        Yangi tanlov
+                    </Button>
+                ))}
                 headerActions={
                     <>
                         <button
@@ -550,6 +567,27 @@ const EventManagement = ({ defaultKind = 'events' }) => {
                     </Card>
                 )}
             />
+
+            {/* MUSOBAQA YARATISH. Alohida oynada, chunki sehrgar ko'p qadamli
+                va uni ro'yxat ekranining ichiga tiqishtirish ikkalasini ham
+                o'qib bo'lmaydigan qilardi. Yaratilgach to'g'ridan-to'g'ri
+                o'sha musobaqaning ish maydoniga o'tiladi - odam nima
+                yaratganini darrov ko'rsin. */}
+            <Modal
+                isOpen={isCompWizardOpen}
+                onClose={() => setIsCompWizardOpen(false)}
+                title="Yangi tanlov / musobaqa"
+                size="xl"
+            >
+                <TournamentCreateWizard
+                    onCreated={(comp) => {
+                        setIsCompWizardOpen(false);
+                        loadData();
+                        if (comp?.id) navigate(`/admin/competitions/${comp.id}`);
+                    }}
+                    onCancel={() => setIsCompWizardOpen(false)}
+                />
+            </Modal>
 
             <Modal
                 isOpen={isEventModalOpen}
