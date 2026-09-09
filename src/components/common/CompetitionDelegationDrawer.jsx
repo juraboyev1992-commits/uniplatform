@@ -54,23 +54,46 @@ const CompetitionDelegationDrawer = ({ competition, actingUsername, onChanged })
         setSelectedPermissions(prev => prev.includes(key) ? prev.filter(p => p !== key) : [...prev, key]);
     };
 
-    const handleGrant = () => {
+    // ASYNC: vakolat endi bazaga yoziladi. Ilgari `await` yo'q edi va ro'yxat
+    // yozuv serverga yetib bormasidan yangilanardi; xato bo'lsa esa hech
+    // qayerda ko'rinmasdi - tugma bosilardi, natija yo'q edi.
+    const [delegBusy, setDelegBusy] = useState(false);
+    const [delegError, setDelegError] = useState('');
+
+    const handleGrant = async () => {
         if (!username.trim() || selectedPermissions.length === 0) return;
-        db.grantCompetitionDelegation(competition.id, username.trim(), selectedPermissions, actingUsername);
-        setUsername('');
-        setSelectedPermissions([]);
-        setVersion(v => v + 1);
-        onChanged?.();
+        setDelegError(''); setDelegBusy(true);
+        try {
+            await db.grantCompetitionDelegation(competition.id, username.trim(), selectedPermissions, actingUsername);
+            setUsername('');
+            setSelectedPermissions([]);
+            setVersion(v => v + 1);
+            onChanged?.();
+        } catch (e) {
+            setDelegError(e?.message || 'Vakolat berilmadi.');
+        } finally { setDelegBusy(false); }
     };
 
-    const handleRevoke = (id) => {
-        db.revokeCompetitionDelegation(id, actingUsername);
-        setVersion(v => v + 1);
-        onChanged?.();
+    const handleRevoke = async (id) => {
+        setDelegError(''); setDelegBusy(true);
+        try {
+            await db.revokeCompetitionDelegation(id, actingUsername);
+            setVersion(v => v + 1);
+            onChanged?.();
+        } catch (e) {
+            setDelegError(e?.message || 'Bekor qilinmadi.');
+        } finally { setDelegBusy(false); }
     };
 
     return (
         <div className="space-y-6">
+            {/* Xato ko'rinishi shart: yozuv endi serverga ketadi va u yerda rad
+                etilishi mumkin (jadval yo'q, tarmoq uzildi). */}
+            {delegError && (
+                <p className="text-[11px] font-semibold text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+                    {delegError}
+                </p>
+            )}
             <div>
                 <h3 className="font-bold text-gray-900 text-sm mb-3">Yangi vakolat berish</h3>
                 <div className="flex flex-col gap-3 p-4 bg-slate-50 rounded-2xl">

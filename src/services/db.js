@@ -515,6 +515,16 @@ const socialTableError = (error) => {
         : 'Ariza saqlanmadi: ' + (error?.message || ''));
 };
 
+// Jadval yo'q bo'lsa TUSHUNARLI xabar: "saqlandi" deb ko'rsatib, aslida hech
+// qayerga yozmaslik - eng yomon holat.
+const competitionDelegationTableError = (error) => {
+    const missing = /relation .*competition_delegation.* does not exist/i.test(error?.message || '');
+    return new Error(missing
+        ? 'Vakolat saqlanmadi: `competition_delegations` jadvali topilmadi. '
+          + 'Supabase SQL Editor da `supabase/competition_delegations.sql` ni bir marta ishga tushiring.'
+        : 'Vakolat saqlanmadi: ' + (error?.message || ''));
+};
+
 const socialAppRow = (a) => ({
     id: a.id, student_id: a.studentId || null, criteria_key: a.criteriaKey || null,
     status: a.status || null, submitted_at: a.submittedAt || null, data: a,
@@ -2752,7 +2762,7 @@ const syncCoreDataFromSupabase = async () => {
     const [
         coreRes, venueRes, schRes, testRes, poydevorRes, marifatRes, culturalRes,
         caResSingle, sdocRes, cjrRes, sportRes, housRes, passportRes, talentRes,
-        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes, delegationRes, socialAppRes
+        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes, delegationRes, socialAppRes, compDelegRes
     ] = await Promise.all([
         Promise.all([
             supabase.from('clubs').select('*'),
@@ -2879,7 +2889,8 @@ const syncCoreDataFromSupabase = async () => {
         Promise.all([
             supabase.from('social_activity_applications').select('*'),
             supabase.from('social_activity_audit_logs').select('*')
-        ])
+        ]),
+        supabase.from('competition_delegations').select('*')
     ]);
 
     const [
@@ -3380,6 +3391,25 @@ const syncCoreDataFromSupabase = async () => {
     }
 
     // Rag'bat puli / mukofot reestri - alohida SQL fayl (supabase/student_recognitions.sql).
+    // Musobaqa vakolati (supabase/competition_delegations.sql). Tadbir
+    // vakolati bilan bir xil naqsh: jadval yo'q bo'lsa mahalliy ro'yxat
+    // tegilmaydi va ilova ishlashda davom etadi.
+    const { data: compDelegRows, error: compDelegErr } = compDelegRes;
+    if (compDelegErr) {
+        console.warn(
+            "[musobaqa vakolati] jadval o'qilmadi - supabase/competition_delegations.sql ishga tushirilganmi?",
+            compDelegErr
+        );
+        dbData.competitionDelegationsBackendReady = false;
+    } else {
+        dbData.competitionDelegations = (compDelegRows || []).map(r => ({
+            id: r.id, competitionId: r.competition_id, granteeUsername: r.grantee_username,
+            permissions: r.permissions || [], grantedBy: r.granted_by, grantedAt: r.granted_at,
+            revokedBy: r.revoked_by, revokedAt: r.revoked_at, active: r.active,
+        }));
+        dbData.competitionDelegationsBackendReady = true;
+    }
+
     // Ijtimoiy faollik arizalari (supabase/social_activity_applications.sql).
     // Jadval yo'q bo'lsa MAHALLIY ro'yxat tegilmaydi - o'sha brauzerdagi
     // arizalar joyida qoladi va ilova avvalgidek ishlayveradi.
@@ -7502,53 +7532,62 @@ export const db = {
         const data = getDB();
         return (data.competitionDelegations || []).filter(d => d.competitionId === compId && d.active);
     },
-    grantCompetitionDelegation: (compId, granteeUsername, permissions, grantedBy) => {
-        const dbData = getDB();
-        if (!dbData.competitionDelegations) dbData.competitionDelegations = [];
-        if (!dbData.competitionDelegationAuditLogs) dbData.competitionDelegationAuditLogs = [];
-        const grant = {
-            id: 'deleg_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
-            competitionId: compId,
-            granteeUsername,
-            permissions,
-            grantedBy,
-            grantedAt: new Date().toISOString(),
-            revokedBy: null,
-            revokedAt: null,
-            active: true
-        };
-        dbData.competitionDelegations.push(grant);
-        dbData.competitionDelegationAuditLogs.push({
-            id: 'delegLog_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
-            competitionId: compId,
-            action: 'GRANT',
-            granteeUsername,
-            permissions,
-            actingUsername: grantedBy,
-            time: grant.grantedAt
+    // BAZAGA yoziladi. Ilgari faqat localStorage da qolardi va vakolat olgan
+    // hakam O'Z QURILMASIDA hech narsa ko'rmasdi - tadbir vakolatidagi bilan
+    // aynan bir xil xato (supabase/event_delegations.sql izohiga qarang).
+    grantCompetitionDelegation: async (compId, granteeUsername, permissions, grantedBy) => {
+        await assertAuthenticated();
+        const uname = (granteeUsername || '').trim();
+        if (!uname) throw new Error('Foydalanuvchi tanlanmagan');
+
+        // Ayni odamga ayni musobaqa uchun ikkinchi vakolat berilmaydi. Huquq
+        // qo'shish kerak bo'lsa avvalgisini bekor qilib, yangisini berish
+        // kerak - aks holda ro'yxatda bir odam ikki marta chiqib, qaysi biri
+        // amalda ekani noaniq bo'lardi.
+        const existing = (getDB().competitionDelegations || [])
+            .find(d => d.competitionId === compId && d.granteeUsername === uname && d.active);
+        if (existing) return existing;
+
+        const id = 'deleg_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        const perms = permissions || [];
+        const { error } = await supabase.from('competition_delegations').insert({
+            id, competition_id: compId, grantee_username: uname,
+            permissions: perms, granted_by: grantedBy, active: true,
         });
-        saveDB(dbData);
-        return grant;
+        if (error) throw competitionDelegationTableError(error);
+
+        // Tarix yozuvi jimgina o'tkazib yuboriladi: u yozilmagani uchun
+        // vakolatning O'ZI bekor bo'lmasligi kerak.
+        try {
+            await supabase.from('competition_delegation_audit_logs').insert({
+                id: 'delegLog_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+                competition_id: compId, action: 'GRANT', grantee_username: uname,
+                permissions: perms, acting_username: grantedBy,
+            });
+        } catch (e) { console.warn('Vakolat tarixi yozilmadi:', e.message); }
+
+        await syncCoreDataFromSupabase();
+        return (getDB().competitionDelegations || []).find(d => d.id === id) || null;
     },
-    revokeCompetitionDelegation: (id, revokedBy) => {
-        const dbData = getDB();
-        const grant = (dbData.competitionDelegations || []).find(d => d.id === id);
-        if (!grant) throw new Error('Vakolat topilmadi');
-        grant.active = false;
-        grant.revokedBy = revokedBy;
-        grant.revokedAt = new Date().toISOString();
-        if (!dbData.competitionDelegationAuditLogs) dbData.competitionDelegationAuditLogs = [];
-        dbData.competitionDelegationAuditLogs.push({
-            id: 'delegLog_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
-            competitionId: grant.competitionId,
-            action: 'REVOKE',
-            granteeUsername: grant.granteeUsername,
-            permissions: grant.permissions,
-            actingUsername: revokedBy,
-            time: grant.revokedAt
-        });
-        saveDB(dbData);
-        return grant;
+
+    revokeCompetitionDelegation: async (id, revokedBy) => {
+        const grant = (getDB().competitionDelegations || []).find(d => d.id === id);
+        const { error } = await supabase.from('competition_delegations')
+            .update({ active: false, revoked_by: revokedBy, revoked_at: new Date().toISOString() })
+            .eq('id', id);
+        if (error) throw competitionDelegationTableError(error);
+
+        try {
+            await supabase.from('competition_delegation_audit_logs').insert({
+                id: 'delegLog_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+                competition_id: grant?.competitionId || null, action: 'REVOKE',
+                grantee_username: grant?.granteeUsername || null,
+                permissions: grant?.permissions || [], acting_username: revokedBy,
+            });
+        } catch (e) { console.warn('Vakolat tarixi yozilmadi:', e.message); }
+
+        await syncCoreDataFromSupabase();
+        return true;
     },
 
     // Real activity log for "Guruh bosqichlari" - every group/advancement action (by admin OR a delegate
