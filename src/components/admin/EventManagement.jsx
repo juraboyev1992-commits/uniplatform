@@ -12,7 +12,7 @@ import Badge from '../common/Badge';
 import Modal from '../common/Modal';
 import CopyableId from '../common/CopyableId';
 import EventEditForm from './EventEditForm';
-import ActivityCalendar from './ActivityCalendar';
+import EventsCalendar from '../student/EventsCalendar';
 import { DEFAULT_ACTIVITY_LEVEL, EVENT_TYPES, ACTIVITY_LEVELS } from '../../config/activityLifecycle';
 import VenueOccupancyCalendar from '../common/VenueOccupancyCalendar';
 import { db } from '../../services/db';
@@ -119,7 +119,9 @@ const EventSummary = ({ event, club, onOpenWorkspace, onEdit }) => {
     );
 };
 
-const EventManagement = () => {
+// `defaultKind` - `/admin/competitions` manzilidan kirilganda musobaqa tabi
+// ochilishi uchun. Boshqa hamma narsa avvalgidek.
+const EventManagement = ({ defaultKind = 'events' }) => {
     const navigate = useNavigate();
     const { user, hasClubRole } = useAuth();
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -143,7 +145,11 @@ const EventManagement = () => {
     const [formData, setFormData] = useState(EMPTY_FORM);
     const [scoreData, setScoreData] = useState({ userId: '', score: 0, placement: '' });
     const [saveError, setSaveError] = useState('');
-    const [calendarView, setCalendarView] = useState('month');
+    // Xonalar bandligi endi alohida tab emas, YONMA-YON ochiladigan blok:
+    // u kalendarning muqobili emas, uni to'ldiradi ("qaysi xona bo'sh").
+    const [showVenues, setShowVenues] = useState(false);
+    // Tadbir saqlangach EventsCalendar ma'lumotni qayta o'qishi uchun.
+    const [version, setVersion] = useState(0);
     // Kalendar rejimi (Kunlik/Haftalik/Oylik/Yillik) endi ActivityCalendar
     // ichida saqlanadi - u yerda ishlatiladi, bu yerda emas.
 
@@ -190,6 +196,7 @@ const EventManagement = () => {
         // Arxivlangan klub tanlash ro'yxatida ko'rinmaydi: unda yangi
         // tadbir boshlanmasligi kerak.
         setClubs(db.getActiveClubs());
+        setVersion(v => v + 1);
     };
 
     const handleOpenModal = (event = null, date = new Date()) => {
@@ -371,153 +378,8 @@ const EventManagement = () => {
         navigate(`/admin/competitions/${entry.id}`);
     };
 
-    const renderCalendar = () => (
-        <div className="lg:col-span-2">
-            <ActivityCalendar
-                entries={calendarEntries}
-                onOpenEntry={openEntry}
-                onCreateAt={(day) => { setSelectedDate(day); handleOpenModal(null, day); }}
-            />
-        </div>
-    );
-
-    // Right sidebar: today's events, live stats, and shortcut buttons into other already-existing admin
-    // flows (competitions/clubs pages) — no new data model, everything derived from `events`/`clubs`/
-    // `students` already loaded above.
-    const renderSidebar = () => (
-        <div className="space-y-6">
-            <Card padding={false}>
-                <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-                    <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                        <CalendarIcon size={16} className="text-indigo-500" /> Bugungi tadbirlar
-                    </h3>
-                    <Badge variant="primary" size="sm">{todayEvents.length} ta</Badge>
-                </div>
-                <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
-                    {todayEvents.length === 0 ? (
-                        <p className="text-center text-sm text-gray-400 py-6">Bugun tadbirlar yo'q</p>
-                    ) : todayEvents.map(e => (
-                        <div
-                            key={e.key}
-                            onClick={() => openEntry(e, new Date(e.date))}
-                            className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
-                        >
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${e.kind === 'event' ? 'bg-indigo-100 text-indigo-600' : 'bg-amber-100 text-amber-600'}`}>
-                                {e.kind === 'event' ? <Users size={16} /> : <Trophy size={16} />}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <div className="flex items-center justify-between gap-2">
-                                    <p className="text-sm font-bold text-gray-900 truncate">{e.title}</p>
-                                    <Badge variant={e.kind === 'event' ? 'default' : 'primary'} size="sm">
-                                        {e.kind === 'event' ? 'Tadbir' : e.kind === 'tur' ? 'Tur' : 'Musobaqa'}
-                                    </Badge>
-                                </div>
-                                <p className="text-[11px] text-gray-400 flex items-center gap-1.5 mt-0.5">
-                                    <span className="flex items-center gap-1"><Clock size={10} /> {format(new Date(e.date), 'HH:mm')}</span>
-                                    {e.location && <span className="flex items-center gap-1 truncate"><MapPin size={10} /> {e.location}</span>}
-                                </p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </Card>
-
-            <Card>
-                <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-3">
-                    <TrendingUp size={16} className="text-indigo-500" /> Tadbirlar bo'yicha statistika
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                    {[
-                        { icon: CalendarIcon, value: events.length, label: 'Tadbirlar' },
-                        { icon: Users, value: students.length, label: 'Talabalar' },
-                        { icon: GraduationCap, value: facultyCount, label: 'Fakultetlar' },
-                        { icon: Trophy, value: clubs.length, label: 'Klublar' }
-                    ].map(s => (
-                        <div key={s.label} className="bg-gray-50 rounded-xl p-3 text-center">
-                            <s.icon className="w-4 h-4 text-indigo-500 mx-auto mb-1" />
-                            <p className="text-lg font-black text-gray-900">{s.value}</p>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase">{s.label}</p>
-                        </div>
-                    ))}
-                </div>
-            </Card>
-
-            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl p-5 text-white shadow-lg">
-                <h3 className="font-bold flex items-center gap-2 mb-4">
-                    <Zap size={16} /> Tezkor amallar
-                </h3>
-                <div className="space-y-2.5">
-                    <button
-                        type="button"
-                        onClick={() => handleOpenModal(null, new Date())}
-                        className="w-full flex items-center gap-3 bg-white/10 hover:bg-white/20 transition-colors rounded-2xl px-4 py-3 text-left"
-                    >
-                        <span className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center shrink-0"><Plus size={16} /></span>
-                        <span className="text-sm font-bold">Yangi tadbir yaratish</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => navigate('/admin/competitions')}
-                        className="w-full flex items-center gap-3 bg-white/10 hover:bg-white/20 transition-colors rounded-2xl px-4 py-3 text-left"
-                    >
-                        <span className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center shrink-0"><Trophy size={16} /></span>
-                        <span className="text-sm font-bold">Yangi turnir yaratish</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => navigate('/admin/clubs-directory')}
-                        className="w-full flex items-center gap-3 bg-white/10 hover:bg-white/20 transition-colors rounded-2xl px-4 py-3 text-left"
-                    >
-                        <span className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center shrink-0"><UsersRound size={16} /></span>
-                        <span className="text-sm font-bold">Klub tashkil etish</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-
-
-    // FAOL/ARXIV RO'YXATI - tekis, tez ko'rinadigan ro'yxat. Kalendardan
-    // farqi: bu yerda oyma-oy siljitish shart emas, "hozir nima bor" yoki
-    // "eskilardan qidirish" darhol ko'rinadi.
-    const renderEventList = (list, emptyText) => (
-        <Card padding={false}>
-            {list.length === 0 ? (
-                <p className="text-center text-sm text-gray-400 py-16">{emptyText}</p>
-            ) : (
-                <div className="divide-y divide-gray-50">
-                    {list.map(e => {
-                        const club = e.clubId ? db.getClubById(e.clubId) : null;
-                        const isPast = e.status === 'completed';
-                        const isCancelled = e.status === 'cancelled';
-                        return (
-                            <button
-                                key={e.id} type="button" onClick={() => handleOpenModal(e)}
-                                className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left"
-                            >
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                                    isCancelled ? 'bg-red-50 text-red-500' : isPast ? 'bg-gray-100 text-gray-400' : 'bg-indigo-50 text-indigo-600'
-                                }`}>
-                                    <CalendarIcon size={17} />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-bold text-gray-900 truncate">{e.title}</p>
-                                    <p className="text-[11px] text-gray-400 flex items-center gap-2 mt-0.5">
-                                        <span>{format(new Date(e.date), 'dd MMM yyyy, HH:mm', { locale: uz })}</span>
-                                        {e.location && <span className="flex items-center gap-1 truncate"><MapPin size={10} /> {e.location}</span>}
-                                        {club && <span className="truncate">· {club.name}</span>}
-                                    </p>
-                                </div>
-                                <Badge variant={isCancelled ? 'danger' : isPast ? 'default' : 'success'} size="sm">
-                                    {isCancelled ? 'Bekor qilindi' : isPast ? 'Yakunlangan' : 'Faol'}
-                                </Badge>
-                            </button>
-                        );
-                    })}
-                </div>
-            )}
-        </Card>
-    );
+    // Kalendar, yon panel va ro'yxat ko'rinishlari OLIB TASHLANDI - ularning
+    // o'rnini talaba panelidagi bilan ayni komponent (EventsCalendar) egalladi.
 
     return (
         <div className="space-y-6">
@@ -551,61 +413,70 @@ const EventManagement = () => {
                 </div>
             )}
 
-            {/* Two ways to read the same data: the month grid answers "what's happening", the room grid
-                answers "which room is free when" (rows = real venues from Sozlamalar → Joylar). */}
-            <div className="flex bg-gray-100 rounded-xl p-0.5 w-fit flex-wrap">
-                {[
-                    { id: 'month', label: 'Tadbirlar kalendari' },
-                    { id: 'active', label: 'Faol tadbirlar', count: activeEvents.length },
-                    { id: 'archive', label: 'Arxiv', count: archivedEvents.length },
-                    { id: 'venues', label: 'Xonalar bandligi' },
-                ].map(v => (
-                    <button
-                        key={v.id}
-                        type="button"
-                        onClick={() => setCalendarView(v.id)}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
-                            calendarView === v.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                    >
-                        {v.label}
-                        {v.count > 0 && <span className="ml-1.5 opacity-60">{v.count}</span>}
-                    </button>
-                ))}
-            </div>
-
-            {calendarView === 'venues' ? (
-                <Card padding={false}>
-                    <div className="p-4">
-                        <VenueOccupancyCalendar
-                            currentUsername={user?.username}
-                            onCreateBooking={(venueLabel, day) => {
-                                handleOpenModal(null, day);
-                                // Prefill the room the admin clicked in — the modal's own form state is
-                                // reset by handleOpenModal, so this has to run after it.
-                                setFormData(prev => ({ ...prev, location: venueLabel }));
-                            }}
-                            onOpenBooking={(booking) => {
-                                if (booking.kind === 'event') {
-                                    const ev = events.find(e => e.id === booking.id);
-                                    if (ev) handleOpenModal(ev);
-                                } else {
-                                    navigate(`/admin/competitions/${booking.id}`);
-                                }
-                            }}
-                        />
-                    </div>
-                </Card>
-            ) : calendarView === 'active' ? (
-                renderEventList(activeEvents, "Hozircha faol tadbir yo'q")
-            ) : calendarView === 'archive' ? (
-                renderEventList(archivedEvents, "Arxivda tadbir yo'q")
-            ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                    {renderCalendar()}
-                    {renderSidebar()}
-                </div>
-            )}
+            {/* KO'RISH QISMI - talaba panelidagi AYNI komponent (EventsCalendar).
+                Ilgari bu yerda butunlay boshqa tuzilish turardi: o'z tab qatori,
+                o'z kalendari, o'z ro'yxati. Ya'ni bir xil ish ikki panelda ikki
+                xil ko'rinardi va mas'ul bir tomonda o'rgangan narsasini
+                ikkinchisida qaytadan qidirardi.
+                Endi filtr paneli, hisobli tablar, saralash, sahifalash va
+                Kalendar/Ro'yxat almashtirgichi - hammasi bir xil.
+                Admin FUNKSIYALARI shu yerda qoladi: yaratish, tahrirlash,
+                o'chirish va xonalar bandligi qo'shimcha tugmalar orqali. */}
+            <EventsCalendar
+                variant="admin"
+                defaultKind={defaultKind}
+                hero={null}
+                refreshToken={version}
+                onOpenActivity={(entry) => {
+                    if (entry.kind === 'event') {
+                        const ev = events.find(e => e.id === entry.id);
+                        if (ev) handleOpenModal(ev);
+                        return;
+                    }
+                    navigate(`/admin/competitions/${entry.id}`);
+                }}
+                headerActions={
+                    <>
+                        <Button size="sm" icon={Plus} onClick={() => handleOpenModal(null, new Date())}>
+                            Yangi tadbir
+                        </Button>
+                        <button
+                            type="button"
+                            onClick={() => setShowVenues(v => !v)}
+                            className={`px-3.5 py-2 rounded-2xl text-xs font-bold transition-colors border ${
+                                showVenues
+                                    ? 'bg-gray-900 text-white border-gray-900'
+                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                            }`}
+                        >
+                            Xonalar bandligi
+                        </button>
+                    </>
+                }
+                footer={showVenues && (
+                    <Card padding={false}>
+                        <div className="p-4">
+                            <VenueOccupancyCalendar
+                                currentUsername={user?.username}
+                                onCreateBooking={(venueLabel, day) => {
+                                    handleOpenModal(null, day);
+                                    // Xona nomi handleOpenModal formani tozalagandan
+                                    // KEYIN qo'yiladi, aks holda yo'qolib ketardi.
+                                    setFormData(prev => ({ ...prev, location: venueLabel }));
+                                }}
+                                onOpenBooking={(booking) => {
+                                    if (booking.kind === 'event') {
+                                        const ev = events.find(e => e.id === booking.id);
+                                        if (ev) handleOpenModal(ev);
+                                    } else {
+                                        navigate(`/admin/competitions/${booking.id}`);
+                                    }
+                                }}
+                            />
+                        </div>
+                    </Card>
+                )}
+            />
 
             <Modal
                 isOpen={isEventModalOpen}

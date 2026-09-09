@@ -104,14 +104,45 @@ const FilterSection = ({ title, children, defaultOpen = true }) => {
     );
 };
 
-const EventsCalendar = () => {
+// Ikkala panelda ham AYNI shu komponent ishlaydi.
+//
+// Admin tomonida ilgari butunlay boshqa ekran turardi va shu sababli bir xil
+// ish ikki xil ko'rinardi: talaba filtr paneli, hisobli tablar va saralash
+// bilan ishlar, mas'ul esa boshqa tuzilishdagi kalendarda. Nusxa ko'chirish
+// o'rniga komponentning o'zi moslashtirildi - aks holda ikkita shakl vaqt
+// o'tib bir-biridan chetga chiqib ketardi.
+//
+// SUKUT QIYMATLAR TALABA XATTI-HARAKATI: yangi proplarning hech biri
+// berilmasa, sahifa avvalgidek ishlaydi.
+const EventsCalendar = ({
+    // 'student' | 'admin'. Faqat talabaga tegishli bloklarni (o'z vazifalari,
+    // jamoa belgilari) yoqib-o'chiradi.
+    variant = 'student',
+    // Yuqoridagi rangli sarlavha. `undefined` - sukut sarlavha chiziladi,
+    // `null` - umuman chizilmaydi (admin o'z sarlavhasini yuqorida ko'rsatadi).
+    hero = undefined,
+    // Boshlang'ich tab. `/admin/competitions` manzilidan kirilganda musobaqa
+    // tabi ochilishi kerak.
+    defaultKind = 'events',
+    // Qator bosilganda. Berilmasa - talaba mantiqi (koordinator ish maydoniga,
+    // qolganlar qisqacha ko'rinish oynasiga).
+    onOpenActivity = null,
+    // Kalendar/Ro'yxat almashtirgichi yonidagi qo'shimcha tugmalar
+    // (masalan "+ Yangi tadbir", "Xonalar bandligi").
+    headerActions = null,
+    // Ro'yxat va kalendar ostida chiziladigan qo'shimcha blok.
+    footer = null,
+    // Tashqi o'zgarishdan keyin qayta o'qish uchun (masalan tadbir saqlangach).
+    refreshToken = 0,
+}) => {
     const navigate = useNavigate();
     const { user, hasClubRole } = useAuth();
+    const isAdmin = variant === 'admin';
 
     const [quickViewEntry, setQuickViewEntry] = useState(null);
     const [monthOffset, setMonthOffset] = useState(0);
 
-    const [kind, setKind] = useTabParam(KIND_IDS, 'events', 'kind');
+    const [kind, setKind] = useTabParam(KIND_IDS, defaultKind, 'kind');
     const [filterTab, setFilterTab] = useTabParam(FILTER_IDS, 'all', 'filter');
     const [view, setView] = useTabParam(VIEW_IDS, 'calendar', 'view');
 
@@ -138,6 +169,8 @@ const EventsCalendar = () => {
     // Qizil FAQAT muddatga 1 kun yoki kam qolganda: rangning o'zgarishi ham
     // ma'lumot beradi, "endi haqiqatan kech bo'lyapti".
     const teamAlerts = useMemo(() => {
+        // Mas'ulga birovning jamoasi haqidagi belgi kerak emas.
+        if (isAdmin) return new Map();
         const { asCaptain, asInvitee } = db.getTeamAttention(user?.username);
         const map = new Map();
         const put = (item, role) => {
@@ -149,7 +182,7 @@ const EventsCalendar = () => {
         asCaptain.forEach(i => put(i, 'captain'));
         asInvitee.forEach(i => put(i, 'invitee'));
         return map;
-    }, [user?.username]);
+    }, [user?.username, isAdmin]);
 
     const alertFor = (row) => teamAlerts.get(`${row.kind}-${row.id}`) || null;
     const alertIsUrgent = (a) => a?.daysLeft != null && a.daysLeft <= 1;
@@ -170,8 +203,8 @@ const EventsCalendar = () => {
         return !full || !!a.waitlistEnabled;
     };
 
-    const events = useMemo(() => db.getEvents(), []);
-    const competitions = useMemo(() => db.getCompetitions(), []);
+    const events = useMemo(() => db.getEvents(), [refreshToken]);
+    const competitions = useMemo(() => db.getCompetitions(), [refreshToken]);
 
     // Klub koordinatorining roli STUDENT bo'lib qolaveradi (koordinatorlik -
     // a'zolikdagi rol), shuning uchun tadbir/musobaqa ish maydoni shu rolga ham
@@ -286,6 +319,10 @@ const EventsCalendar = () => {
     // Koordinator/bosh koordinator boshqaruv ish maydoniga o'tadi, boshqalar
     // uchun tez ko'rish + ro'yxatdan o'tish oynasi (ActivityQuickViewModal) ochiladi.
     const handleEventClick = (entry) => {
+        // Chaqiruvchi o'z mantiqini bergan bo'lsa - o'sha. Admin panelida
+        // tadbir qisqacha ma'lumot oynasida ochiladi, talabada esa
+        // ro'yxatdan o'tish oynasida: bir xil qator, boshqa ish.
+        if (onOpenActivity) { onOpenActivity(entry); return; }
         if (canManageEvent(entry)) {
             navigate(entry.kind === 'competition' ? `/student/competitions/${entry.id}` : `/student/events/${entry.id}`);
             return;
@@ -319,16 +356,20 @@ const EventsCalendar = () => {
 
     return (
         <div className="space-y-6">
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-2xl p-8 text-white shadow-xl flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold mb-2">Tadbirlar</h1>
-                    <p className="text-purple-100 italic">Universitet hayotidagi barcha qiziqarli voqealardan xabardor bo'ling</p>
+            {hero === undefined ? (
+                <div className="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-2xl p-8 text-white shadow-xl flex justify-between items-center">
+                    <div>
+                        <h1 className="text-3xl font-bold mb-2">Tadbirlar</h1>
+                        <p className="text-purple-100 italic">Universitet hayotidagi barcha qiziqarli voqealardan xabardor bo'ling</p>
+                    </div>
                 </div>
-            </div>
+            ) : hero}
 
             {/* Menga berilgan vazifalar va o'z ishtirokim. Ikkalasi ham bo'sh bo'lsa
-                komponent hech narsa ko'rsatmaydi - bo'sh karta osilib turmasin. */}
-            <MyActivityPanel />
+                komponent hech narsa ko'rsatmaydi - bo'sh karta osilib turmasin.
+                Mas'ulga ko'rsatilmaydi: bu blok "mendan nima kutilyapti" degan
+                savolga javob beradi, u esa boshqa odamlarning ishini boshqaradi. */}
+            {!isAdmin && <MyActivityPanel />}
 
             <div className="flex flex-wrap items-center justify-between gap-3">
                 {/* Tadbirlar / Musobaqa-Turnirlar */}
@@ -348,7 +389,10 @@ const EventsCalendar = () => {
                     })}
                 </div>
 
-                {/* Kalendar / Ro'yxat ko'rinishi */}
+                {/* Qo'shimcha tugmalar (admin: yaratish, xonalar bandligi) va
+                    Kalendar/Ro'yxat almashtirgichi bir qatorda. */}
+                <div className="flex items-center gap-2 flex-wrap">
+                {headerActions}
                 <div className="flex bg-gray-100 rounded-2xl p-1 w-fit">
                     <button
                         type="button"
@@ -368,6 +412,7 @@ const EventsCalendar = () => {
                     >
                         <List size={14} /> Ro'yxat
                     </button>
+                    </div>
                 </div>
             </div>
 
@@ -668,6 +713,11 @@ const EventsCalendar = () => {
                 </div>
             </div>
 
+            {footer}
+
+            {/* Qisqacha ko'rinish oynasi faqat talaba yo'lida ochiladi -
+                adminda uning o'rniga o'z oynasi (tafsilot + tahrirlash)
+                chaqiruvchi tomonda turadi. */}
             <ActivityQuickViewModal
                 entry={quickViewEntry}
                 onClose={() => setQuickViewEntry(null)}
