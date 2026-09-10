@@ -23,12 +23,17 @@ const RemovePositionModal = ({ isOpen, onClose, student, entries = [], preselect
 
     if (!isOpen) return null;
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         if (!selectedKey) return;
-        db.removeFromClubPosition({
-            clubId, studentId: student.id, positionTitle: selectedKey,
-            endedByUserId, endReason: 'cancelled', comment: reason.trim()
-        });
+        try {
+            await db.removeFromClubPosition({
+                clubId, studentId: student.id, positionTitle: selectedKey,
+                endedByUserId, endReason: 'cancelled', comment: reason.trim()
+            });
+        } catch (err) {
+            alert(err.message);
+            return;
+        }
         onClose();
         onRemoved();
     };

@@ -128,10 +128,12 @@ const QuizScoringGrid = ({
         setVersion(v => v + 1);
     };
 
-    const handleToggleAttended = (participantId) => {
+    const handleToggleAttended = async (participantId) => {
         if (locked) return;
         const current = statusByParticipant.get(participantId)?.attended;
-        db.setParticipantRoundStatus(competition.id, roundGroupIndex, participantId, { attended: current === true ? false : true }, activeJudge);
+        try {
+            await db.setParticipantRoundStatus(competition.id, roundGroupIndex, participantId, { attended: current === true ? false : true }, activeJudge);
+        } catch (e) { alert(e.message); return; }
         setVersion(v => v + 1);
     };
 
@@ -144,7 +146,9 @@ const QuizScoringGrid = ({
                 await db.saveRoundScores(competition.id, q, activeJudge, [{ participantId, value: null, criteriaScores: {} }], device);
             }
         }
-        db.setParticipantRoundStatus(competition.id, roundGroupIndex, participantId, { disqualified: !current }, activeJudge);
+        try {
+            await db.setParticipantRoundStatus(competition.id, roundGroupIndex, participantId, { disqualified: !current }, activeJudge);
+        } catch (e) { alert(e.message); return; }
         setVersion(v => v + 1);
         onScoresChanged?.();
     };

@@ -77,13 +77,18 @@ const ClubOrgStructureSection = ({ club, refreshKey, onRefresh }) => {
         }
     };
 
-    const handleRemoveFromRoster = (entry) => {
+    const handleRemoveFromRoster = async (entry) => {
         const fullName = entry.student?.fullName || entry.studentId;
         if (!window.confirm(`"${fullName}"ni "${POSITION_TYPE_LABELS[entry.positionTitle]}" lavozimidan olib tashlamoqchimisiz?`)) return;
-        db.removeFromClubPosition({
-            clubId: club.id, studentId: entry.studentId, positionTitle: entry.positionTitle,
-            endedByUserId: user.username, endReason: 'cancelled'
-        });
+        try {
+            await db.removeFromClubPosition({
+                clubId: club.id, studentId: entry.studentId, positionTitle: entry.positionTitle,
+                endedByUserId: user.username, endReason: 'cancelled'
+            });
+        } catch (err) {
+            setFormError(err.message);
+            return;
+        }
         onRefresh();
     };
 

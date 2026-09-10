@@ -554,6 +554,23 @@ const persistClubPositionApplication = async (app) => {
 
 // Tarix yozuvi jimgina o'tkazib yuboriladi: u yozilmagani uchun asosiy amal
 // bekor bo'lmasligi kerak.
+// Intizom, lavozim tayinlash, raund holati va kitobxonlik seanslari uchun
+// umumiy yozuvchi. Hammasi bir xil shaklda saqlanadi: butun obyekt `data`
+// ichida, qidiruv uchun bir nechta haqiqiy ustun.
+//
+// Xato JIM YUTILMAYDI - bu yozuvlar rasmiy indeksga va baholashga ta'sir
+// qiladi, ya'ni "saqlandi" deb ko'rsatib, aslida saqlamaslik mumkin emas.
+const persistRecordRow = async (table, row, extra = {}) => {
+    const { error } = await supabase.from(table).upsert({ id: row.id, ...extra, data: row });
+    if (error) {
+        const missing = /relation .* does not exist/i.test(error.message || '');
+        throw new Error(missing
+            ? 'Saqlanmadi: `' + table + '` jadvali topilmadi. Supabase SQL Editor da '
+              + '`supabase/penalties_positions_sessions.sql` ni bir marta ishga tushiring.'
+            : 'Saqlanmadi: ' + (error.message || ''));
+    }
+};
+
 const persistClubPositionLog = async (log) => {
     try {
         await supabase.from('club_position_audit_logs').insert({
@@ -2857,7 +2874,7 @@ const syncCoreDataFromSupabase = async () => {
     const [
         coreRes, venueRes, schRes, testRes, poydevorRes, marifatRes, culturalRes,
         caResSingle, sdocRes, cjrRes, sportRes, housRes, passportRes, talentRes,
-        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes, delegationRes, socialAppRes, compDelegRes, clubPosRes, socialCfgRes, compOpsRes
+        lifecycleRes, protocolRes, clubRegRes, clubDocRes, eventCollRes, recognitionRes, delegationRes, socialAppRes, compDelegRes, clubPosRes, socialCfgRes, compOpsRes, recordsRes
     ] = await Promise.all([
         Promise.all([
             supabase.from('clubs').select('*'),
@@ -3010,6 +3027,15 @@ const syncCoreDataFromSupabase = async () => {
             supabase.from('competition_question_points').select('*'),
             supabase.from('competition_scoring_groups').select('*'),
             supabase.from('issued_certificates').select('*')
+        ]),
+        // Intizom, lavozim tayinlash, raund holati, kitobxonlik seanslari
+        // (supabase/penalties_positions_sessions.sql).
+        Promise.all([
+            supabase.from('social_index_penalties').select('*'),
+            supabase.from('discipline_violations').select('*'),
+            supabase.from('club_position_assignments').select('*'),
+            supabase.from('competition_round_participant_status').select('*'),
+            supabase.from('reading_sessions').select('*')
         ])
     ]);
 
@@ -3660,6 +3686,28 @@ const syncCoreDataFromSupabase = async () => {
         dbData.competitionScoringGroups       = unwrap(scoringGroupsRes);
         dbData.certificates                   = unwrap(certsRes);
         dbData.competitionOpsBackendReady = true;
+    }
+
+    // Intizom, lavozim tayinlash, raund holati, kitobxonlik seanslari
+    // (supabase/penalties_positions_sessions.sql). Jadval yo'q bo'lsa
+    // MAHALLIY ro'yxatlar tegilmaydi va ilova avvalgidek ishlayveradi.
+    const recordsErr = recordsRes.find(r => r.error)?.error;
+    if (recordsErr) {
+        console.warn(
+            "[intizom/lavozim/seans] jadvallar o'qilmadi - supabase/penalties_positions_sessions.sql ishga tushirilganmi?",
+            recordsErr
+        );
+        dbData.recordsBackendReady = false;
+    } else {
+        const unwrapRec = (res) => (res.data || []).map(r => ({ ...(r.data || {}), id: r.id }));
+        const [sipenRes, discRes, posAsgRes, roundStatusRes, readSessRes] = recordsRes;
+        dbData.socialIndexPenalties = unwrapRec(sipenRes);
+        dbData.disciplineViolations = unwrapRec(discRes);
+        dbData.clubPositionAssignments = unwrapRec(posAsgRes)
+            .sort((a, b) => (a.displayNumber || 0) - (b.displayNumber || 0));
+        dbData.competitionRoundParticipantStatus = unwrapRec(roundStatusRes);
+        dbData.readingSessions = unwrapRec(readSessRes);
+        dbData.recordsBackendReady = true;
     }
 
     saveDB(dbData);
@@ -5339,7 +5387,7 @@ export const db = {
         if (positionTitle === 'head_coordinator') {
             const currentHead = roster.find(r => r.positionTitle === 'head_coordinator' && r.studentId !== studentId);
             if (currentHead) {
-                db.removeFromClubPosition({
+                await db.removeFromClubPosition({
                     clubId, studentId: currentHead.studentId, positionTitle: 'head_coordinator',
                     endedByUserId: assignedByUserId, endReason: 'changed'
                 });
@@ -5377,12 +5425,23 @@ export const db = {
         if (!fresh.clubPositionAssignments) fresh.clubPositionAssignments = [];
         fresh.clubPositionAssignments.push(assignment);
         if (!fresh.clubPositionAuditLogs) fresh.clubPositionAuditLogs = [];
-        fresh.clubPositionAuditLogs.push({
-            id: 'poslog_' + Date.now().toString() + uniqueSuffix(),
+        const assignLog = {
+            id: 'poslog_' + Date.now().toString(36) + uniqueSuffix(),
             applicationId: null, clubId, studentId, positionTitle,
             action: 'ASSIGNED', fromStatus: null, toStatus: 'active',
             reviewer: assignedByUserId, comment, time: timestamp
+        };
+        fresh.clubPositionAuditLogs.push(assignLog);
+        // A'ZOLIK ROLI yuqorida allaqachon serverga yozildi, tayinlashning
+        // O'ZI esa yozilmasdi - keyin "bu odamni kim tayinlagan" degan
+        // savolga javob qolmasdi. Tarix yozuvi ham xuddi shunday: u
+        // sinxronlanadigan ro'yxatda, ya'ni faqat mahalliy qo'shilsa,
+        // keyingi sinxronlashda butunlay yo'qolardi.
+        await persistRecordRow('club_position_assignments', assignment, {
+            club_id: clubId, student_id: studentId,
+            position_title: positionTitle, status: 'active',
         });
+        await persistClubPositionLog(assignLog);
         saveDB(fresh);
 
         // ASOSIY KOORDINATOR -> ijtimoiy faollik indeksining 2-mezoni bo'yicha
@@ -5411,7 +5470,7 @@ export const db = {
     // membership role to 'member'; only writes a clubPositionAssignments/history row when there was one
     // to end (a legacy holder removed this way simply has no "tarixiy tarkib" row, since there was
     // nothing tracked about when their tenure started).
-    removeFromClubPosition: ({ clubId, studentId, positionTitle, endedByUserId, endReason = 'cancelled', comment = '' }) => {
+    removeFromClubPosition: async ({ clubId, studentId, positionTitle, endedByUserId, endReason = 'cancelled', comment = '' }) => {
         const dbData = getDB();
         const membership = (dbData.memberships || []).find(m => m.userId === studentId && m.clubId === clubId);
         if (membership) {
@@ -5438,15 +5497,21 @@ export const db = {
             assignment.endedAt = timestamp;
             assignment.endedBy = endedByUserId;
             assignment.endReason = endReason;
+            await persistRecordRow('club_position_assignments', assignment, {
+                club_id: clubId, student_id: studentId,
+                position_title: positionTitle, status: 'ended',
+            });
         }
 
         if (!dbData.clubPositionAuditLogs) dbData.clubPositionAuditLogs = [];
-        dbData.clubPositionAuditLogs.push({
-            id: 'poslog_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+        const removeLog = {
+            id: 'poslog_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
             applicationId: null, clubId, studentId, positionTitle,
             action: 'REMOVED', fromStatus: 'active', toStatus: endReason,
             reviewer: endedByUserId, comment, time: timestamp
-        });
+        };
+        dbData.clubPositionAuditLogs.push(removeLog);
+        await persistClubPositionLog(removeLog);
         saveDB(dbData);
         return assignment || null;
     },
@@ -8101,27 +8166,31 @@ export const db = {
         const data = getDB();
         return (data.competitionRoundParticipantStatus || []).filter(r => r.competitionId === compId && r.roundGroupIndex === roundGroupIndex);
     },
-    setParticipantRoundStatus: (compId, roundGroupIndex, participantId, updates, actor) => {
+    // ASYNC: raundda kim qatnashgani va kim chetlatilgani baholash paytida
+    // qo'yiladi, ya'ni aynan har xil kompyuterdan.
+    setParticipantRoundStatus: async (compId, roundGroupIndex, participantId, updates, actor) => {
         const dbData = getDB();
         if (!dbData.competitionRoundParticipantStatus) dbData.competitionRoundParticipantStatus = [];
-        const existing = dbData.competitionRoundParticipantStatus.find(
+        let row = dbData.competitionRoundParticipantStatus.find(
             r => r.competitionId === compId && r.roundGroupIndex === roundGroupIndex && r.participantId === participantId
         );
         const now = new Date().toISOString();
-        if (existing) {
-            Object.assign(existing, updates, { updatedAt: now, updatedBy: actor });
+        if (row) {
+            Object.assign(row, updates, { updatedAt: now, updatedBy: actor });
         } else {
-            dbData.competitionRoundParticipantStatus.push({
-                id: 'rpstatus_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+            row = {
+                id: 'rpstatus_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
                 competitionId: compId, roundGroupIndex, participantId,
                 attended: null, disqualified: false,
                 ...updates, updatedAt: now, updatedBy: actor
-            });
+            };
+            dbData.competitionRoundParticipantStatus.push(row);
         }
+        await persistRecordRow('competition_round_participant_status', row, {
+            competition_id: compId, participant_id: participantId,
+        });
         saveDB(dbData);
-        return dbData.competitionRoundParticipantStatus.find(
-            r => r.competitionId === compId && r.roundGroupIndex === roundGroupIndex && r.participantId === participantId
-        );
+        return row;
     },
 
     // "Jadval" tab's "Turlar jadvali" - real per-Tur date/time/responsible-judge, keyed by turIndex
@@ -11101,6 +11170,8 @@ export const db = {
         };
         if (existing) Object.assign(existing, record);
         else dbData.socialIndexPenalties.push(record);
+        await persistRecordRow('social_index_penalties', existing || record,
+            { student_id: studentId, academic_year: year });
         saveDB(dbData);
         return record;
     },
@@ -11136,6 +11207,8 @@ export const db = {
         };
         if (existing) Object.assign(existing, record);
         else dbData.socialIndexPenalties.push(record);
+        await persistRecordRow('social_index_penalties', existing || record,
+            { student_id: studentId, academic_year: year });
         saveDB(dbData);
         return record;
     },
@@ -11178,6 +11251,9 @@ export const db = {
             recordedAt: new Date().toISOString(),
         };
         (dbData.disciplineViolations = dbData.disciplineViolations || []).push(record);
+        await persistRecordRow('discipline_violations', record, {
+            student_id: studentId, academic_year: record.academicYear, type,
+        });
         saveDB(dbData);
 
         // Talaba bilishi kerak - ball jimgina kamayib qolmasin.
@@ -11195,6 +11271,10 @@ export const db = {
 
     removeDisciplineViolation: async (id) => {
         await assertAuthenticated();
+        // Avval bazadan: faqat mahalliy o'chirilsa, yozuv keyingi
+        // sinxronlashda qaytib kelardi.
+        const { error } = await supabase.from('discipline_violations').delete().eq('id', id);
+        if (error) throw new Error("O'chirilmadi: " + (error.message || ''));
         const dbData = getDB();
         dbData.disciplineViolations = (dbData.disciplineViolations || []).filter(v => v.id !== id);
         saveDB(dbData);
@@ -12982,6 +13062,7 @@ export const db = {
             usedAt: null,
         };
         dbData.readingSessions.push(record);
+        await persistRecordRow('reading_sessions', record, { student_id: studentId, test_id: testId });
         saveDB(dbData);
         return record;
     },
@@ -13219,6 +13300,9 @@ export const db = {
             s.studentId === studentId && s.testId === testId && !s.usedAt);
         if (session) {
             session.usedAt = new Date().toISOString();
+            // Seans ISHLATILGANI ham bazaga: aks holda bitta seans bilan
+            // boshqa kompyuterda ikkinchi marta testga kirish mumkin edi.
+            await persistRecordRow('reading_sessions', session, { student_id: studentId, test_id: testId });
             saveDB(dbData);
         }
         return attempt;
