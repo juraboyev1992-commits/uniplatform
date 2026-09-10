@@ -9,6 +9,7 @@ import Card from '../../components/common/Card';
 import Modal from '../../components/common/Modal';
 import CertificateGenerator from '../../components/common/CertificateGenerator';
 import PortfolioSummary from '../../components/student/PortfolioSummary';
+import StudentCvDocument from '../../components/student/StudentCvDocument';
 import StudentDocumentsPanel from '../../components/student/StudentDocumentsPanel';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
@@ -125,7 +126,25 @@ const AchievementsPage = ({ embedded = false }) => {
                             </div>
                             <button
                                 type="button"
-                                onClick={() => window.print()}
+                                onClick={() => {
+                                    // Belgi faqat chop etish paytida turadi:
+                                    // aks holda uslub butun ilovaga ta'sir
+                                    // qilib, boshqa sahifalar chop etilmay
+                                    // qolardi.
+                                    //
+                                    // Olib tashlash `afterprint` orqali: ba'zi
+                                    // brauzerlarda `window.print()` oyna
+                                    // yopilishini KUTMAY qaytadi va sinfni
+                                    // darhol o'chirsak, chop etish bo'sh
+                                    // sahifa bilan tugardi.
+                                    document.body.classList.add('cv-printing');
+                                    const cleanup = () => {
+                                        document.body.classList.remove('cv-printing');
+                                        window.removeEventListener('afterprint', cleanup);
+                                    };
+                                    window.addEventListener('afterprint', cleanup);
+                                    window.print();
+                                }}
                                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-sm font-bold text-white transition-colors"
                             >
                                 <Printer size={15} /> Chop etish / PDF
@@ -156,6 +175,12 @@ const AchievementsPage = ({ embedded = false }) => {
                         keladi. Hujjatlar jadvali javobning bir qismi, portfolio
                         esa butun manzarani beradi: GPA, indeks, klublar,
                         o'qilgan asarlar. */}
+                    {/* CV HUJJATI - eng tepada. Talaba bu bo'limga
+                        "meni tashqarida qanday ko'rishadi" degan savol bilan
+                        keladi; javob shu hujjat. Pastdagi kartochkalar esa
+                        "menda nima bor va nimasi yetishmaydi" ni ko'rsatadi. */}
+                    <StudentCvDocument studentId={user?.username} version={version} />
+
                     <PortfolioSummary studentId={user?.username} version={version} />
 
                     {/* Talaba yuklaydigan tashqi hujjatlar. Tizim bergan rasmiy

@@ -149,4 +149,28 @@ select:focus {
   .no-print {
     display: none !important;
   }
+
+  /* CV CHOP ETISH.
+     Sahifada yon menyu, sarlavha, tablar va tahlil kartochkalari bor -
+     ular qog'ozga tushmasligi kerak. Har bir blokni alohida `no-print`
+     bilan belgilash o'rniga teskarisi qilinadi: hammasi yashiriladi,
+     `cv-print` ichidagilar esa ko'rinadi. Shunda sahifaga yangi blok
+     qo'shilganda uni belgilash esdan chiqmaydi. */
+  body.cv-printing * {
+    visibility: hidden;
+  }
+  body.cv-printing .cv-print,
+  body.cv-printing .cv-print * {
+    visibility: visible;
+  }
+  body.cv-printing .cv-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  @page {
+    margin: 16mm;
+  }
 }
