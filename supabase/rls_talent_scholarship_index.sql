@@ -237,9 +237,15 @@ create policy schapp_select on public.scholarship_applications
         or public.is_scholarship_evaluator()
         or public.is_platform_admin()
     );
+-- Yangi arizaning statusi grantning BIRINCHI bosqichiga qarab belgilanadi
+-- (db.js: statusForStage) - 'draft', 'doc_check', 'committee' yoki
+-- 'evaluation'. 'submitted' amalda ishlatilmaydi, eski yozuvlar uchun
+-- qoldirilgan. Bu yerda faqat 'draft'/'submitted' yozilgani sababli
+-- haqiqiy ariza berish bloklanib qolgan edi.
 create policy schapp_insert on public.scholarship_applications
     for insert to authenticated with check (
-        (student_id = public.current_username() and status in ('draft', 'submitted'))
+        (student_id = public.current_username()
+         and status in ('draft', 'submitted', 'doc_check', 'evaluation', 'committee'))
         or public.is_platform_admin()
     );
 create policy schapp_update on public.scholarship_applications
