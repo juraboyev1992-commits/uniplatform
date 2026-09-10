@@ -17,6 +17,7 @@ const AttendanceModule = lazy(() => import('./components/student/AttendanceModul
 const WardrobeModule = lazy(() => import('./components/student/WardrobeModule'));
 const CertificatesPage = lazy(() => import('./pages/student/CertificatesPage'));
 const AchievementsHubPage = lazy(() => import('./pages/student/AchievementsHubPage'));
+const AchievementsPage = lazy(() => import('./pages/student/AchievementsPage'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const TestManagement = lazy(() => import('./components/admin/TestManagement'));
 const EventManagement = lazy(() => import('./components/admin/EventManagement'));
@@ -240,6 +241,16 @@ const AppRouter = () => {
                                     Eski manzillar ishlashda davom etadi - eski havola va
                                     xatcho'plar buzilmasin. */}
                                 <Route path="achievements" element={<AchievementsHubPage />} />
+                                {/* CV ALOHIDA BO'LIM. Ilgari u "Yutuq va imkoniyatlar"
+                                    ichidagi tab edi va menyudan kirgan odam uni ko'rmasdi:
+                                    bo'lim birinchi tabda ochilardi. CV - talaba tashqariga
+                                    olib chiqadigan yagona hujjat, shuning uchun o'z
+                                    manzilida turadi. Tarkibi ko'chirildi, nusxalanmadi. */}
+                                <Route path="cv" element={<AchievementsPage />} />
+                                <Route
+                                    path="achievements/cv"
+                                    element={<Navigate to="/student/cv" replace />}
+                                />
                                 <Route path="scholarships" element={<Navigate to="/student/achievements?tab=applications" replace />} />
                                 <Route path="development" element={<Navigate to="/student/achievements?tab=development" replace />} />
                                 <Route path="opportunities" element={<Navigate to="/student/achievements" replace />} />

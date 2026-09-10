@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Trophy, Sparkles, GraduationCap, ArrowRight, Info, Eye, ShieldCheck,
-    ExternalLink, FileText, Printer,
+    ExternalLink, FileText, Printer, X,
 } from 'lucide-react';
 import { useTabParam } from '../../hooks/useTabParam';
 import Card from '../../components/common/Card';
@@ -55,6 +55,26 @@ const AchievementsPage = ({ embedded = false }) => {
     const [tab, setTab] = useTabParam(TAB_IDS, 'mine', 'cvtab');
     const [previewDoc, setPreviewDoc] = useState(null);
     const [cvOpen, setCvOpen] = useState(false);
+
+    // Chop etishda faqat CV chiqadi (uslubi src/index.css da). Belgi
+    // `afterprint` da olib tashlanadi: ba'zi brauzerlarda window.print()
+    // oyna yopilishini kutmay qaytadi va darhol o'chirilsa chop etish
+    // bo'sh sahifa bilan tugardi.
+    //
+    // CV paneli yopiq bo'lsa avval ochiladi - aks holda chop etiladigan
+    // element sahifada umuman bo'lmaydi va bo'sh varaq chiqadi.
+    const printCv = () => {
+        setCvOpen(true);
+        window.requestAnimationFrame(() => {
+            document.body.classList.add('cv-printing');
+            const cleanup = () => {
+                document.body.classList.remove('cv-printing');
+                window.removeEventListener('afterprint', cleanup);
+            };
+            window.addEventListener('afterprint', cleanup);
+            window.print();
+        });
+    };
     // Hujjat yuklangandan keyin portfolio ham yangilanishi kerak - ikkalasi
     // bitta sanoqqa bog'langan.
     const [version, setVersion] = useState(0);
@@ -109,50 +129,38 @@ const AchievementsPage = ({ embedded = false }) => {
         <div className="space-y-6">
             {!embedded && (
                 <>
-                    {/* CV sarlavhasi - hujjat ko'rinishida. Chop etish shu yerda,
-                        chunki foydalanuvchi uni sahifaning boshida qidiradi.
-                        Brauzerning chop etish oynasi "PDF sifatida saqlash"ni
-                        ham beradi, ya'ni alohida yuklab olish tugmasi shart emas. */}
-                    <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-8 text-white shadow-xl">
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                            <div className="min-w-0">
-                                <h1 className="text-3xl font-bold mb-1 flex items-center gap-3">
-                                    <FileText className="w-8 h-8" /> CV / Portfolio
-                                </h1>
-                                <p className="text-slate-300">
-                                    {user?.fullName || user?.username}
-                                    {user?.faculty ? ` · ${user.faculty}` : ''}
-                                    {user?.course ? ` · ${user.course}-kurs` : ''}
-                                </p>
-                                <p className="text-slate-400 text-sm mt-1.5 max-w-xl">
-                                    Akademik, ijtimoiy va professional faoliyatingiz bir hujjatda.
-                                    Hammasi platformadagi tasdiqlangan yozuvdan yig'iladi.
-                                </p>
-                            </div>
+                    {/* SARLAVHA.
+                        Maketda uchta tugma bor: tahrirlash, PDF va ulashish.
+                        Bu yerda faqat ISHLAYDIGANLARI qo'yildi - tahrirlash
+                        uchun talaba o'zi kiritadigan maydonlar hali yo'q,
+                        ulashish esa ommaviy havola va maxfiylik sozlamasini
+                        talab qiladi. Ishlamaydigan tugma qo'yish maketga
+                        o'xshatadi, lekin foydalanuvchini aldaydi. */}
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="min-w-0">
+                            <h1 className="text-3xl font-black text-slate-900">Mening CV'im</h1>
+                            <p className="text-sm text-gray-500 mt-1">
+                                Sizning akademik, professional va ijtimoiy faoliyatingizning yagona markazi
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
                             <button
                                 type="button"
-                                onClick={() => {
-                                    // Belgi faqat chop etish paytida turadi:
-                                    // aks holda uslub butun ilovaga ta'sir
-                                    // qilib, boshqa sahifalar chop etilmay
-                                    // qolardi.
-                                    //
-                                    // Olib tashlash `afterprint` orqali: ba'zi
-                                    // brauzerlarda `window.print()` oyna
-                                    // yopilishini KUTMAY qaytadi va sinfni
-                                    // darhol o'chirsak, chop etish bo'sh
-                                    // sahifa bilan tugardi.
-                                    document.body.classList.add('cv-printing');
-                                    const cleanup = () => {
-                                        document.body.classList.remove('cv-printing');
-                                        window.removeEventListener('afterprint', cleanup);
-                                    };
-                                    window.addEventListener('afterprint', cleanup);
-                                    window.print();
-                                }}
-                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-sm font-bold text-white transition-colors"
+                                onClick={() => setCvOpen(v => !v)}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-colors ${
+                                    cvOpen
+                                        ? 'bg-blue-700 border-blue-700 text-white hover:bg-blue-800'
+                                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                                }`}
                             >
-                                <Printer size={15} /> Chop etish / PDF
+                                <FileText size={15} /> CV ko'rinishi
+                            </button>
+                            <button
+                                type="button"
+                                onClick={printCv}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-bold transition-colors"
+                            >
+                                <Printer size={15} /> PDF yuklab olish
                             </button>
                         </div>
                     </div>
@@ -174,22 +182,17 @@ const AchievementsPage = ({ embedded = false }) => {
             )}
 
             {tab === 'mine' && (
-                <div className="space-y-6">
+                <div className="flex flex-col xl:flex-row gap-5 items-start">
+                {/* IKKI PANEL - maketdagidek: chapda ish maydoni, o'ngda CV
+                    hujjati. Panel yopilganda asosiy qism butun kenglikni
+                    egallaydi. */}
+                <div className="flex-1 min-w-0 space-y-6">
                     {/* PORTFOLIO - eng tepada.
                         Talaba bu bo'limga "menda nima bor" degan savol bilan
                         keladi. Hujjatlar jadvali javobning bir qismi, portfolio
                         esa butun manzarani beradi: GPA, indeks, klublar,
                         o'qilgan asarlar. */}
-                    {/* CV hujjati ALOHIDA OYNADA ochiladi: u chop etish uchun
-                        mo'ljallangan va sahifada doim turishi shart emas.
-                        Ekrandagi kartochkalar "menda nima bor" ni, hujjat esa
-                        "buni tashqaridagi odamga qanday ko'rsataman" ni
-                        ko'rsatadi. */}
-                    <PortfolioSummary
-                        studentId={user?.username}
-                        version={version}
-                        onOpenCv={() => setCvOpen(true)}
-                    />
+                    <PortfolioSummary studentId={user?.username} version={version} />
 
                     {/* Talaba yuklaydigan tashqi hujjatlar. Tizim bergan rasmiy
                         hujjatlardan ALOHIDA turadi - ularning ishonchlilik
@@ -308,6 +311,33 @@ const AchievementsPage = ({ embedded = false }) => {
                         </p>
                     </Card>
                 </div>
+
+                {cvOpen && (
+                    <aside className="cv-panel w-full xl:w-[430px] shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 xl:sticky xl:top-4">
+                        <div className="flex items-center justify-between gap-3 mb-4">
+                            <h3 className="font-black text-gray-900">CV</h3>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={printCv}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                                >
+                                    <Printer size={13} /> Chop etish
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setCvOpen(false)}
+                                    aria-label="Yopish"
+                                    className="w-7 h-7 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 flex items-center justify-center"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+                        </div>
+                        <StudentCvDocument studentId={user?.username} version={version} />
+                    </aside>
+                )}
+                </div>
             )}
 
             <Modal
@@ -348,39 +378,6 @@ const AchievementsPage = ({ embedded = false }) => {
                         />
                     </div>
                 )}
-            </Modal>
-
-            {/* CV OYNASI */}
-            <Modal
-                isOpen={cvOpen}
-                onClose={() => setCvOpen(false)}
-                title="CV"
-                size="lg"
-            >
-                <div className="space-y-4">
-                    <div className="flex justify-end">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                // Belgi faqat chop etish paytida turadi va
-                                // `afterprint` da olib tashlanadi: ba'zi
-                                // brauzerlarda window.print() oyna yopilishini
-                                // kutmay qaytadi.
-                                document.body.classList.add('cv-printing');
-                                const cleanup = () => {
-                                    document.body.classList.remove('cv-printing');
-                                    window.removeEventListener('afterprint', cleanup);
-                                };
-                                window.addEventListener('afterprint', cleanup);
-                                window.print();
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50"
-                        >
-                            <Printer size={15} /> Chop etish / PDF
-                        </button>
-                    </div>
-                    <StudentCvDocument studentId={user?.username} version={version} />
-                </div>
             </Modal>
 
             {!embedded && tab === 'general' && (

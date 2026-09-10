@@ -4,7 +4,6 @@ import { Trophy, Target, FileText, Rocket } from 'lucide-react';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import OpportunitiesPage from './OpportunitiesPage';
-import AchievementsPage from './AchievementsPage';
 import MyDevelopmentPage from './MyDevelopmentPage';
 import ScholarshipsModule from '../../components/student/ScholarshipsModule';
 import { getApplicationStatusMeta } from '../../config/scholarships';
@@ -35,10 +34,6 @@ const TABS = [
     // Rivojlanishim) o'z nomidan tushunarli.
     { id: 'opportunities', label: 'Imkoniyatlarim', icon: Target, caption: 'Stipendiya, grant, tanlov, mukofot' },
     { id: 'applications', label: 'Arizalarim', icon: FileText },
-    // Nomi "Yutuqlarim" edi, lekin ichida faqat yutuq emas - rasmiy
-    // hujjatlar, talaba yuklaganlari va chop etishga tayyor CV hujjati
-    // bor. Menyudagi "CV / Portfolio" aynan shu tabga olib keladi.
-    { id: 'achievements', label: 'CV / Portfolio', icon: FileText, caption: 'Hujjatlarim va chop etishga tayyor CV' },
     { id: 'development', label: 'Rivojlanishim', icon: Rocket },
 ];
 
@@ -70,7 +65,7 @@ const AchievementsHubPage = () => {
                     <Trophy className="w-8 h-8" /> Yutuq va imkoniyatlar
                 </h1>
                 <p className="text-amber-100">
-                    Sizga mos imkoniyatlar, arizalaringiz, CV va rivojlanish rejangiz
+                    Sizga mos imkoniyatlar, arizalaringiz va rivojlanish rejangiz
                 </p>
             </div>
 
@@ -109,7 +104,6 @@ const AchievementsHubPage = () => {
 
             {tab === 'opportunities' && <OpportunitiesPage embedded />}
             {tab === 'applications' && <ScholarshipsModule embedded />}
-            {tab === 'achievements' && <AchievementsPage embedded />}
             {tab === 'development' && <MyDevelopmentPage embedded />}
         </div>
     );
