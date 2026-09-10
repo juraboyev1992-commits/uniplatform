@@ -210,8 +210,14 @@ const ApprovalsTab = () => {
     // Stipendiya arizalari endi bosqichli oqimga ega (yuborilgan -> hujjat tekshiruvi -> komissiya)
     // va reviewScholarshipApplication async. Bu yerdagi tezkor navbat qaror CHIQARILMAGAN barcha
     // arizalarni ko'rsatadi; to'liq ko'rib chiqish Stipendiyalar bo'limida.
+    // `returned` YAKUNLANGAN emas, lekin u ADMINDA ham turmaydi - u talabada.
+    // Shu sababli u bu navbatda ko'rinmasligi kerak edi: ilgari ko'rinardi va
+    // tasdiqlash tugmasi faol qolardi, ya'ni talaba hech narsani tuzatmasa ham
+    // arizani tasdiqlab yuborish mumkin edi - qaytarishning o'zi ma'nosiz
+    // bo'lib qolardi. Baholash sahifasi uni allaqachon chiqarib tashlagan;
+    // bu ro'yxat esa chetda qolgan.
     const scholarshipRows = useMemo(() => db.getScholarshipApplications()
-        .filter(a => !getApplicationStatusMeta(a.status).terminal)
+        .filter(a => !getApplicationStatusMeta(a.status).terminal && a.status !== 'returned')
         .map(a => ({
             id: a.id, kind: 'scholarship',
             title: a.grantTitle,

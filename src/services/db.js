@@ -9401,6 +9401,16 @@ export const db = {
         const app = (dbData.scholarshipApplications || []).find(a => a.id === applicationId);
         if (!app) throw new Error('Ariza topilmadi');
 
+        // Qaytarilgan ariza TALABADA turadi. Qaysi ekrandan chaqirilishidan
+        // qat'i nazar, u tuzatib qayta yubormaguncha qaror qabul qilinmaydi -
+        // aks holda qaytarish amali ma'nosini yo'qotadi.
+        if (app.status === 'returned') {
+            throw new Error(
+                "Ariza talabaga tuzatish uchun qaytarilgan. Talaba tuzatib qayta "
+                + "yuborgandan keyin qaror qabul qilish mumkin."
+            );
+        }
+
         // "Bosqich ichida admin baholashga aralashmaydi" - qoida interfeysdagina emas,
         // shu yerda ham majburlanadi. Zanjirning yakuniy bosqichigacha arizaga faqat
         // biriktirilgan komissiya ta'sir qila oladi; admin kuzatadi va bosqichdan
@@ -14885,6 +14895,18 @@ export const db = {
         const stage = resolvePipeline(grant)[app.stageIndex ?? 0];
         if (!stage || stage.type !== 'document_review') {
             throw new Error("Bu ariza hujjat ko'rigi bosqichida emas");
+        }
+        // Qaytarilgan ariza TALABADA turadi, ko'rib chiquvchida emas.
+        // Bosqich o'zgarmagani uchun yuqoridagi tekshiruv uni to'smasdi va
+        // ko'rib chiquvchi talaba hech narsani tuzatmasa ham arizani keyingi
+        // bosqichga o'tkazib yubora olardi. Qaytarishning o'zi esa ma'nosini
+        // yo'qotardi. Faqat "qayta qaytarish" mumkin emas - u allaqachon
+        // qaytarilgan.
+        if (app.status === 'returned') {
+            throw new Error(
+                "Ariza talabaga tuzatish uchun qaytarilgan. Talaba tuzatib qayta "
+                + "yuborgandan keyin qaror qabul qilish mumkin."
+            );
         }
         if (!canActOnStage(dbData, app, stage, reviewer)) {
             throw new Error("Siz bu bosqichda qaror qabul qilishga biriktirilmagansiz");
