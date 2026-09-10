@@ -2,6 +2,7 @@ import React from 'react';
 import { ClipboardList, BarChart3 } from 'lucide-react';
 import { useTabParam } from '../../hooks/useTabParam';
 import SocialActivityManagement from '../../components/admin/SocialActivityManagement';
+import CriterionConfirmationPanel from '../../components/admin/CriterionConfirmationPanel';
 import RankingsPage from '../management/RankingsPage';
 
 // "Ijtimoiy faollik" va "Reytinglar" bo'limlari BITTA bo'limga birlashtirildi.
@@ -73,7 +74,18 @@ const ActivityAndRankingsPage = () => {
                 </div>
             </div>
 
-            {section === 'ish' && <SocialActivityManagement embedded />}
+            {section === 'ish' && (
+                <div className="space-y-6">
+                    <SocialActivityManagement embedded />
+                    {/* Talaba yuborgan DALIL (ma'lumotnoma) shu yerda tasdiqlanadi.
+                        Ilgari bu panel faqat Sozlamalar ichida va tyutor ish stolida
+                        turardi - ya'ni talaba dalil yuborsa, administrator uni o'zi
+                        kutgan joyda (shu bo'limda) umuman ko'rmasdi. Yuqoridagi
+                        "Ish jarayoni" izohida "tasdiqlash" allaqachon yozilgan edi,
+                        paneli esa yo'q edi. */}
+                    <CriterionConfirmationPanel criterionKey="CLUBS" />
+                </div>
+            )}
             {section === 'tahlil' && <RankingsPage embedded />}
         </div>
     );
