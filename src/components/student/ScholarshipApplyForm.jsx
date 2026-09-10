@@ -21,11 +21,23 @@ import {
 // Ikki joydan chaqiriladi, lekin nusxa ko'chirilmaydi.
 //
 // TALAB QILINADIGAN: `grant`, `profile` (eligibility profili), `studentId`.
-const ScholarshipApplyForm = ({ grant, profile, studentId, onDone, onCancel }) => {
-    const [declared, setDeclared] = useState({});
-    const [attached, setAttached] = useState([]);
-    const [preparedDocs, setPreparedDocs] = useState([]);
-    const [note, setNote] = useState('');
+// `existingApplication` berilsa forma TUZATISH rejimida ishlaydi: maydonlar
+// avvalgi ariza bilan to'ldiriladi va yuborilganda yangi ariza yaratilmaydi,
+// o'shaning o'zi yangilanadi. Talaba zanjirdagi o'z o'rnida qoladi.
+//
+// Ilgari tuzatishga qaytarilgan ariza uchun forma UMUMAN ochilmasdi - tugma
+// o'sha hujjatlarni o'zgarishsiz qayta yuborardi, ya'ni talaba aslida hech
+// narsani tuzata olmasdi.
+const ScholarshipApplyForm = ({ grant, profile, studentId, existingApplication = null, onDone, onCancel }) => {
+    const isFixing = !!existingApplication;
+    const [declared, setDeclared] = useState(existingApplication?.declared || {});
+    const [attached, setAttached] = useState(existingApplication?.attachedDocumentIds || []);
+    const [preparedDocs, setPreparedDocs] = useState(
+        (existingApplication?.uploadedDocs || []).map(d => ({
+            typeId: d.typeId, documentId: d.documentId, title: d.title,
+        }))
+    );
+    const [note, setNote] = useState(existingApplication?.note || '');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
 
@@ -116,6 +128,21 @@ const ScholarshipApplyForm = ({ grant, profile, studentId, onDone, onCancel }) =
     const submit = async () => {
         setBusy(true); setError('');
         try {
+            if (isFixing) {
+                await db.resubmitScholarshipApplication(existingApplication.id, studentId, {
+                    declared,
+                    attachedDocumentIds: attached,
+                    uploadedDocs: preparedDocs.map(d => ({
+                        typeId: d.typeId,
+                        documentId: d.documentId,
+                        title: d.title,
+                        declaredAt: new Date().toISOString(),
+                    })),
+                    note,
+                });
+                onDone?.();
+                return;
+            }
             await db.createScholarshipApplication({
                 studentId,
                 grantId: grant.id,
@@ -406,7 +433,9 @@ const ScholarshipApplyForm = ({ grant, profile, studentId, onDone, onCancel }) =
                 </Button>
                 <Button variant="primary" className="flex-1 py-4 shadow-lg shadow-indigo-200"
                     icon={busy ? Loader2 : Send} onClick={submit} disabled={busy}>
-                    {busy ? 'Yuborilmoqda...' : 'Ariza yuborish'}
+                    {busy
+                        ? 'Yuborilmoqda...'
+                        : isFixing ? 'Tuzatib qayta yuborish' : 'Ariza yuborish'}
                 </Button>
             </div>
         </div>

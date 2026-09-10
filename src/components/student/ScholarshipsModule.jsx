@@ -6,6 +6,9 @@ import {
 } from 'lucide-react';
 import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
+import Modal from '../../components/common/Modal';
+import ScholarshipApplyForm from './ScholarshipApplyForm';
+import { buildStudentEligibilityProfile } from '../../utils/scholarshipEligibility';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import { getApplicationStatusMeta, resolvePipeline } from '../../config/scholarships';
@@ -49,16 +52,16 @@ const ScholarshipsModule = ({ embedded = false }) => {
         };
     }, [myApplications]);
 
-    // Tuzatishga qaytarilgan arizani qayta yuborish. Zanjirdagi o'rni saqlanadi:
+    // Tuzatishga qaytarilgan arizani QAYTA OCHISH. Zanjirdagi o'rni saqlanadi:
     // talaba boshqatdan boshlamaydi, o'sha hujjat ko'rigiga qaytadi.
-    const resubmit = async (app) => {
-        setBusy(true); setError(''); setFlash('');
-        try {
-            await db.resubmitScholarshipApplication(app.id, studentId);
-            setFlash('Arizangiz qayta yuborildi.');
-            bump();
-        } catch (e) { setError(e.message || String(e)); }
-        finally { setBusy(false); }
+    //
+    // Ilgari bu tugma formani ochmasdan, o'sha hujjatlarni o'zgarishsiz qayta
+    // yuborardi - ya'ni "tuzatish" nomi bor edi, imkoni yo'q edi.
+    const [fixing, setFixing] = useState(null);
+    const openFix = (app) => {
+        const grant = db.getScholarshipGrant(app.grantId);
+        if (!grant) { setError('Grant topilmadi.'); return; }
+        setFixing({ app, grant, profile: buildStudentEligibilityProfile(db, studentId) });
     };
 
     const withdraw = async (app) => {
@@ -211,9 +214,9 @@ const ScholarshipsModule = ({ embedded = false }) => {
                                                 {app.reviewComment && (
                                                     <p className="text-xs text-red-700 mt-1">{app.reviewComment}</p>
                                                 )}
-                                                <button onClick={() => resubmit(app)} disabled={busy}
+                                                <button onClick={() => openFix(app)} disabled={busy}
                                                     className="mt-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg">
-                                                    Tuzatdim, qayta yuborish
+                                                    Hujjatlarni tuzatish
                                                 </button>
                                             </div>
                                         )}
@@ -270,6 +273,31 @@ const ScholarshipsModule = ({ embedded = false }) => {
                     </div>
                 </Card>
             )}
+
+            {/* TUZATISH OYNASI - ariza berish formasining o'zi, faqat
+                mavjud ariza bilan to'ldirilgan holda. Yangi ariza
+                yaratilmaydi, o'shaning o'zi yangilanadi. */}
+            <Modal
+                isOpen={!!fixing}
+                onClose={() => setFixing(null)}
+                title={fixing ? `${fixing.grant.title} — hujjatlarni tuzatish` : ''}
+                size="lg"
+            >
+                {fixing && (
+                    <ScholarshipApplyForm
+                        grant={fixing.grant}
+                        profile={fixing.profile}
+                        studentId={studentId}
+                        existingApplication={fixing.app}
+                        onCancel={() => setFixing(null)}
+                        onDone={() => {
+                            setFixing(null);
+                            setFlash('Arizangiz tuzatilib qayta yuborildi.');
+                            bump();
+                        }}
+                    />
+                )}
+            </Modal>
         </div>
     );
 };
