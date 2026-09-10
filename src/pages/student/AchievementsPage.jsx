@@ -1,6 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trophy, Sparkles, GraduationCap, ArrowRight, Info, Eye, ShieldCheck, ExternalLink } from 'lucide-react';
+import {
+    Trophy, Sparkles, GraduationCap, ArrowRight, Info, Eye, ShieldCheck,
+    ExternalLink, FileText, Printer,
+} from 'lucide-react';
+import { useTabParam } from '../../hooks/useTabParam';
 import Card from '../../components/common/Card';
 import Modal from '../../components/common/Modal';
 import CertificateGenerator from '../../components/common/CertificateGenerator';
@@ -15,21 +19,35 @@ import { matchOpportunitiesForStudent } from '../../utils/opportunityMatching';
 // Hujjat faqat ishtirokchilarga emas, hakam/volontyor/tashkilotchilarga ham beriladi.
 const ROLE_LABELS = { judge: 'Hakam', volunteer: 'Volontyor', organizer: 'Tashkilotchi' };
 
-// Talaba kabinetidagi "Yutuqlar va imtiyozlar" bo'limi. Ikkita tab:
-//   1. Mening yutuqlarim va imtiyozlarim - shu talabaning rasmiy hujjatlari (CertificatesPage qayta
-//      ishlatiladi, dublikat qilinmaydi) va shulardan kelib chiqadigan imkoniyatlari.
-//   2. Umumiy imtiyoz va imkoniyatlar - universitet bo'ylab mavjud grant/stipendiya yo'nalishlari.
-// Bo'lim keyinchalik kengaytiriladi; hozir faqat REAL ma'lumot ko'rsatiladi, o'ylab topilgani emas.
+// Talaba kabinetidagi "CV / Portfolio" bo'limi.
+//
+// NEGA AYNAN SHU SAHIFA CV BO'LDI: u allaqachon yarim CV edi - portfolio
+// qisqartmasi, rasmiy hujjatlar reestri, talaba yuklagan hujjatlar va
+// sertifikat generatori shu yerda turardi. Yangi to'rtinchi bo'lim ochish
+// bitta talaba haqidagi ma'lumotni yana bir joyga ko'chirardi; loyihada
+// bu xato bir marta admin panelida uchragan va bo'limlar birlashtirilgan.
+//
+// CHEGARA: bu sahifada BALL ko'rsatilmaydi. Ball va mezonlar "Faollik va
+// skoring" bo'limining ishi. Bu yerda o'sha yozuvlar ball emas, tarjimai
+// hol qatori sifatida chiqadi. Ikkalasi bir xil narsani ikki xil raqam
+// bilan ko'rsatmasligi kerak.
+//
+// Ikkita tab:
+//   1. CV - shu talabaning tasdiqlangan yozuvlari, chop etishga tayyor.
+//   2. Imtiyoz va imkoniyatlar - universitet bo'ylab grant yo'nalishlari.
 const TABS = [
-    { id: 'mine', label: 'Mening yutuqlarim va imtiyozlarim', icon: Trophy },
-    { id: 'general', label: 'Umumiy imtiyoz va imkoniyatlar', icon: Sparkles }
+    { id: 'mine', label: 'CV', icon: FileText },
+    { id: 'general', label: 'Imtiyoz va imkoniyatlar', icon: Sparkles }
 ];
+const TAB_IDS = TABS.map(t => t.id);
 
 // `embedded` - "Yutuq va imkoniyatlar" bo'limining tabi ichida ko'rsatilganda
 // o'z sarlavhasi va ichki tablarini chizmaydi (aks holda ikki qavat tab bo'lardi).
 const AchievementsPage = ({ embedded = false }) => {
     const { user } = useAuth();
-    const [tab, setTab] = useState('mine');
+    // Tab URL da turadi: aks holda brauzerning Orqaga tugmasi foydalanuvchini
+    // bo'limdan butunlay chiqarib yuborardi.
+    const [tab, setTab] = useTabParam(TAB_IDS, 'mine');
     const [previewDoc, setPreviewDoc] = useState(null);
     // Hujjat yuklangandan keyin portfolio ham yangilanishi kerak - ikkalasi
     // bitta sanoqqa bog'langan.
@@ -85,13 +103,34 @@ const AchievementsPage = ({ embedded = false }) => {
         <div className="space-y-6">
             {!embedded && (
                 <>
-                    <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-2xl p-8 text-white shadow-xl">
-                        <h1 className="text-3xl font-bold mb-1 flex items-center gap-3">
-                            <Trophy className="w-8 h-8" /> Yutuqlar va imtiyozlar
-                        </h1>
-                        <p className="text-amber-100">
-                            Rasmiy hujjatlaringiz va ular ochadigan imkoniyatlar
-                        </p>
+                    {/* CV sarlavhasi - hujjat ko'rinishida. Chop etish shu yerda,
+                        chunki foydalanuvchi uni sahifaning boshida qidiradi.
+                        Brauzerning chop etish oynasi "PDF sifatida saqlash"ni
+                        ham beradi, ya'ni alohida yuklab olish tugmasi shart emas. */}
+                    <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-8 text-white shadow-xl">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="min-w-0">
+                                <h1 className="text-3xl font-bold mb-1 flex items-center gap-3">
+                                    <FileText className="w-8 h-8" /> CV / Portfolio
+                                </h1>
+                                <p className="text-slate-300">
+                                    {user?.fullName || user?.username}
+                                    {user?.faculty ? ` · ${user.faculty}` : ''}
+                                    {user?.course ? ` · ${user.course}-kurs` : ''}
+                                </p>
+                                <p className="text-slate-400 text-sm mt-1.5 max-w-xl">
+                                    Akademik, ijtimoiy va professional faoliyatingiz bir hujjatda.
+                                    Hammasi platformadagi tasdiqlangan yozuvdan yig'iladi.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => window.print()}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-sm font-bold text-white transition-colors"
+                            >
+                                <Printer size={15} /> Chop etish / PDF
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex flex-wrap gap-1 bg-gray-100 rounded-xl p-1 w-fit">

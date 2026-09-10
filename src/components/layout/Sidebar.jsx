@@ -66,7 +66,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         // To'rtta alohida bo'lim ("Imkoniyatlar", "Stipendiyalar", "Yutuqlar va
         // imtiyozlar", "Mening rivojlanishim") bitta jamlovchi bo'limga birlashtirildi -
         // ular bir-birining davomi edi.
-        { icon: Trophy, label: 'Yutuq va imkoniyatlar', path: '/student/achievements' },
+        { icon: FileText, label: 'CV / Portfolio', path: '/student/achievements' },
         // "Davomat" emas, "Ishtirokim": bu sahifa dars davomatini ko'rsatmaydi (u
         // HEMIS tomonida), tadbir va musobaqalardagi qatnashuvni ko'rsatadi.
         { icon: CheckSquare, label: 'Ishtirokim', path: '/student/attendance' },

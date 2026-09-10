@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import {
     ShieldCheck, GraduationCap, BarChart3, Users, Trophy, BookOpen,
-    CalendarCheck, Info, Printer,
+    CalendarCheck, Info,
 } from 'lucide-react';
 import Card from '../common/Card';
 import { db } from '../../services/db';
@@ -48,27 +48,14 @@ const PortfolioSummary = ({ studentId, version = 0 }) => {
     return (
         <div className="space-y-4">
             <Card>
-                <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
-                    <div>
-                        <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                            <ShieldCheck size={17} className="text-emerald-600" /> Portfolio
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-0.5 max-w-xl leading-relaxed">
-                            Platformadagi yozuvingizdan avtomatik yig'ilgan. Har raqam ortida
-                            tasdiqlangan manba turadi — siz hech narsa kiritmaysiz.
-                        </p>
-                    </div>
-                    {/* Chop etish - brauzerning o'z imkoniyati. PDF yaratish
-                        alohida kutubxona talab qiladi va u hali qo'shilmagan;
-                        "yuklab olish" tugmasini ishlamaydigan holda qo'yish
-                        yolg'on bo'lardi. */}
-                    <button
-                        type="button"
-                        onClick={() => window.print()}
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50"
-                    >
-                        <Printer size={14} /> Chop etish
-                    </button>
+                <div className="mb-3">
+                    <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                        <ShieldCheck size={17} className="text-emerald-600" /> Umumiy ko'rsatkichlar
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5 max-w-xl leading-relaxed">
+                        Platformadagi yozuvingizdan avtomatik yig'ilgan. Har raqam ortida
+                        tasdiqlangan manba turadi — siz hech narsa kiritmaysiz.
+                    </p>
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
@@ -109,6 +96,33 @@ const PortfolioSummary = ({ studentId, version = 0 }) => {
                 </div>
             </Card>
 
+            {/* CV JOYLASHUVI: chapda tarjimai hol (ta'lim, klub faoliyati),
+                o'ngda tasdiqlangan hujjatlar. Ikki ustun ataylab - chop
+                etilganda ham, ekranda ham CV shakliga yaqin turadi. */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+            <div className="space-y-4">
+
+            {/* TA'LIM - CV ning birinchi bo'limi. Ma'lumot pasportdan va
+                akademik yozuvdan keladi, talaba hech narsa kiritmaydi. */}
+            {p.student && (
+                <Card>
+                    <h4 className="font-bold text-gray-900 mb-2.5">Ta'lim</h4>
+                    <p className="text-sm font-semibold text-gray-900">
+                        Toshkent davlat yuridik universiteti
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                        {[p.student.faculty, p.student.course ? `${p.student.course}-kurs` : null,
+                          p.student.group].filter(Boolean).join(' · ')}
+                    </p>
+                    {p.academic.gpa !== null && (
+                        <p className="text-xs text-gray-500 mt-1">
+                            O'rtacha baho: <span className="font-bold text-gray-800">{p.academic.gpa}</span>
+                            {p.academic.gpaYear ? ` · ${p.academic.gpaYear}` : ''}
+                        </p>
+                    )}
+                </Card>
+            )}
+
             {/* KLUBLAR VA LAVOZIMLAR */}
             {p.clubs.length > 0 && (
                 <Card>
@@ -125,6 +139,9 @@ const PortfolioSummary = ({ studentId, version = 0 }) => {
                     </div>
                 </Card>
             )}
+
+            </div>
+            <div className="space-y-4">
 
             {/* RASMIY HUJJATLAR - eng muhimi tepada */}
             {p.documents.length > 0 && (
@@ -161,6 +178,9 @@ const PortfolioSummary = ({ studentId, version = 0 }) => {
                     )}
                 </Card>
             )}
+
+            </div>
+            </div>
 
             {p.documents.length === 0 && p.counts.clubs === 0 && (
                 <p className="flex items-start gap-2 text-xs text-gray-500 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
