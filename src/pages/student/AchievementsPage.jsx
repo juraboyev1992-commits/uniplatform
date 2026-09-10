@@ -48,7 +48,11 @@ const AchievementsPage = ({ embedded = false }) => {
     const { user } = useAuth();
     // Tab URL da turadi: aks holda brauzerning Orqaga tugmasi foydalanuvchini
     // bo'limdan butunlay chiqarib yuborardi.
-    const [tab, setTab] = useTabParam(TAB_IDS, 'mine');
+    //
+    // Kalit ATAYLAB `cvtab`: bu sahifa AchievementsHubPage ichida ham
+    // ko'rsatiladi va u ham `tab` parametrini ishlatadi. Bir xil kalit
+    // bo'lsa ikkalasi bir-birining tanlovini buzib turardi.
+    const [tab, setTab] = useTabParam(TAB_IDS, 'mine', 'cvtab');
     const [previewDoc, setPreviewDoc] = useState(null);
     // Hujjat yuklangandan keyin portfolio ham yangilanishi kerak - ikkalasi
     // bitta sanoqqa bog'langan.

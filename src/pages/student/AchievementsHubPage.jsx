@@ -35,7 +35,10 @@ const TABS = [
     // Rivojlanishim) o'z nomidan tushunarli.
     { id: 'opportunities', label: 'Imkoniyatlarim', icon: Target, caption: 'Stipendiya, grant, tanlov, mukofot' },
     { id: 'applications', label: 'Arizalarim', icon: FileText },
-    { id: 'achievements', label: 'Yutuqlarim', icon: Trophy },
+    // Nomi "Yutuqlarim" edi, lekin ichida faqat yutuq emas - rasmiy
+    // hujjatlar, talaba yuklaganlari va chop etishga tayyor CV hujjati
+    // bor. Menyudagi "CV / Portfolio" aynan shu tabga olib keladi.
+    { id: 'achievements', label: 'CV / Portfolio', icon: FileText, caption: 'Hujjatlarim va chop etishga tayyor CV' },
     { id: 'development', label: 'Rivojlanishim', icon: Rocket },
 ];
 
@@ -67,7 +70,7 @@ const AchievementsHubPage = () => {
                     <Trophy className="w-8 h-8" /> Yutuq va imkoniyatlar
                 </h1>
                 <p className="text-amber-100">
-                    Sizga mos imkoniyatlar, arizalaringiz, rasmiy hujjatlaringiz va rivojlanish rejangiz
+                    Sizga mos imkoniyatlar, arizalaringiz, CV va rivojlanish rejangiz
                 </p>
             </div>
 

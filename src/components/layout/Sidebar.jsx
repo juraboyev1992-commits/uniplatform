@@ -66,7 +66,11 @@ const Sidebar = ({ isOpen, onClose }) => {
         // To'rtta alohida bo'lim ("Imkoniyatlar", "Stipendiyalar", "Yutuqlar va
         // imtiyozlar", "Mening rivojlanishim") bitta jamlovchi bo'limga birlashtirildi -
         // ular bir-birining davomi edi.
-        { icon: FileText, label: 'CV / Portfolio', path: '/student/achievements' },
+        // Manzilda `?tab=achievements` bor: bu bo'lim to'rtta tabli va
+        // odatda "Imkoniyatlarim" da ochiladi. Menyudagi nom CV degach,
+        // bosilganda aynan CV tabi ochilishi kerak - aks holda
+        // foydalanuvchi CV ni topa olmaydi.
+        { icon: FileText, label: 'CV / Portfolio', path: '/student/achievements?tab=achievements' },
         // "Davomat" emas, "Ishtirokim": bu sahifa dars davomatini ko'rsatmaydi (u
         // HEMIS tomonida), tadbir va musobaqalardagi qatnashuvni ko'rsatadi.
         { icon: CheckSquare, label: 'Ishtirokim', path: '/student/attendance' },
