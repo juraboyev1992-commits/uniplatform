@@ -54,6 +54,7 @@ const AchievementsPage = ({ embedded = false }) => {
     // bo'lsa ikkalasi bir-birining tanlovini buzib turardi.
     const [tab, setTab] = useTabParam(TAB_IDS, 'mine', 'cvtab');
     const [previewDoc, setPreviewDoc] = useState(null);
+    const [cvOpen, setCvOpen] = useState(false);
     // Hujjat yuklangandan keyin portfolio ham yangilanishi kerak - ikkalasi
     // bitta sanoqqa bog'langan.
     const [version, setVersion] = useState(0);
@@ -179,13 +180,16 @@ const AchievementsPage = ({ embedded = false }) => {
                         keladi. Hujjatlar jadvali javobning bir qismi, portfolio
                         esa butun manzarani beradi: GPA, indeks, klublar,
                         o'qilgan asarlar. */}
-                    {/* CV HUJJATI - eng tepada. Talaba bu bo'limga
-                        "meni tashqarida qanday ko'rishadi" degan savol bilan
-                        keladi; javob shu hujjat. Pastdagi kartochkalar esa
-                        "menda nima bor va nimasi yetishmaydi" ni ko'rsatadi. */}
-                    <StudentCvDocument studentId={user?.username} version={version} />
-
-                    <PortfolioSummary studentId={user?.username} version={version} />
+                    {/* CV hujjati ALOHIDA OYNADA ochiladi: u chop etish uchun
+                        mo'ljallangan va sahifada doim turishi shart emas.
+                        Ekrandagi kartochkalar "menda nima bor" ni, hujjat esa
+                        "buni tashqaridagi odamga qanday ko'rsataman" ni
+                        ko'rsatadi. */}
+                    <PortfolioSummary
+                        studentId={user?.username}
+                        version={version}
+                        onOpenCv={() => setCvOpen(true)}
+                    />
 
                     {/* Talaba yuklaydigan tashqi hujjatlar. Tizim bergan rasmiy
                         hujjatlardan ALOHIDA turadi - ularning ishonchlilik
@@ -344,6 +348,39 @@ const AchievementsPage = ({ embedded = false }) => {
                         />
                     </div>
                 )}
+            </Modal>
+
+            {/* CV OYNASI */}
+            <Modal
+                isOpen={cvOpen}
+                onClose={() => setCvOpen(false)}
+                title="CV"
+                size="lg"
+            >
+                <div className="space-y-4">
+                    <div className="flex justify-end">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                // Belgi faqat chop etish paytida turadi va
+                                // `afterprint` da olib tashlanadi: ba'zi
+                                // brauzerlarda window.print() oyna yopilishini
+                                // kutmay qaytadi.
+                                document.body.classList.add('cv-printing');
+                                const cleanup = () => {
+                                    document.body.classList.remove('cv-printing');
+                                    window.removeEventListener('afterprint', cleanup);
+                                };
+                                window.addEventListener('afterprint', cleanup);
+                                window.print();
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50"
+                        >
+                            <Printer size={15} /> Chop etish / PDF
+                        </button>
+                    </div>
+                    <StudentCvDocument studentId={user?.username} version={version} />
+                </div>
             </Modal>
 
             {!embedded && tab === 'general' && (
