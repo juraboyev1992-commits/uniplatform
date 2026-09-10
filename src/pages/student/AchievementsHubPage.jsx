@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
 import { useTabParam } from '../../hooks/useTabParam';
-import { Target, FileText, Rocket } from 'lucide-react';
+import { Trophy, Target, FileText, Rocket } from 'lucide-react';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import OpportunitiesPage from './OpportunitiesPage';
+import AchievementsPage from './AchievementsPage';
 import MyDevelopmentPage from './MyDevelopmentPage';
 import ScholarshipsModule from '../../components/student/ScholarshipsModule';
 import { getApplicationStatusMeta } from '../../config/scholarships';
@@ -34,6 +35,7 @@ const TABS = [
     // Rivojlanishim) o'z nomidan tushunarli.
     { id: 'opportunities', label: 'Imkoniyatlarim', icon: Target, caption: 'Stipendiya, grant, tanlov, mukofot' },
     { id: 'applications', label: 'Arizalarim', icon: FileText },
+    { id: 'achievements', label: 'Yutuqlarim', icon: Trophy },
     { id: 'development', label: 'Rivojlanishim', icon: Rocket },
 ];
 
@@ -62,11 +64,10 @@ const AchievementsHubPage = () => {
         <div className="space-y-6">
             <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-2xl p-8 text-white shadow-xl">
                 <h1 className="text-3xl font-bold mb-1 flex items-center gap-3">
-                    <Target className="w-8 h-8" /> Imkoniyat va rivojlanish
+                    <Trophy className="w-8 h-8" /> Yutuq va imkoniyatlar
                 </h1>
                 <p className="text-amber-100">
-                    Sizga mos imkoniyatlar, arizalaringiz va rivojlanish rejangiz.
-                    Hujjatlaringiz va CV alohida bo'limda.
+                    Sizga mos imkoniyatlar, arizalaringiz, rasmiy hujjatlaringiz va rivojlanish rejangiz
                 </p>
             </div>
 
@@ -105,6 +106,7 @@ const AchievementsHubPage = () => {
 
             {tab === 'opportunities' && <OpportunitiesPage embedded />}
             {tab === 'applications' && <ScholarshipsModule embedded />}
+            {tab === 'achievements' && <AchievementsPage embedded />}
             {tab === 'development' && <MyDevelopmentPage embedded />}
         </div>
     );

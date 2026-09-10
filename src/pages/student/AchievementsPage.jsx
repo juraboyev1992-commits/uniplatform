@@ -1,14 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-    Trophy, GraduationCap, ArrowRight, Info, Eye, ShieldCheck,
-    ExternalLink, FileText, Printer, X,
-} from 'lucide-react';
+import { Trophy, Sparkles, GraduationCap, ArrowRight, Info, Eye, ShieldCheck, ExternalLink } from 'lucide-react';
 import Card from '../../components/common/Card';
 import Modal from '../../components/common/Modal';
 import CertificateGenerator from '../../components/common/CertificateGenerator';
 import PortfolioSummary from '../../components/student/PortfolioSummary';
-import StudentCvDocument from '../../components/student/StudentCvDocument';
 import StudentDocumentsPanel from '../../components/student/StudentDocumentsPanel';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
@@ -19,52 +15,22 @@ import { matchOpportunitiesForStudent } from '../../utils/opportunityMatching';
 // Hujjat faqat ishtirokchilarga emas, hakam/volontyor/tashkilotchilarga ham beriladi.
 const ROLE_LABELS = { judge: 'Hakam', volunteer: 'Volontyor', organizer: 'Tashkilotchi' };
 
-// Talaba kabinetidagi "CV / Portfolio" bo'limi.
-//
-// NEGA AYNAN SHU SAHIFA CV BO'LDI: u allaqachon yarim CV edi - portfolio
-// qisqartmasi, rasmiy hujjatlar reestri, talaba yuklagan hujjatlar va
-// sertifikat generatori shu yerda turardi. Yangi to'rtinchi bo'lim ochish
-// bitta talaba haqidagi ma'lumotni yana bir joyga ko'chirardi; loyihada
-// bu xato bir marta admin panelida uchragan va bo'limlar birlashtirilgan.
-//
-// CHEGARA: bu sahifada BALL ko'rsatilmaydi. Ball va mezonlar "Faollik va
-// skoring" bo'limining ishi. Bu yerda o'sha yozuvlar ball emas, tarjimai
-// hol qatori sifatida chiqadi. Ikkalasi bir xil narsani ikki xil raqam
-// bilan ko'rsatmasligi kerak.
-//
-// TAB YO'Q. Ilgari ikkinchi tab bor edi ("Imtiyoz va imkoniyatlar"), lekin
-// u "Imkoniyat va rivojlanish" bo'limi bilan ochiq takrorlanardi: ikkalasi
-// ham talabaga mos keladigan grantlarni sanardi. CV o'z bo'limiga
-// ajratilgach bu ayniqsa chalkash bo'lib qoldi, shuning uchun olib
-// tashlandi - o'sha bo'limga havola qoldirildi.
-//
-// `embedded` - boshqa sahifa ichida ko'rsatilganda o'z sarlavhasini
-// chizmaydi. Hozir ishlatilmaydi, lekin propni olib tashlash chaqiruv
-// joylarini o'zgartirishni talab qiladi.
+// Talaba kabinetidagi "Yutuqlar va imtiyozlar" bo'limi. Ikkita tab:
+//   1. Mening yutuqlarim va imtiyozlarim - shu talabaning rasmiy hujjatlari (CertificatesPage qayta
+//      ishlatiladi, dublikat qilinmaydi) va shulardan kelib chiqadigan imkoniyatlari.
+//   2. Umumiy imtiyoz va imkoniyatlar - universitet bo'ylab mavjud grant/stipendiya yo'nalishlari.
+// Bo'lim keyinchalik kengaytiriladi; hozir faqat REAL ma'lumot ko'rsatiladi, o'ylab topilgani emas.
+const TABS = [
+    { id: 'mine', label: 'Mening yutuqlarim va imtiyozlarim', icon: Trophy },
+    { id: 'general', label: 'Umumiy imtiyoz va imkoniyatlar', icon: Sparkles }
+];
+
+// `embedded` - "Yutuq va imkoniyatlar" bo'limining tabi ichida ko'rsatilganda
+// o'z sarlavhasi va ichki tablarini chizmaydi (aks holda ikki qavat tab bo'lardi).
 const AchievementsPage = ({ embedded = false }) => {
     const { user } = useAuth();
+    const [tab, setTab] = useState('mine');
     const [previewDoc, setPreviewDoc] = useState(null);
-    const [cvOpen, setCvOpen] = useState(false);
-
-    // Chop etishda faqat CV chiqadi (uslubi src/index.css da). Belgi
-    // `afterprint` da olib tashlanadi: ba'zi brauzerlarda window.print()
-    // oyna yopilishini kutmay qaytadi va darhol o'chirilsa chop etish
-    // bo'sh sahifa bilan tugardi.
-    //
-    // CV paneli yopiq bo'lsa avval ochiladi - aks holda chop etiladigan
-    // element sahifada umuman bo'lmaydi va bo'sh varaq chiqadi.
-    const printCv = () => {
-        setCvOpen(true);
-        window.requestAnimationFrame(() => {
-            document.body.classList.add('cv-printing');
-            const cleanup = () => {
-                document.body.classList.remove('cv-printing');
-                window.removeEventListener('afterprint', cleanup);
-            };
-            window.addEventListener('afterprint', cleanup);
-            window.print();
-        });
-    };
     // Hujjat yuklangandan keyin portfolio ham yangilanishi kerak - ikkalasi
     // bitta sanoqqa bog'langan.
     const [version, setVersion] = useState(0);
@@ -119,51 +85,33 @@ const AchievementsPage = ({ embedded = false }) => {
         <div className="space-y-6">
             {!embedded && (
                 <>
-                    {/* SARLAVHA.
-                        Maketda uchta tugma bor: tahrirlash, PDF va ulashish.
-                        Bu yerda faqat ISHLAYDIGANLARI qo'yildi - tahrirlash
-                        uchun talaba o'zi kiritadigan maydonlar hali yo'q,
-                        ulashish esa ommaviy havola va maxfiylik sozlamasini
-                        talab qiladi. Ishlamaydigan tugma qo'yish maketga
-                        o'xshatadi, lekin foydalanuvchini aldaydi. */}
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div className="min-w-0">
-                            <h1 className="text-3xl font-black text-slate-900">Mening CV'im</h1>
-                            <p className="text-sm text-gray-500 mt-1">
-                                Sizning akademik, professional va ijtimoiy faoliyatingizning yagona markazi
-                            </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setCvOpen(v => !v)}
-                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-colors ${
-                                    cvOpen
-                                        ? 'bg-blue-700 border-blue-700 text-white hover:bg-blue-800'
-                                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                                }`}
-                            >
-                                <FileText size={15} /> CV ko'rinishi
-                            </button>
-                            <button
-                                type="button"
-                                onClick={printCv}
-                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-bold transition-colors"
-                            >
-                                <Printer size={15} /> PDF yuklab olish
-                            </button>
-                        </div>
+                    <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-2xl p-8 text-white shadow-xl">
+                        <h1 className="text-3xl font-bold mb-1 flex items-center gap-3">
+                            <Trophy className="w-8 h-8" /> Yutuqlar va imtiyozlar
+                        </h1>
+                        <p className="text-amber-100">
+                            Rasmiy hujjatlaringiz va ular ochadigan imkoniyatlar
+                        </p>
                     </div>
 
+                    <div className="flex flex-wrap gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+                        {TABS.map(t => (
+                            <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => setTab(t.id)}
+                                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-colors ${tab === t.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                                    }`}
+                            >
+                                <t.icon size={15} /> {t.label}
+                            </button>
+                        ))}
+                    </div>
                 </>
             )}
 
-            {(
-                <div className="flex flex-col xl:flex-row gap-5 items-start">
-                {/* IKKI PANEL - maketdagidek: chapda ish maydoni, o'ngda CV
-                    hujjati. Panel yopilganda asosiy qism butun kenglikni
-                    egallaydi. */}
-                <div className="flex-1 min-w-0 space-y-6">
+            {tab === 'mine' && (
+                <div className="space-y-6">
                     {/* PORTFOLIO - eng tepada.
                         Talaba bu bo'limga "menda nima bor" degan savol bilan
                         keladi. Hujjatlar jadvali javobning bir qismi, portfolio
@@ -288,33 +236,6 @@ const AchievementsPage = ({ embedded = false }) => {
                         </p>
                     </Card>
                 </div>
-
-                {cvOpen && (
-                    <aside className="cv-panel w-full xl:w-[430px] shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 xl:sticky xl:top-4">
-                        <div className="flex items-center justify-between gap-3 mb-4">
-                            <h3 className="font-black text-gray-900">CV</h3>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={printCv}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50"
-                                >
-                                    <Printer size={13} /> Chop etish
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setCvOpen(false)}
-                                    aria-label="Yopish"
-                                    className="w-7 h-7 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 flex items-center justify-center"
-                                >
-                                    <X size={16} />
-                                </button>
-                            </div>
-                        </div>
-                        <StudentCvDocument studentId={user?.username} version={version} />
-                    </aside>
-                )}
-                </div>
             )}
 
             <Modal
@@ -357,26 +278,41 @@ const AchievementsPage = ({ embedded = false }) => {
                 )}
             </Modal>
 
-            {/* CV NIMA BERADI - ilgari "Umumiy imtiyoz va imkoniyatlar"
-                tabida turardi. O'sha tabning qolgan qismi (mos keladigan
-                imkoniyatlar ro'yxati) "Imkoniyat va rivojlanish" bo'limi
-                bilan ochiq takrorlanardi, shuning uchun olib tashlandi -
-                bu izoh esa CV ning o'ziga tegishli va joyida qoldi. */}
-            <Card className="p-5">
-                <h3 className="font-bold text-gray-900 mb-1">CV nima beradi?</h3>
-                <ul className="text-sm text-gray-600 space-y-1.5 mt-2 list-disc pl-5">
-                    <li>Rasmiy diplom va sertifikatlar shaxsiy portfelingizga yoziladi va QR orqali istalgan vaqtda tekshiriladi.</li>
-                    <li>Tadbir va musobaqalardagi ishtirok ijtimoiy faollik baliga ta'sir qiladi.</li>
-                    <li>Portfel grant, stipendiya va tavsiyanoma uchun asos sifatida ishlatiladi.</li>
-                </ul>
-                <Link
-                    to="/student/achievements"
-                    className="inline-flex items-center gap-1.5 text-sm font-bold text-teal-700 hover:text-teal-900 mt-3"
-                >
-                    Sizga mos imkoniyatlarni ko'rish <ArrowRight size={14} />
-                </Link>
-            </Card>
+            {!embedded && tab === 'general' && (
+                <div className="space-y-4">
+                    <Card className="p-5 border-l-4 border-l-teal-600">
+                        <h3 className="font-bold text-gray-900 mb-1">Siz mos keladigan imkoniyatlar</h3>
+                        <p className="text-sm text-gray-500 mb-3">
+                            Grant, stipendiya va tanlovlar yutuqlaringizga qarab avtomatik
+                            tanlanadi — moslik darajasi va nima yetishmayotgani bilan.
+                        </p>
+                        {activeOpportunities > 0 && (
+                            <p className="text-sm font-bold text-teal-700 mb-3">
+                                Hozir sizga {activeOpportunities} ta imkoniyat mos keladi.
+                            </p>
+                        )}
+                        <Link
+                            to="/student/opportunities"
+                            className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-teal-700 text-white rounded-xl text-sm font-bold hover:bg-teal-800"
+                        >
+                            Imkoniyatlar bo'limi <ArrowRight size={14} />
+                        </Link>
+                    </Card>
 
+                    <Card className="p-5">
+                        <h3 className="font-bold text-gray-900 mb-1">Yutuqlar nima beradi?</h3>
+                        <ul className="text-sm text-gray-600 space-y-1.5 mt-2 list-disc pl-5">
+                            <li>Rasmiy diplom va sertifikatlar shaxsiy portfelingizga yoziladi va QR orqali istalgan vaqtda tekshiriladi.</li>
+                            <li>Tadbir va musobaqalardagi ishtirok ijtimoiy faollik baliga ta'sir qiladi.</li>
+                            <li>Portfel grant, stipendiya va tavsiyanoma uchun asos sifatida ishlatiladi.</li>
+                        </ul>
+                        <p className="flex items-start gap-1.5 text-[11px] text-gray-400 mt-3">
+                            <Info size={12} className="shrink-0 mt-px" />
+                            Bu bo'lim kengaytirilmoqda — imtiyozlarning to'liq ro'yxati va shartlari keyin qo'shiladi.
+                        </p>
+                    </Card>
+                </div>
+            )}
         </div>
     );
 };

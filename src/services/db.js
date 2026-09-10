@@ -1606,6 +1606,12 @@ const initialData = {
     // match status) to reuse directly. { id, activityId, activityType, leafUnitType, leafUnitId,
     //   lockedAt, lockedByUserId, reopenedAt, reopenedByUserId }
     activityAttendanceLocks: [],
+    // CV / Portfolio - talaba QO'LDA kiritadigan qism (bio, havolalar,
+    // ko'nikmalar, tillar, ish tajribasi, amaliyot). GPA, klublar,
+    // sertifikatlar va yutuqlar bu yerda SAQLANMAYDI: ular o'z
+    // jadvallarida turadi va CV ularni faqat o'qiydi. Nusxalash ikki xil
+    // haqiqat yaratardi. { studentId, visibility, template, purpose, ... }
+    studentCvProfiles: [],
     // Event-level delegation - mirrors competitionDelegations' shape exactly, just event-scoped (events
     // have no delegation system at all otherwise). Only the 'attendance' permission key is wired to any
     // UI today. { id, eventId, granteeUsername, permissions:['attendance'], grantedBy, grantedAt,
@@ -3035,7 +3041,8 @@ const syncCoreDataFromSupabase = async () => {
             supabase.from('discipline_violations').select('*'),
             supabase.from('club_position_assignments').select('*'),
             supabase.from('competition_round_participant_status').select('*'),
-            supabase.from('reading_sessions').select('*')
+            supabase.from('reading_sessions').select('*'),
+            supabase.from('student_cv_profile').select('*')
         ])
     ]);
 
@@ -3700,13 +3707,24 @@ const syncCoreDataFromSupabase = async () => {
         dbData.recordsBackendReady = false;
     } else {
         const unwrapRec = (res) => (res.data || []).map(r => ({ ...(r.data || {}), id: r.id }));
-        const [sipenRes, discRes, posAsgRes, roundStatusRes, readSessRes] = recordsRes;
+        const [sipenRes, discRes, posAsgRes, roundStatusRes, readSessRes, cvRes] = recordsRes;
         dbData.socialIndexPenalties = unwrapRec(sipenRes);
         dbData.disciplineViolations = unwrapRec(discRes);
         dbData.clubPositionAssignments = unwrapRec(posAsgRes)
             .sort((a, b) => (a.displayNumber || 0) - (b.displayNumber || 0));
         dbData.competitionRoundParticipantStatus = unwrapRec(roundStatusRes);
         dbData.readingSessions = unwrapRec(readSessRes);
+        // CV profilida `id` emas, `student_id` kalit - shuning uchun
+        // umumiy `unwrapRec` ishlatilmaydi.
+        dbData.studentCvProfiles = (cvRes.data || []).map(r => ({
+            ...(r.data || {}),
+            studentId: r.student_id,
+            visibility: r.visibility,
+            template: r.template,
+            purpose: r.purpose,
+            publicSlug: r.public_slug,
+            updatedAt: r.updated_at,
+        }));
         dbData.recordsBackendReady = true;
     }
 
@@ -10526,6 +10544,65 @@ export const db = {
     // va tyutor hujjatni ochib ko'ra olmasdi, ya'ni tekshirish imkonsiz edi.
     // =========================================================================
     isStudentDocsBackendReady: () => getDB().studentDocsBackendReady !== false,
+
+    // === CV / PORTFOLIO ===
+    //
+    // Bo'sh qator ham to'liq shaklda qaytariladi: chaqiruvchi har safar
+    // `?.` va `|| []` yozib chiqmasin va yangi maydon qo'shilganda
+    // hamma joyni qidirishga to'g'ri kelmasin.
+    getCvProfile: (studentId) => {
+        const row = (getDB().studentCvProfiles || []).find(r => r.studentId === studentId);
+        return {
+            studentId,
+            visibility: row?.visibility || 'private',
+            template: row?.template || 'classic',
+            purpose: row?.purpose || null,
+            publicSlug: row?.publicSlug || null,
+            bio: row?.bio || '',
+            links: row?.links || {},
+            skills: row?.skills || [],
+            languages: row?.languages || [],
+            experience: row?.experience || [],
+            internships: row?.internships || [],
+            projects: row?.projects || [],
+            hiddenSections: row?.hiddenSections || [],
+            updatedAt: row?.updatedAt || null,
+        };
+    },
+
+    // Butun obyekt yoziladi (loyihadagi mavjud naqsh): CV kichik va uni
+    // bo'lak-bo'lak yangilash foyda bermaydi, lekin maydon yo'qotish
+    // xavfini tug'diradi - bu loyihada allaqachon bir marta uchragan.
+    saveCvProfile: async (studentId, patch) => {
+        if (!studentId) throw new Error('Talaba aniqlanmadi');
+        const dbData = getDB();
+        if (!dbData.studentCvProfiles) dbData.studentCvProfiles = [];
+        const current = db.getCvProfile(studentId);
+        const next = { ...current, ...patch, studentId, updatedAt: new Date().toISOString() };
+
+        const { error } = await supabase.from('student_cv_profile').upsert({
+            student_id: studentId,
+            visibility: next.visibility,
+            template: next.template,
+            purpose: next.purpose,
+            public_slug: next.publicSlug,
+            updated_at: next.updatedAt,
+            data: next,
+        }, { onConflict: 'student_id' });
+        if (error) {
+            const missing = /relation .* does not exist/i.test(error.message || '');
+            throw new Error(missing
+                ? 'Saqlanmadi: `student_cv_profile` jadvali topilmadi. Supabase SQL Editor da '
+                  + '`supabase/student_cv_profile.sql` ni bir marta ishga tushiring.'
+                : 'Saqlanmadi: ' + (error.message || ''));
+        }
+
+        const idx = dbData.studentCvProfiles.findIndex(r => r.studentId === studentId);
+        if (idx > -1) dbData.studentCvProfiles[idx] = next;
+        else dbData.studentCvProfiles.push(next);
+        saveDB(dbData);
+        return next;
+    },
 
     getStudentDocs: (studentId, { docType = null } = {}) =>
         (getDB().studentDocuments || [])

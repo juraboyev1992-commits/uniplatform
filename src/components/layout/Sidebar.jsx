@@ -63,12 +63,13 @@ const Sidebar = ({ isOpen, onClose }) => {
         ...(isClubManager
             ? [{ icon: Gift, label: "Rag'bat va mukofot", path: '/student/incentive-awards' }]
             : []),
-        // Ilgari to'rtta alohida bo'lim ("Imkoniyatlar", "Stipendiyalar",
-        // "Yutuqlar va imtiyozlar", "Mening rivojlanishim") bitta jamlovchi
-        // bo'limga birlashtirilgan edi. Keyin CV o'z bo'limiga ajratildi:
-        // u talaba TASHQARIGA olib chiqadigan yagona hujjat, qolganlari esa
-        // universitet ichidagi jarayonlar. Shu sababli ikkita band:
-        { icon: Target, label: 'Imkoniyat va rivojlanish', path: '/student/achievements' },
+        // To'rtta alohida bo'lim ("Imkoniyatlar", "Stipendiyalar", "Yutuqlar va
+        // imtiyozlar", "Mening rivojlanishim") bitta jamlovchi bo'limga birlashtirildi -
+        // ular bir-birining davomi edi.
+        { icon: Trophy, label: 'Yutuq va imkoniyatlar', path: '/student/achievements' },
+        // CV alohida band: u talaba TASHQARIGA olib chiqadigan yagona hujjat,
+        // yuqoridagi bo'lim esa universitet ichidagi jarayonlar. CV hujjat
+        // boshqarmaydi - uni yuqoridagi bo'limdan o'qiydi.
         { icon: FileText, label: 'CV / Portfolio', path: '/student/cv' },
         // "Davomat" emas, "Ishtirokim": bu sahifa dars davomatini ko'rsatmaydi (u
         // HEMIS tomonida), tadbir va musobaqalardagi qatnashuvni ko'rsatadi.
