@@ -16,7 +16,8 @@ import {
     Clock,
     XCircle,
     RotateCcw,
-    CreditCard
+    CreditCard,
+    AlertTriangle
 } from 'lucide-react';
 import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
@@ -231,6 +232,15 @@ const SocialActivityIndex = () => {
             .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)),
         [myEvidence]
     );
+    // Tuzatishga qaytarilganlar alohida: ular talabadan AMAL kutadi, qolgan
+    // holatlar esa shunchaki ma'lumot. Pastdagi "Hujjatlarim" ro'yxati
+    // sahifaning oxirida turadi va talaba qaysi mezonni tuzatish kerakligini
+    // o'zi qidirib topishiga to'g'ri kelardi - shuning uchun yuqorida alohida
+    // ogohlantirish chiqadi.
+    const returnedEvidence = useMemo(
+        () => actionableEvidence.filter(e => e.status === 'returned'),
+        [actionableEvidence]
+    );
     const myAppeals = useMemo(
         () => db.getEvidenceAppeals(user.username),
         [user.username, applicationsVersion]
@@ -370,6 +380,40 @@ const SocialActivityIndex = () => {
                     <CreditCard size={15} /> Talaba pasporti
                 </button>
             </div>
+
+            {/* TUZATISH KUTAYOTGAN HUJJATLAR - sahifaning eng yuqorisida.
+                Xabarnoma boradi, lekin u kerakli joyga olib bormaydi; bu blok
+                esa to'g'ridan-to'g'ri tuzatish oynasini ochadi. */}
+            {returnedEvidence.length > 0 && (
+                <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4">
+                    <div className="flex items-start gap-3">
+                        <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                            <p className="font-bold text-amber-900 text-sm">
+                                {returnedEvidence.length} ta hujjat tuzatishga qaytarildi
+                            </p>
+                            <p className="text-xs text-amber-800 mt-0.5">
+                                Tuzatib qayta yubormaguningizcha bu mezon bo'yicha ball berilmaydi.
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-3">
+                                {returnedEvidence.map(ev => {
+                                    const criterion = criteria.find(c => c.key === ev.criterionKey);
+                                    return (
+                                        <button
+                                            key={ev.id}
+                                            type="button"
+                                            onClick={() => startEditEvidence(criterion, ev)}
+                                            className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition-colors"
+                                        >
+                                            {criterion?.name || ev.criterionKey}: "{ev.title}" — tuzatish
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Overall Score */}
             <Card className="border-2 border-primary-100">
