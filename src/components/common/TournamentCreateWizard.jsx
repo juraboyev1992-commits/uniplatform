@@ -702,10 +702,10 @@ const TournamentCreateWizard = ({ contextType = null, contextId = null, onCreate
                     const labelFor = (v) => (data.groupingMode === 'course' ? `${v}-kurs` : v);
                     const distinctValues = [...new Set(created.participants.map(valueFor).filter(v => v != null))];
                     const groupIdByValue = new Map();
-                    distinctValues.forEach(v => {
-                        const group = db.upsertScoringGroup(created.id, { label: labelFor(v) }, user?.username);
+                    for (const v of distinctValues) {
+                        const group = await db.upsertScoringGroup(created.id, { label: labelFor(v) }, user?.username);
                         groupIdByValue.set(v, group.id);
-                    });
+                    }
                     for (const p of created.participants) {
                         const v = valueFor(p);
                         if (v != null && groupIdByValue.has(v)) {

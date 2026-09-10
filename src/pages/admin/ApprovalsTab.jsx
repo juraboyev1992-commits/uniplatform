@@ -191,13 +191,17 @@ const ApprovalsTab = () => {
         subtitle: r.activityType === 'competition' ? 'Musobaqa' : 'Tadbir',
         studentName: r.participantSnapshot?.fullName || studentById.get(r.userId)?.fullName || r.userId,
         submittedAt: r.createdAt,
-        onApprove: () => {
-            db.reviewRegistrationApproval({ registrationId: r.id, action: 'approve', reviewerUserId: user.username });
+        onApprove: async () => {
+            try {
+                await db.reviewRegistrationApproval({ registrationId: r.id, action: 'approve', reviewerUserId: user.username });
+            } catch (e) { alert(e.message); return; }
             refresh();
         },
-        onReject: () => {
+        onReject: async () => {
             const reason = window.prompt("Rad etish sababi (ixtiyoriy):") || '';
-            db.reviewRegistrationApproval({ registrationId: r.id, action: 'reject', reviewerUserId: user.username, comment: reason });
+            try {
+                await db.reviewRegistrationApproval({ registrationId: r.id, action: 'reject', reviewerUserId: user.username, comment: reason });
+            } catch (e) { alert(e.message); return; }
             refresh();
         }
     })), [refreshKey, studentById]);

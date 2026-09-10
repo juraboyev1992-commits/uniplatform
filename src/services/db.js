@@ -604,7 +604,7 @@ const persistCriteriaSubcategory = async (sub) => {
 // uchun har biriga alohida funksiya yozilmadi - qo'shimcha ustunlar
 // chaqiruvda beriladi.
 const competitionOpsTableError = (error) => {
-    const missing = /relation .*(competition_participant|competition_advancement|competition_tiebreak|competition_appeal|competition_group_action|competition_case_roles|competition_question_points|issued_certificates).* does not exist/i.test(error?.message || '');
+    const missing = /relation .*(competition_participant|competition_advancement|competition_tiebreak|competition_appeal|competition_group_action|competition_case_roles|competition_question_points|competition_scoring_groups|issued_certificates).* does not exist/i.test(error?.message || '');
     return new Error(missing
         ? 'Saqlanmadi: musobaqa jadvallari topilmadi. '
           + 'Supabase SQL Editor da `supabase/competition_operations.sql` ni bir marta ishga tushiring.'
@@ -2395,7 +2395,9 @@ const mapRegistrationFromSupabase = (row) => ({
     teamName: row.team_name, teamMembers: row.team_members || [], minTeamSize: row.min_team_size,
     attachments: row.attachments || [], inviteCode: row.invite_code, status: row.status,
     approvalRequired: row.approval_required, approvalStatus: row.approval_status,
-    approvalComment: row.approval_comment, addedByOverride: row.added_by_override,
+    approvalComment: row.approval_comment,
+    approvalReviewedBy: row.approval_reviewed_by, approvalReviewedAt: row.approval_reviewed_at,
+    addedByOverride: row.added_by_override,
     overrideReason: row.override_reason, overrideByUserId: row.override_by_user_id,
     isRepeat: row.is_repeat, offerExpiresAt: row.offer_expires_at, realTeamId: row.real_team_id,
     teamConfirmedAt: row.team_confirmed_at, createdAt: row.created_at
@@ -3006,6 +3008,7 @@ const syncCoreDataFromSupabase = async () => {
             supabase.from('competition_group_action_logs').select('*'),
             supabase.from('competition_case_roles').select('*'),
             supabase.from('competition_question_points').select('*'),
+            supabase.from('competition_scoring_groups').select('*'),
             supabase.from('issued_certificates').select('*')
         ])
     ]);
@@ -3641,7 +3644,8 @@ const syncCoreDataFromSupabase = async () => {
         const unwrap = (res) => (res.data || []).map(r => ({ ...(r.data || {}), id: r.id }));
         const [
             pGroupsRes, pSeatsRes, advRulesRes, tiebreakRes, advResultsRes,
-            appealsRes, appealLogsRes, grpLogsRes, caseRolesRes, qPointsRes, certsRes
+            appealsRes, appealLogsRes, grpLogsRes, caseRolesRes, qPointsRes,
+            scoringGroupsRes, certsRes
         ] = compOpsRes;
         dbData.competitionParticipantGroupAssignments = unwrap(pGroupsRes);
         dbData.competitionParticipantSeats    = unwrap(pSeatsRes);
@@ -3653,6 +3657,7 @@ const syncCoreDataFromSupabase = async () => {
         dbData.competitionGroupActionLogs     = unwrap(grpLogsRes);
         dbData.competitionCaseRoles           = unwrap(caseRolesRes);
         dbData.competitionQuestionPoints      = unwrap(qPointsRes);
+        dbData.competitionScoringGroups       = unwrap(scoringGroupsRes);
         dbData.certificates                   = unwrap(certsRes);
         dbData.competitionOpsBackendReady = true;
     }
@@ -3690,6 +3695,8 @@ const updateRegistrationInSupabase = async (id, patch) => {
     if (patch.offerExpiresAt !== undefined) payload.offer_expires_at = patch.offerExpiresAt;
     if (patch.approvalStatus !== undefined) payload.approval_status = patch.approvalStatus;
     if (patch.approvalComment !== undefined) payload.approval_comment = patch.approvalComment;
+    if (patch.approvalReviewedBy !== undefined) payload.approval_reviewed_by = patch.approvalReviewedBy;
+    if (patch.approvalReviewedAt !== undefined) payload.approval_reviewed_at = patch.approvalReviewedAt;
     if (patch.realTeamId !== undefined) payload.real_team_id = patch.realTeamId;
     const { data, error } = await supabase.from('registrations').update(payload).eq('id', id).select().single();
     if (error) throw error;
@@ -8197,29 +8204,43 @@ export const db = {
     // reliably - see handleAutoAssignByFaculty's groupMatchesParticipant). A group with neither set (every
     // pre-existing group, and any typed via the free-text "Boshqa nom" input) keeps matching by `label`
     // text exactly as before - fully backward compatible.
-    upsertScoringGroup: (compId, { id, label, matchFaculty = null, matchCourse = null }, actor) => {
+    // ASYNC: guruhning O'ZI ham bazada bo'lishi shart. Biriktirishlar
+    // (competition_participant_groups) allaqachon serverda - agar guruh
+    // brauzerda qolsa, ikkinchi hakam mavjud bo'lmagan guruhga
+    // biriktirilgan ishtirokchini ko'radi.
+    upsertScoringGroup: async (compId, { id, label, matchFaculty = null, matchCourse = null }, actor) => {
         const dbData = getDB();
         if (!dbData.competitionScoringGroups) dbData.competitionScoringGroups = [];
         const now = new Date().toISOString();
         if (id) {
             const existing = dbData.competitionScoringGroups.find(g => g.id === id && g.competitionId === compId);
-            if (existing) { existing.label = label; return existing; }
+            if (existing) {
+                existing.label = label;
+                await persistCompetitionRow('competition_scoring_groups', existing);
+                saveDB(dbData);
+                return existing;
+            }
         }
         const group = {
-            id: 'sgroup_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
+            id: 'sgroup_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
             competitionId: compId, label, matchFaculty, matchCourse,
             displayOrder: dbData.competitionScoringGroups.filter(g => g.competitionId === compId).length + 1,
             createdAt: now, createdBy: actor
         };
         dbData.competitionScoringGroups.push(group);
+        await persistCompetitionRow('competition_scoring_groups', group);
         saveDB(dbData);
         return group;
     },
-    deleteScoringGroup: (compId, groupId) => {
+    deleteScoringGroup: async (compId, groupId) => {
         const dbData = getDB();
         const inUse = (dbData.competitionParticipantGroupAssignments || []).some(a => a.competitionId === compId && a.groupId === groupId)
             || (dbData.competitionAdvancementRules || []).some(r => r.competitionId === compId && r.groupId === groupId);
         if (inUse) throw new Error("Bu guruh ishtirokchi yoki qoidaga biriktirilgan - avval ularni olib tashlang");
+        // Avval bazadan, keyin mahalliy: aks holda o'chirish keyingi
+        // sinxronlashda qaytib kelardi.
+        const { error } = await supabase.from('competition_scoring_groups').delete().eq('id', groupId);
+        if (error) throw competitionOpsTableError(error);
         dbData.competitionScoringGroups = (dbData.competitionScoringGroups || []).filter(g => !(g.id === groupId && g.competitionId === compId));
         saveDB(dbData);
     },
@@ -13102,10 +13123,17 @@ export const db = {
     getTestClock: (studentId, testId) =>
         db.getOpenAttempt(studentId, testId)?.startedAt || null,
 
-    clearTestClock: (studentId, testId) => {
-        // Ochiq urinish yakunlanganda `submitReadingTest` uni yopadi - bu yerda
-        // faqat mahalliy qoldiq tozalanadi.
+    // ASYNC: urinishlar `test_attempts` jadvalida turadi, ya'ni faqat
+    // mahalliy o'chirish keyingi sinxronlashda qaytib kelardi va soat
+    // aslida hech qachon tozalanmasdi.
+    clearTestClock: async (studentId, testId) => {
         const dbData = getDB();
+        const open = (dbData.testAttempts || []).filter(a =>
+            a.studentId === studentId && a.testId === testId && !a.finishedAt);
+        if (open.length === 0) return;
+        const { error } = await supabase.from('test_attempts')
+            .delete().in('id', open.map(a => a.id));
+        if (error) throw new Error("Test soati tozalanmadi: " + (error.message || ''));
         dbData.testAttempts = (dbData.testAttempts || []).filter(a =>
             !(a.studentId === studentId && a.testId === testId && !a.finishedAt));
         saveDB(dbData);
@@ -15240,16 +15268,23 @@ export const db = {
     // full subsystem" notes, since a real reject-and-free-the-seat flow would need to reach into
     // capacity/waitlist-promotion logic this pass doesn't touch.
     getPendingRegistrationApprovals: () => (getDB().registrations || []).filter(r => r.approvalStatus === 'pending'),
-    reviewRegistrationApproval: ({ registrationId, action, reviewerUserId, comment = '' }) => {
+    // ASYNC: `registrations` har sinxronlashda serverdan qayta o'qiladi,
+    // shuning uchun faqat brauzerda qo'yilgan tasdiq keyingi sinxronlashda
+    // jimgina yo'qolardi va ariza yana "kutilmoqda" ga qaytardi.
+    reviewRegistrationApproval: async ({ registrationId, action, reviewerUserId, comment = '' }) => {
         const dbData = getDB();
         const reg = (dbData.registrations || []).find(r => r.id === registrationId);
         if (!reg) throw new Error("Ro'yxatdan o'tish topilmadi");
-        reg.approvalStatus = action === 'approve' ? 'approved' : 'rejected';
-        reg.approvalReviewedBy = reviewerUserId;
-        reg.approvalReviewedAt = new Date().toISOString();
-        reg.approvalComment = comment;
+        const patch = {
+            approvalStatus: action === 'approve' ? 'approved' : 'rejected',
+            approvalReviewedBy: reviewerUserId,
+            approvalReviewedAt: new Date().toISOString(),
+            approvalComment: comment
+        };
+        const saved = await updateRegistrationInSupabase(registrationId, patch);
+        Object.assign(reg, patch);
         saveDB(dbData);
-        return reg;
+        return saved || reg;
     },
 
     // Cross-club queue of position applications actually ready for the admin's final word - i.e. the

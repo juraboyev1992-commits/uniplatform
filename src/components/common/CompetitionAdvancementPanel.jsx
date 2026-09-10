@@ -295,7 +295,9 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
 
     const handleAddGroup = async () => {
         if (!newGroupLabel.trim()) return;
-        db.upsertScoringGroup(competition.id, { label: newGroupLabel.trim() }, actingUsername);
+        try {
+            await db.upsertScoringGroup(competition.id, { label: newGroupLabel.trim() }, actingUsername);
+        } catch (e) { alert(e.message); return; }
         logAction('CREATE_GROUP', `Guruh qo'shildi: "${newGroupLabel.trim()}"`);
         setNewGroupLabel('');
         await handleAutoAssignByFaculty(); // the new group's label might now match previously-unassigned teams
@@ -372,19 +374,21 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
     const handleAddSelectedFacultyGroups = async () => {
         if (selectedNewFaculties.length === 0) return;
         let created = 0;
-        if (splitByCourseToo && selectedNewCourses.length > 0) {
-            selectedNewFaculties.forEach(faculty => {
-                selectedNewCourses.forEach(course => {
-                    db.upsertScoringGroup(competition.id, { label: `${faculty} — ${course}-kurs`, matchFaculty: faculty, matchCourse: course }, actingUsername);
+        try {
+            if (splitByCourseToo && selectedNewCourses.length > 0) {
+                for (const faculty of selectedNewFaculties) {
+                    for (const course of selectedNewCourses) {
+                        await db.upsertScoringGroup(competition.id, { label: `${faculty} — ${course}-kurs`, matchFaculty: faculty, matchCourse: course }, actingUsername);
+                        created++;
+                    }
+                }
+            } else {
+                for (const faculty of selectedNewFaculties) {
+                    await db.upsertScoringGroup(competition.id, { label: faculty, matchFaculty: faculty }, actingUsername);
                     created++;
-                });
-            });
-        } else {
-            selectedNewFaculties.forEach(faculty => {
-                db.upsertScoringGroup(competition.id, { label: faculty, matchFaculty: faculty }, actingUsername);
-                created++;
-            });
-        }
+                }
+            }
+        } catch (e) { alert(e.message); refresh(); return; }
         logAction('CREATE_GROUP', `${created} ta fakultet guruhi qo'shildi (${selectedNewFaculties.join(', ')})`);
         setSelectedNewFaculties([]);
         setSelectedNewCourses([]);
@@ -396,19 +400,21 @@ const CompetitionAdvancementPanel = ({ competition, stages, canManageGroups, act
     // 1-kursi bitta guruhda saralansin" holati uchun).
     const handleAddSelectedPureCourseGroups = async () => {
         if (selectedPureCourses.length === 0) return;
-        selectedPureCourses.forEach(course => {
-            db.upsertScoringGroup(competition.id, { label: `${course}-kurs`, matchCourse: course }, actingUsername);
-        });
+        try {
+            for (const course of selectedPureCourses) {
+                await db.upsertScoringGroup(competition.id, { label: `${course}-kurs`, matchCourse: course }, actingUsername);
+            }
+        } catch (e) { alert(e.message); refresh(); return; }
         logAction('CREATE_GROUP', `${selectedPureCourses.length} ta kurs guruhi qo'shildi (${selectedPureCourses.join(', ')})`);
         setSelectedPureCourses([]);
         await handleAutoAssignByFaculty();
         refresh();
     };
 
-    const handleDeleteGroup = (groupId) => {
+    const handleDeleteGroup = async (groupId) => {
         try {
             const label = groupLabelById(groupId);
-            db.deleteScoringGroup(competition.id, groupId);
+            await db.deleteScoringGroup(competition.id, groupId);
             logAction('DELETE_GROUP', `Guruh o'chirildi: "${label}"`);
             refresh();
         } catch (e) {
