@@ -1,10 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-    Trophy, Sparkles, GraduationCap, ArrowRight, Info, Eye, ShieldCheck,
+    Trophy, GraduationCap, ArrowRight, Info, Eye, ShieldCheck,
     ExternalLink, FileText, Printer, X,
 } from 'lucide-react';
-import { useTabParam } from '../../hooks/useTabParam';
 import Card from '../../components/common/Card';
 import Modal from '../../components/common/Modal';
 import CertificateGenerator from '../../components/common/CertificateGenerator';
@@ -33,26 +32,17 @@ const ROLE_LABELS = { judge: 'Hakam', volunteer: 'Volontyor', organizer: 'Tashki
 // hol qatori sifatida chiqadi. Ikkalasi bir xil narsani ikki xil raqam
 // bilan ko'rsatmasligi kerak.
 //
-// Ikkita tab:
-//   1. CV - shu talabaning tasdiqlangan yozuvlari, chop etishga tayyor.
-//   2. Imtiyoz va imkoniyatlar - universitet bo'ylab grant yo'nalishlari.
-const TABS = [
-    { id: 'mine', label: 'CV', icon: FileText },
-    { id: 'general', label: 'Imtiyoz va imkoniyatlar', icon: Sparkles }
-];
-const TAB_IDS = TABS.map(t => t.id);
-
-// `embedded` - "Yutuq va imkoniyatlar" bo'limining tabi ichida ko'rsatilganda
-// o'z sarlavhasi va ichki tablarini chizmaydi (aks holda ikki qavat tab bo'lardi).
+// TAB YO'Q. Ilgari ikkinchi tab bor edi ("Imtiyoz va imkoniyatlar"), lekin
+// u "Imkoniyat va rivojlanish" bo'limi bilan ochiq takrorlanardi: ikkalasi
+// ham talabaga mos keladigan grantlarni sanardi. CV o'z bo'limiga
+// ajratilgach bu ayniqsa chalkash bo'lib qoldi, shuning uchun olib
+// tashlandi - o'sha bo'limga havola qoldirildi.
+//
+// `embedded` - boshqa sahifa ichida ko'rsatilganda o'z sarlavhasini
+// chizmaydi. Hozir ishlatilmaydi, lekin propni olib tashlash chaqiruv
+// joylarini o'zgartirishni talab qiladi.
 const AchievementsPage = ({ embedded = false }) => {
     const { user } = useAuth();
-    // Tab URL da turadi: aks holda brauzerning Orqaga tugmasi foydalanuvchini
-    // bo'limdan butunlay chiqarib yuborardi.
-    //
-    // Kalit ATAYLAB `cvtab`: bu sahifa AchievementsHubPage ichida ham
-    // ko'rsatiladi va u ham `tab` parametrini ishlatadi. Bir xil kalit
-    // bo'lsa ikkalasi bir-birining tanlovini buzib turardi.
-    const [tab, setTab] = useTabParam(TAB_IDS, 'mine', 'cvtab');
     const [previewDoc, setPreviewDoc] = useState(null);
     const [cvOpen, setCvOpen] = useState(false);
 
@@ -165,23 +155,10 @@ const AchievementsPage = ({ embedded = false }) => {
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-1 bg-gray-100 rounded-xl p-1 w-fit">
-                        {TABS.map(t => (
-                            <button
-                                key={t.id}
-                                type="button"
-                                onClick={() => setTab(t.id)}
-                                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-colors ${tab === t.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                                    }`}
-                            >
-                                <t.icon size={15} /> {t.label}
-                            </button>
-                        ))}
-                    </div>
                 </>
             )}
 
-            {tab === 'mine' && (
+            {(
                 <div className="flex flex-col xl:flex-row gap-5 items-start">
                 {/* IKKI PANEL - maketdagidek: chapda ish maydoni, o'ngda CV
                     hujjati. Panel yopilganda asosiy qism butun kenglikni
@@ -380,41 +357,26 @@ const AchievementsPage = ({ embedded = false }) => {
                 )}
             </Modal>
 
-            {!embedded && tab === 'general' && (
-                <div className="space-y-4">
-                    <Card className="p-5 border-l-4 border-l-teal-600">
-                        <h3 className="font-bold text-gray-900 mb-1">Siz mos keladigan imkoniyatlar</h3>
-                        <p className="text-sm text-gray-500 mb-3">
-                            Grant, stipendiya va tanlovlar yutuqlaringizga qarab avtomatik
-                            tanlanadi — moslik darajasi va nima yetishmayotgani bilan.
-                        </p>
-                        {activeOpportunities > 0 && (
-                            <p className="text-sm font-bold text-teal-700 mb-3">
-                                Hozir sizga {activeOpportunities} ta imkoniyat mos keladi.
-                            </p>
-                        )}
-                        <Link
-                            to="/student/opportunities"
-                            className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-teal-700 text-white rounded-xl text-sm font-bold hover:bg-teal-800"
-                        >
-                            Imkoniyatlar bo'limi <ArrowRight size={14} />
-                        </Link>
-                    </Card>
+            {/* CV NIMA BERADI - ilgari "Umumiy imtiyoz va imkoniyatlar"
+                tabida turardi. O'sha tabning qolgan qismi (mos keladigan
+                imkoniyatlar ro'yxati) "Imkoniyat va rivojlanish" bo'limi
+                bilan ochiq takrorlanardi, shuning uchun olib tashlandi -
+                bu izoh esa CV ning o'ziga tegishli va joyida qoldi. */}
+            <Card className="p-5">
+                <h3 className="font-bold text-gray-900 mb-1">CV nima beradi?</h3>
+                <ul className="text-sm text-gray-600 space-y-1.5 mt-2 list-disc pl-5">
+                    <li>Rasmiy diplom va sertifikatlar shaxsiy portfelingizga yoziladi va QR orqali istalgan vaqtda tekshiriladi.</li>
+                    <li>Tadbir va musobaqalardagi ishtirok ijtimoiy faollik baliga ta'sir qiladi.</li>
+                    <li>Portfel grant, stipendiya va tavsiyanoma uchun asos sifatida ishlatiladi.</li>
+                </ul>
+                <Link
+                    to="/student/achievements"
+                    className="inline-flex items-center gap-1.5 text-sm font-bold text-teal-700 hover:text-teal-900 mt-3"
+                >
+                    Sizga mos imkoniyatlarni ko'rish <ArrowRight size={14} />
+                </Link>
+            </Card>
 
-                    <Card className="p-5">
-                        <h3 className="font-bold text-gray-900 mb-1">Yutuqlar nima beradi?</h3>
-                        <ul className="text-sm text-gray-600 space-y-1.5 mt-2 list-disc pl-5">
-                            <li>Rasmiy diplom va sertifikatlar shaxsiy portfelingizga yoziladi va QR orqali istalgan vaqtda tekshiriladi.</li>
-                            <li>Tadbir va musobaqalardagi ishtirok ijtimoiy faollik baliga ta'sir qiladi.</li>
-                            <li>Portfel grant, stipendiya va tavsiyanoma uchun asos sifatida ishlatiladi.</li>
-                        </ul>
-                        <p className="flex items-start gap-1.5 text-[11px] text-gray-400 mt-3">
-                            <Info size={12} className="shrink-0 mt-px" />
-                            Bu bo'lim kengaytirilmoqda — imtiyozlarning to'liq ro'yxati va shartlari keyin qo'shiladi.
-                        </p>
-                    </Card>
-                </div>
-            )}
         </div>
     );
 };

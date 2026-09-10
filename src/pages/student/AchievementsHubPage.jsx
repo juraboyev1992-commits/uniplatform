@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useTabParam } from '../../hooks/useTabParam';
-import { Trophy, Target, FileText, Rocket } from 'lucide-react';
+import { Target, FileText, Rocket } from 'lucide-react';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import OpportunitiesPage from './OpportunitiesPage';
@@ -62,10 +62,11 @@ const AchievementsHubPage = () => {
         <div className="space-y-6">
             <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-2xl p-8 text-white shadow-xl">
                 <h1 className="text-3xl font-bold mb-1 flex items-center gap-3">
-                    <Trophy className="w-8 h-8" /> Yutuq va imkoniyatlar
+                    <Target className="w-8 h-8" /> Imkoniyat va rivojlanish
                 </h1>
                 <p className="text-amber-100">
-                    Sizga mos imkoniyatlar, arizalaringiz va rivojlanish rejangiz
+                    Sizga mos imkoniyatlar, arizalaringiz va rivojlanish rejangiz.
+                    Hujjatlaringiz va CV alohida bo'limda.
                 </p>
             </div>
 
