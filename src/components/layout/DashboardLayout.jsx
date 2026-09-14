@@ -7,6 +7,42 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 import UnfinishedTestBanner from '../student/UnfinishedTestBanner';
 
+// MA'LUMOT TO'LIQ YUKLANMAGANI HAQIDA OGOHLANTIRISH.
+//
+// Sinxronlash yiqilsa foydalanuvchi baribir tizimga kiradi (AuthContext),
+// lekin ekrandagi ma'lumot eski bo'lishi mumkin. Buni JIMGINA qoldirish
+// yolg'on bo'lardi: koordinator eski ro'yxatga qarab qaror qabul qilardi.
+// Shuning uchun har sahifaning tepasida aniq yozuv va qayta urinish tugmasi.
+const SyncWarning = () => {
+    const { syncError, retrySync } = useAuth();
+    const [busy, setBusy] = useState(false);
+    if (!syncError) return null;
+
+    const retry = async () => {
+        setBusy(true);
+        try { await retrySync(); } finally { setBusy(false); }
+    };
+
+    return (
+        <div className="bg-amber-50 border-b border-amber-200">
+            <div className="container-custom py-2.5 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-amber-900">
+                    <b>Ma'lumotlar to'liq yuklanmadi.</b>{' '}
+                    Internet aloqasini tekshiring — ekranda eski ma'lumot ko'rinishi mumkin.
+                </p>
+                <button
+                    type="button"
+                    onClick={retry}
+                    disabled={busy}
+                    className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-xs font-bold"
+                >
+                    {busy ? 'Yuklanmoqda…' : 'Qayta urinish'}
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const DashboardLayout = ({ children }) => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const location = useLocation();
@@ -27,6 +63,8 @@ const DashboardLayout = ({ children }) => {
     return (
         <div className="min-h-screen bg-gray-50">
             <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+
+            <SyncWarning />
 
             {/* Boshlangan testning vaqti yurib turadi - eslatma har sahifada
                 ko'rinishi kerak. Faqat tugallanmagan test bo'lsa chiqadi;

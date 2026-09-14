@@ -52,6 +52,33 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [clubRoles, setClubRoles] = useState([]); // Array of memberships
+    // Sinxronlash yiqilgan bo'lsa - xato matni, aks holda null.
+    // DashboardLayout shunga qarab "ma'lumot to'liq yuklanmadi" ogohlantirishini
+    // va "Qayta urinish" tugmasini ko'rsatadi.
+    const [syncError, setSyncError] = useState(null);
+
+    // SINXRONLASH FOYDALANUVCHINI TASHQARIDA QOLDIRMASLIGI KERAK.
+    //
+    // Kirishda ~30 ta jadval yuklanadi va ulardan bittasi yiqilsa (masalan
+    // internet bir lahza uzilsa) butun sinxronlash xato tashlaydi. Ilgari bu
+    // xato to'g'ridan-to'g'ri kirish jarayonini to'xtatardi: parol TO'G'RI
+    // bo'lsa ham koordinator kira olmasdi, sahifa yangilanganda esa tizimdan
+    // chiqarib yuborilardi - va nima uchunligi hech qayerda yozilmasdi.
+    //
+    // Endi xato ushlanadi, foydalanuvchi baribir kiradi va ekranda aniq
+    // ogohlantirish chiqadi. Eski ma'lumotni jimgina ko'rsatish yolg'on
+    // bo'lardi, kirgizmaslik esa haddan ortiq - o'rtasi shu.
+    const syncSafely = async () => {
+        try {
+            await db.syncCoreDataFromSupabase();
+            setSyncError(null);
+            return true;
+        } catch (e) {
+            console.error('[sinxronlash] yiqildi:', e);
+            setSyncError(e?.message || String(e));
+            return false;
+        }
+    };
 
     const loadProfileAndMemberships = async (authUser) => {
         const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();
@@ -63,19 +90,33 @@ export const AuthProvider = ({ children }) => {
             setClubRoles([]);
             return;
         }
-        await db.syncCoreDataFromSupabase();
+        // Bir martalik qisqa qayta urinish: vaqtinchalik uzilishlarning
+        // ko'pchiligi shu bilan o'tib ketadi va foydalanuvchi ogohlantirishni
+        // umuman ko'rmaydi.
+        if (!(await syncSafely())) {
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            await syncSafely();
+        }
         setUser(buildUserFromProfile(profile));
         setClubRoles(db.getUserMemberships(profile.id));
     };
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user) loadProfileAndMemberships(session.user).finally(() => setLoading(false));
-            else setLoading(false);
-        });
+        // `finally` hamma yo'lda: seansni o'qish yoki profilni yuklash qanday
+        // tugashidan qat'i nazar yuklanish ekrani yopiladi. Ilgari seans
+        // o'qishning o'zi xato bersa, sahifa cheksiz aylanib qolardi.
+        supabase.auth.getSession()
+            .then(({ data: { session } }) => (
+                session?.user ? loadProfileAndMemberships(session.user) : null
+            ))
+            .catch(e => console.error('[kirish] seans yoki profil yuklanmadi:', e))
+            .finally(() => setLoading(false));
 
         const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (session?.user) loadProfileAndMemberships(session.user);
+            if (session?.user) {
+                loadProfileAndMemberships(session.user)
+                    .catch(e => console.error('[kirish] profil yuklanmadi:', e));
+            }
             else {
                 setUser(null);
                 setClubRoles([]);
@@ -112,6 +153,7 @@ export const AuthProvider = ({ children }) => {
         await supabase.auth.signOut();
         setUser(null);
         setClubRoles([]);
+        setSyncError(null);
     };
 
     const hasRole = (role) => {
@@ -142,9 +184,16 @@ export const AuthProvider = ({ children }) => {
     // Refresh memberships (call this after joining/leaving a club)
     const refreshClubRoles = async () => {
         if (user) {
-            await db.syncCoreDataFromSupabase();
+            await syncSafely();
             setClubRoles(db.getUserMemberships(user.id));
         }
+    };
+
+    // Ogohlantirishdagi "Qayta urinish" tugmasi uchun.
+    const retrySync = async () => {
+        const ok = await syncSafely();
+        if (ok && user) setClubRoles(db.getUserMemberships(user.id));
+        return ok;
     };
 
     const value = {
@@ -158,6 +207,8 @@ export const AuthProvider = ({ children }) => {
         hasClubRole,
         isClubManager,
         refreshClubRoles,
+        syncError,
+        retrySync,
         isAuthenticated: !!user,
         loading
     };
