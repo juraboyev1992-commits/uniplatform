@@ -66,13 +66,21 @@ grant execute on function public.is_staff() to authenticated;
 -- Ilova kirgan foydalanuvchining o'z profilini shu jadvaldan o'qiydi
 -- (AuthContext.jsx). Boshqalarning profillari uchun pastdagi ko'rinish bor.
 -- ---------------------------------------------------------------------
+--
+-- DIQQAT - FAQAT O'QISH (2026-09-15 tuzatildi, supabase/rls_profiles_lock.sql).
+-- Ilgari bu qoida `for all` edi, ya'ni har kimga o'z qatorini YOZISHGA ham
+-- ruxsat berardi. Rol esa aynan shu qatorda turadi - login olgan istalgan
+-- talaba o'zini ADMINISTRATOR qila olardi. Bu fayl qayta ishga tushirilganda
+-- teshik yana ochilmasligi uchun bu yerda ham faqat o'qish qoidasi qoldi.
+-- Ilova profiles ga mijoz tomonidan yozmaydi; yozuvchi uchala funksiya
+-- (admin_create_user, admin_set_user_role, admin_delete_user) security definer.
 drop policy if exists authenticated_access_profiles on public.profiles;
 drop policy if exists profiles_own_or_staff on public.profiles;
+drop policy if exists profiles_select_own_or_staff on public.profiles;
 
-create policy profiles_own_or_staff on public.profiles
-    for all to authenticated
-    using (id::text = auth.uid()::text or public.is_staff())
-    with check (id::text = auth.uid()::text or public.is_staff());
+create policy profiles_select_own_or_staff on public.profiles
+    for select to authenticated
+    using (id::text = auth.uid()::text or public.is_staff());
 
 
 -- ---------------------------------------------------------------------
