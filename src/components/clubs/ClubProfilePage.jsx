@@ -549,12 +549,18 @@ const ClubProfilePage = () => {
                 qaror aynan klub sahifasida tug'iladi. */}
             {canManageThisClub && club.status !== 'archived' && (
                 <div className="flex flex-wrap gap-2">
-                    <Button variant="primary" size="sm" icon={Calendar} onClick={() => navigate('/admin/events')}>
-                        Tadbir yaratish
-                    </Button>
-                    <Button variant="outline" size="sm" icon={Trophy} onClick={() => navigate('/admin/competitions')}>
-                        Musobaqa yaratish
-                    </Button>
+                    {/* Admin koordinatorlar uchun yaratishni yopgan bo'lsa bu
+                        ikki tugma ko'rinmaydi (EventManagement dagi ON/OFF). */}
+                    {(user?.role === 'ADMINISTRATOR' || db.isCoordinatorCreationEnabled()) && (
+                        <>
+                            <Button variant="primary" size="sm" icon={Calendar} onClick={() => navigate('/admin/events')}>
+                                Tadbir yaratish
+                            </Button>
+                            <Button variant="outline" size="sm" icon={Trophy} onClick={() => navigate('/admin/competitions')}>
+                                Musobaqa yaratish
+                            </Button>
+                        </>
+                    )}
                     <Button variant="outline" size="sm" icon={UsersRound} onClick={() => setActiveTab('teams')}>
                         Jamoa qo'shish
                     </Button>

@@ -115,6 +115,10 @@ const TournamentScoring = ({
     };
 
     const role = getUserRole();
+    // Admin koordinatorlar uchun yaratishni vaqtincha yopgan bo'lishi mumkin
+    // (EventManagement dagi ON/OFF). Faqat YARATISH tugmalari yashiriladi -
+    // mavjud musobaqani boshqarish, natija kiritish va qolgani o'zgarmaydi.
+    const creationLocked = role !== 'ADMINISTRATOR' && !db.isCoordinatorCreationEnabled();
 
     // Delegation grants a CAPABILITY, not a role — getUserRole()'s ADMINISTRATOR/MODERATOR/COORDINATOR/
     // JUDGE/PUBLIC derivation above is never touched by it. Both checks below only gain an additive
@@ -904,7 +908,7 @@ const TournamentScoring = ({
                         </p>
                     </div>
                     <div className="flex gap-2">
-                        {!isConfiguring && hasScoringAccess() && (
+                        {!isConfiguring && hasScoringAccess() && !creationLocked && (
                             <Button
                                 variant="success"
                                 className="bg-emerald-500 hover:bg-emerald-600 text-white"
@@ -913,6 +917,11 @@ const TournamentScoring = ({
                             >
                                 Yangi Musobaqa
                             </Button>
+                        )}
+                        {!isConfiguring && hasScoringAccess() && creationLocked && (
+                            <span className="px-3 py-2 rounded-lg bg-white/15 border border-white/25 text-xs font-bold text-white">
+                                Musobaqa yaratish vaqtincha yopiq
+                            </span>
                         )}
                     </div>
                 </div>
@@ -2118,7 +2127,7 @@ const TournamentScoring = ({
                                         ? "Hali hech qanday musobaqa yaratilmagan. Yuqoridagi tugma orqali yangi musobaqa qo'shing."
                                         : "Filtrga mos musobaqa topilmadi."}
                                 </p>
-                                {competitions.length === 0 && hasScoringAccess() && (
+                                {competitions.length === 0 && hasScoringAccess() && !creationLocked && (
                                     <Button
                                         variant="outline"
                                         size="sm"

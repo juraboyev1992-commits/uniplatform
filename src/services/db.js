@@ -909,6 +909,11 @@ const syncClubMemberCounts = (clubs, memberships) => {
 
 // Next sequential public display number (Klub #N / Jamoa #N / Tadbir #N / Turnir #N / Sertifikat #N) for a
 // newly-created record - purely additive, never reused, independent of the internal id format.
+// Koordinator uchun yaratish yopilganda chiqadigan matn - tadbirda ham,
+// musobaqada ham bir xil bo'lishi uchun bitta joyda.
+const CREATION_CLOSED_MESSAGE = "Tadbir va musobaqa yaratish vaqtincha yopiq. "
+    + "Mavjud faoliyatlarni boshqarishingiz mumkin - yangisini yaratish uchun administrator bilan bog'laning.";
+
 const nextDisplayNumber = (list) => Math.max(0, ...list.map(r => r.displayNumber || 0)) + 1;
 
 // Combines a `yyyy-MM-dd` date input with an optional `HH:mm` time input into the same ISO-ish
@@ -6160,6 +6165,12 @@ export const db = {
         // actingRole opt-in, same convention as createCompetition - older callers that don't pass it keep
         // publishing immediately (moderation_status's own Postgres default is 'approved' anyway).
         const { actingRole, actingUsername, ...rest } = eventData;
+        // Koordinator platformada TALABA rolida bo'ladi. Tyutor ekskursiyasi
+        // (`TYUTOR`) va admin bu cheklovga tushmaydi; `actingRole` uzatmaydigan
+        // eski chaqiruvlar ham avvalgidek ishlaydi.
+        if (actingRole === 'TALABA' && !db.isCoordinatorCreationEnabled()) {
+            throw Object.assign(new Error(CREATION_CLOSED_MESSAGE), { status: 403 });
+        }
         const dbData = getDB();
         if (rest.location && rest.date) {
                 const conflict = findLocationConflict(
@@ -6425,6 +6436,16 @@ export const db = {
         // real HTTP layer. Opt-in - only enforced when the caller passes actingRole (the wizard does;
         // older/other callers that don't pass it are unaffected, so nothing existing breaks).
         const { actingUsername, actingRole, ...rest } = compData;
+        // Sehrgar admin bo'lmagan HAR KIMNI 'COORDINATOR' deb uzatadi, jumladan
+        // rahbariyat va tyutorni ham. Shuning uchun haqiqiy platforma roli
+        // profildan olinadi va faqat talaba-koordinator cheklanadi.
+        if (actingRole === 'COORDINATOR' && !db.isCoordinatorCreationEnabled()) {
+            const platformRole = (getDB().realProfiles || [])
+                .find(p => p.username === actingUsername)?.role;
+            if (!['ADMINISTRATOR', 'RAHBARIYAT', 'TYUTOR'].includes(platformRole)) {
+                throw Object.assign(new Error(CREATION_CLOSED_MESSAGE), { status: 403 });
+            }
+        }
         if (actingRole && actingRole !== 'ADMINISTRATOR' && rest.contextType === 'club' && rest.contextId) {
             const memberships = (getDB().memberships || []).filter(m => m.userId === actingUsername);
             const hasClubAccess = memberships.some(m => m.clubId === rest.contextId && ['coordinator', 'head_coordinator'].includes(m.role));
@@ -14179,6 +14200,25 @@ export const db = {
         saveDB(dbData);
         return next;
     },
+
+    // === KOORDINATORLAR TADBIR VA MUSOBAQA YARATA OLADIMI ===
+    //
+    // Sinov davrida admin yaratishni vaqtincha yopib qo'yishi uchun. Faqat
+    // YARATISH cheklanadi: mavjud tadbir va musobaqani boshqarish, natija
+    // kiritish, davomat va qolgan hamma narsa koordinatorga ochiq qoladi.
+    //
+    // `integration_settings` da turadi - barcha kompyuterlarda bir xil va har
+    // sinxronlashda yangilanadi. Sozlama umuman yo'q bo'lsa YOQILGAN deb
+    // hisoblanadi: avvalgi xatti-harakat o'zgarmasin.
+    isCoordinatorCreationEnabled: () =>
+        db.getIntegrationSettings('activity_creation').coordinatorsCanCreate !== false,
+
+    setCoordinatorCreationEnabled: async (enabled, changedBy = null) =>
+        db.saveIntegrationSettings('activity_creation', {
+            coordinatorsCanCreate: !!enabled,
+            changedBy,
+            changedAt: new Date().toISOString(),
+        }),
 
     logIntegrationSync: async ({ integration, status, records = 0, detail = null }) => {
         const id = 'isync_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);

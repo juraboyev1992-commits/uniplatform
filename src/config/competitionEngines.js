@@ -697,6 +697,22 @@ export function rankByLastN(tiedGroup, roundRange, n) {
 // This is the university's full official club/project roster (34 clubs).
 export const MOOT_COURT_CLUB_ID = '9';
 export const ZAKOVAT_CLUB_ID = '10';
+
+// FAQAT ZAKOVAT SHAKLIDA BAHOLAYDIGAN KLUBLAR.
+// Umumiy shakl ("umumiy", clubId yo'q) - mezonli baholash va u odatda HAR
+// klubga ko'rsatiladi. Yuridik klublar (25 - "Zukko yurist", 41 - "Yurist
+// loyihasi") esa klub egasi talabi bilan faqat Klassik Zakovat shaklida
+// baholaydi, shuning uchun ularga umumiy mezonli shakl ko'rsatilmaydi.
+export const QUIZ_ONLY_CLUB_IDS = ['25', '41'];
+
+// Shakl shu klubga taklif qilinadimi. Klubga biriktirilgan shakl - faqat o'z
+// klubiga; umumiy shakl - QUIZ_ONLY_CLUB_IDS dan boshqa hamma klubga.
+// Klub tanlanmagan bo'lsa (clubId bo'sh) avvalgidek umumiy shakl ko'rinadi.
+export const isPresetOfferedToClub = (preset, clubId) => (
+    preset.clubId
+        ? preset.clubId === clubId
+        : !QUIZ_ONLY_CLUB_IDS.includes(clubId)
+);
 export const MUNOZARA_CLUB_ID = '11';
 export const VOKAL_CLUB_ID = '12';
 export const RAQS_CLUB_ID = '13';
@@ -924,10 +940,15 @@ export const PRESETS = [
         scoringEngine: 'correct_answer', scoringMethod: 'correct_answer', tournamentEngine: 'none',
         defaults: { roundsCount: 12, questionsPerRound: 12, pointsPerCorrectAnswer: 1, penaltyPerWrongAnswer: 0 }
     },
+    // Yuridik klublar (25, 41): FAQAT Klassik Zakovat shakli - Zakovat klubidagi
+    // "Zakovat (Klassik)" bilan bir xil sozlama, natija kiritish ham o'sha
+    // (to'g'ri/noto'g'ri javob jadvali). Ilgari bu yerda mezonli baholash edi.
+    // `id` ATAYLAB o'zgarmadi: avval shu shakl bilan yaratilgan musobaqalar o'z
+    // baholash turini o'zida saqlaydi va ular buzilmaydi.
     {
-        id: 'zukko_yurist', label: 'Zukko yurist', implemented: true, clubId: '25',
-        scoringEngine: 'criteria_based', scoringMethod: 'criteria_based', tournamentEngine: 'knockout',
-        defaults: { roundsCount: 3, calculationMethod: 'average', criteriaInput: "Huquqiy bilim, Mantiq, Nutq mahorati" }
+        id: 'zukko_yurist', label: 'Zukko yurist (Klassik Zakovat)', implemented: true, clubId: '25', participantType: 'team',
+        scoringEngine: 'correct_answer', scoringMethod: 'correct_answer', tournamentEngine: 'none',
+        defaults: { roundsCount: 12, questionsPerRound: 12, pointsPerCorrectAnswer: 1, penaltyPerWrongAnswer: 0 }
     },
     {
         id: 'kompyuter_savodxonligi', label: 'Kompyuter savodxonligi', implemented: true, clubId: '26',
@@ -935,9 +956,9 @@ export const PRESETS = [
         defaults: { roundsCount: 12, questionsPerRound: 12, pointsPerCorrectAnswer: 1, penaltyPerWrongAnswer: 0 }
     },
     {
-        id: 'yurist_loyihasi', label: 'Yurist loyihasi', implemented: true, clubId: '41',
-        scoringEngine: 'criteria_based', scoringMethod: 'criteria_based', tournamentEngine: 'knockout',
-        defaults: { roundsCount: 3, calculationMethod: 'average', criteriaInput: "Huquqiy bilim, Amaliy ko'nikma, Taqdimot" }
+        id: 'yurist_loyihasi', label: 'Yurist loyihasi (Klassik Zakovat)', implemented: true, clubId: '41', participantType: 'team',
+        scoringEngine: 'correct_answer', scoringMethod: 'correct_answer', tournamentEngine: 'none',
+        defaults: { roundsCount: 12, questionsPerRound: 12, pointsPerCorrectAnswer: 1, penaltyPerWrongAnswer: 0 }
     },
     {
         id: 'miss_leaders', label: 'Miss leaders', implemented: true, clubId: '42',

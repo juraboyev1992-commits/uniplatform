@@ -9,7 +9,7 @@ import TournamentStructureStep from './TournamentStructureStep';
 import TournamentRulesStep from './TournamentRulesStep';
 import TournamentReviewStep from './TournamentReviewStep';
 import SuccessModal from './SuccessModal';
-import { PRESETS, DEBATE_CRITERIA, getDefaultScoringMode, getPresetMode, compileStructureToRoundRules, isMatchBasedEngine } from '../../config/competitionEngines';
+import { PRESETS, DEBATE_CRITERIA, getDefaultScoringMode, getPresetMode, compileStructureToRoundRules, isMatchBasedEngine, isPresetOfferedToClub } from '../../config/competitionEngines';
 import { getRegistrationWindowIssues } from '../activities/RegistrationSettingsFields';
 
 // Fallback criteria for a criteria_based override away from a preset that has no criteriaInput of its
@@ -230,7 +230,7 @@ const TournamentCreateWizard = ({ contextType = null, contextId = null, onCreate
     // A preset with no `clubId` is universal — offered to every club, so a club without its own
     // purpose-built template can still run a plain "N shart, N hakam" competition.
     const availablePresets = useMemo(
-        () => PRESETS.filter(p => (!p.clubId || p.clubId === data.clubId) && (data.mode === 'professional' || getPresetMode(p) === 'simple')),
+        () => PRESETS.filter(p => isPresetOfferedToClub(p, data.clubId) && (data.mode === 'professional' || getPresetMode(p) === 'simple')),
         [data.clubId, data.mode]
     );
     // Some clubs (Zakovat, 25-savol, UniQuiz, TDYU-Quiz, Munozara, Moot Court, every Sport club) have NO
@@ -241,7 +241,7 @@ const TournamentCreateWizard = ({ contextType = null, contextId = null, onCreate
     // to Simple exactly as designed.
     useEffect(() => {
         if (data.mode === 'simple' && data.clubId) {
-            const hasSimplePreset = PRESETS.some(p => (!p.clubId || p.clubId === data.clubId) && getPresetMode(p) === 'simple');
+            const hasSimplePreset = PRESETS.some(p => isPresetOfferedToClub(p, data.clubId) && getPresetMode(p) === 'simple');
             if (!hasSimplePreset) updateData({ mode: 'professional' });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps

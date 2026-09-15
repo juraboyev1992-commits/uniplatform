@@ -125,6 +125,23 @@ const EventSummary = ({ event, club, onOpenWorkspace, onEdit }) => {
 const EventManagement = ({ defaultKind = 'events' }) => {
     const navigate = useNavigate();
     const { user, hasClubRole } = useAuth();
+    const isPlatformAdmin = user?.role === 'ADMINISTRATOR';
+    // Koordinatorlar tadbir va musobaqa YARATA oladimi - admin shu sahifada
+    // yoqib-o'chiradi. Faqat yaratish cheklanadi, boshqaruv ochiq qoladi.
+    const [coordinatorCreation, setCoordinatorCreation] = useState(() => db.isCoordinatorCreationEnabled());
+    const [creationToggleBusy, setCreationToggleBusy] = useState(false);
+    const toggleCoordinatorCreation = async () => {
+        setCreationToggleBusy(true);
+        try {
+            const next = !coordinatorCreation;
+            await db.setCoordinatorCreationEnabled(next, user?.username || null);
+            setCoordinatorCreation(next);
+        } catch (e) {
+            alert("Sozlama saqlanmadi: " + (e?.message || e));
+        } finally {
+            setCreationToggleBusy(false);
+        }
+    };
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -538,15 +555,42 @@ const EventManagement = ({ defaultKind = 'events' }) => {
                 // Yaratish tugmasi filtr tablari qatorining o'ng tomonida.
                 // Nomi tabga qarab o'zgaradi: tadbir va musobaqa yaratish
                 // boshqa-boshqa ish va ular boshqa-boshqa oyna ochadi.
-                filterBarActions={(kind) => (kind === 'events' ? (
-                    <Button size="sm" icon={Plus} onClick={() => handleOpenModal(null, new Date())}>
-                        Tadbir yaratish
-                    </Button>
-                ) : (
-                    <Button size="sm" icon={Plus} onClick={() => setIsCompWizardOpen(true)}>
-                        Yangi tanlov
-                    </Button>
-                ))}
+                filterBarActions={(kind) => (
+                    <div className="flex items-center gap-2">
+                        {/* ADMIN UCHUN ON/OFF: koordinatorlar yarata oladimi.
+                            Admin o'zi hech qachon cheklanmaydi - uning tugmalari
+                            yonida turadi, holati esa rang bilan ko'rinadi. */}
+                        {isPlatformAdmin && (
+                            <button
+                                type="button"
+                                role="switch"
+                                aria-checked={coordinatorCreation}
+                                onClick={toggleCoordinatorCreation}
+                                disabled={creationToggleBusy}
+                                title="Koordinatorlar tadbir va musobaqa yarata oladimi. Boshqaruv har doim ochiq."
+                                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-colors disabled:opacity-60 ${
+                                    coordinatorCreation
+                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                        : 'border-amber-200 bg-amber-50 text-amber-800'
+                                }`}
+                            >
+                                <span className={`relative inline-block w-7 h-4 rounded-full transition-colors ${coordinatorCreation ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                                    <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${coordinatorCreation ? 'left-3.5' : 'left-0.5'}`} />
+                                </span>
+                                Koordinator yaratishi: {coordinatorCreation ? 'ON' : 'OFF'}
+                            </button>
+                        )}
+                        {kind === 'events' ? (
+                            <Button size="sm" icon={Plus} onClick={() => handleOpenModal(null, new Date())}>
+                                Tadbir yaratish
+                            </Button>
+                        ) : (
+                            <Button size="sm" icon={Plus} onClick={() => setIsCompWizardOpen(true)}>
+                                Yangi tanlov
+                            </Button>
+                        )}
+                    </div>
+                )}
                 // "Xonalar bandligi" endi Kalendar va Ro'yxat bilan BIR XIL
                 // almashtirgichda. Ilgari u alohida tugma edi va ko'rinishni
                 // almashtirmay, ostiga qo'shilardi: ekranda ikkita katta jadval
