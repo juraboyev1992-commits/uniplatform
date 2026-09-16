@@ -248,6 +248,21 @@ const ClubProfilePage = () => {
         setRefreshKey(k => k + 1);
     };
 
+    // A'ZOLIKNI TASDIQLASH SO'ROVI. Bildirishnoma faqat yetkazadi - javob
+    // SHU YERDA beriladi, chunki xabar ichida tugma bo'la olmaydi.
+    const myConfirmation = useMemo(() => {
+        if (!user || !club || !isMember) return null;
+        return db.getMembershipConfirmations(club.id)[user.id] || null;
+    }, [user, club, isMember, refreshKey]);
+
+    const answerConfirmation = async (answer) => {
+        if (!user || !club) return;
+        if (answer === 'leave'
+            && !window.confirm(`"${club.name}" klubi a'zoligidan chiqmoqchimisiz?`)) return;
+        await db.answerMembershipConfirmation({ clubId: club.id, userId: user.id, answer });
+        setRefreshKey(k => k + 1);
+    };
+
     const handleOpenEdit = () => {
         if (!club) return;
         setEditError('');
@@ -474,6 +489,25 @@ const ClubProfilePage = () => {
             <Button variant="outline" size="sm" icon={ArrowLeft} onClick={() => navigate(routes.list)}>
                 Klublar ro'yxati
             </Button>
+
+            {myConfirmation?.status === 'pending' && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                        <p className="font-bold text-amber-900 text-sm">Klub a'zoligini tasdiqlang</p>
+                        <p className="text-xs text-amber-800 mt-0.5">
+                            Klub koordinatori so'rov yubordi: shu o'quv yilida a'zolikni davom ettirasizmi?
+                        </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                        <Button variant="primary" size="sm" onClick={() => answerConfirmation('continue')}>
+                            Davom ettiraman
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => answerConfirmation('leave')}>
+                            A'zolikdan chiqaman
+                        </Button>
+                    </div>
+                </div>
+            )}
 
             {/* Main content (left) + persistent Tadbir/Musobaqa panel (right, sticky) — merged from what
                 used to be two separate "Tadbirlar"/"Musobaqalar" tabs, per direct feedback. */}

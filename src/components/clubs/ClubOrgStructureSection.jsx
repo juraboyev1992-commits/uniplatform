@@ -255,7 +255,7 @@ const ClubOrgStructureSection = ({ club, refreshKey, onRefresh }) => {
                 kim bor" degan savolga. Aloqa ma'lumoti ataylab so'ralmaydi
                 (showContact berilmagan): koordinator o'z klubi a'zosining
                 shaxsiy raqamini ko'rmasligi kerak. */}
-            <ClubMembersRegistry clubId={club.id} refreshKey={refreshKey} />
+            <ClubMembersRegistry clubId={club.id} refreshKey={refreshKey} canRequestConfirmation={canManage} />
 
             {/* Ariza-based open positions — unchanged, full width */}
             <div>

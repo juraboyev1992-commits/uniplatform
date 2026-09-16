@@ -2182,11 +2182,11 @@ const normalizeEvidenceClaim = (criterionKey, claim) => {
 // Xato JIMGINA YUTILADI va bu ataylab: tarix yozilmagani uchun a'zolikning
 // o'zini to'xtatib qo'yish noto'g'ri bo'lardi - asosiy amal allaqachon
 // bajarilgan. Jadval yo'q bo'lsa konsolda ogohlantirish qoladi.
-const logMembershipEvent = async ({ clubId, userId, action, role = null, previousRole = null, by = null, source = null, reason = '' }) => {
+const logMembershipEvent = async ({ clubId, userId, action, role = null, previousRole = null, by = null, source = null, reason = '', academicYear = null }) => {
     const id = 'cme_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const record = {
         id, clubId: String(clubId), userId, action,
-        role, previousRole, by, source, reason: String(reason || ''),
+        role, previousRole, by, source, reason: String(reason || ''), academicYear,
         createdAt: new Date().toISOString(),
     };
     try {
@@ -4397,6 +4397,87 @@ export const db = {
     // Faqat qo'shiladi. Bu KO'RSATKICH emas, DALIL: talaba klubda qancha
     // turgani, qachon chiqqani va roli qachon o'zgargani.
     // ----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
+    // A'ZOLIKNI TASDIQLASH
+    //
+    // Nega alohida jadval emas: "so'raldi"/"javob berildi" - bu HODISA, holat
+    // emas. club_membership_events shu maqsad uchun allaqachon bor (faqat
+    // qo'shiladi, o'chmaydi) va sinxronlashda `data` ichidagi maydonlar to'liq
+    // ochib yoyiladi, ya'ni o'quv yili boshqa qurilmada ham saqlanib qoladi.
+    // Yangi jadval ham, yangi SQL ham kerak emas.
+    //
+    // Bildirishnoma faqat YETKAZUVCHI: NotificationList xabarni bosganda uni
+    // notificationLink orqali sahifaga o'tkazadi, xabar ichida tugma bo'la
+    // olmaydi. Shuning uchun javob klub sahifasida beriladi.
+    // ----------------------------------------------------------------------
+    requestMembershipConfirmation: async ({ clubId, userIds = null, requestedBy = null, academicYear = null }) => {
+        const year = academicYear || getCurrentAcademicYear();
+        const dbData = getDB();
+        const club = (dbData.clubs || []).find(c => String(c.id) === String(clubId));
+        const targets = (userIds && userIds.length)
+            ? userIds
+            : (dbData.memberships || []).filter(m => String(m.clubId) === String(clubId)).map(m => m.userId);
+
+        // A'zolik UUID bilan, bildirishnoma esa USERNAME bilan ishlaydi.
+        // Ikkisini adashtirish xabarni jimgina yo'qotardi - shuning uchun
+        // profili topilmaganlar indamay tashlanmaydi, SANALADI va qaytariladi.
+        const byId = new Map((dbData.realProfiles || []).map(p => [p.id, p]));
+
+        let sent = 0;
+        let skipped = 0;
+        for (const userId of targets) {
+            await logMembershipEvent({
+                clubId, userId, action: 'confirmation_requested',
+                by: requestedBy, academicYear: year,
+            });
+            const username = byId.get(userId)?.username;
+            if (!username) { skipped += 1; continue; }
+            try {
+                await db.createNotification({
+                    userId: username,
+                    type: 'warning',
+                    title: "Klub a'zoligini tasdiqlang",
+                    message: `"${club?.name || 'Klub'}" - ${year} o'quv yilida a'zolikni davom ettirasizmi?`,
+                    refId: String(clubId), refType: 'club',
+                });
+                sent += 1;
+            } catch {
+                skipped += 1;
+            }
+        }
+        await syncCoreDataFromSupabase();
+        return { sent, skipped, total: targets.length, year };
+    },
+
+    // userId -> { status: 'pending' | 'confirmed', at }. Faqat SO'NGGI hodisa
+    // kuchda: so'rov qayta yuborilsa, eski javob o'z kuchini yo'qotadi.
+    getMembershipConfirmations: (clubId, academicYear = null) => {
+        const year = academicYear || getCurrentAcademicYear();
+        const out = {};
+        (getDB().clubMembershipEvents || [])
+            .filter(e => String(e.clubId) === String(clubId)
+                && e.academicYear === year
+                && (e.action === 'confirmation_requested' || e.action === 'confirmed'))
+            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+            .forEach(e => {
+                out[e.userId] = { status: e.action === 'confirmed' ? 'confirmed' : 'pending', at: e.createdAt };
+            });
+        return out;
+    },
+
+    answerMembershipConfirmation: async ({ clubId, userId, answer, academicYear = null }) => {
+        const year = academicYear || getCurrentAcademicYear();
+        if (answer === 'leave') {
+            // Chiqish yo'li BITTA - db.leaveClub. Alohida o'chirish yozilsa,
+            // tarix va a'zolar soni ikki xil yo'l bilan yangilanardi.
+            await db.leaveClub(userId, clubId, { reason: `${year}: a'zolikni yangilamadi` });
+            return { left: true, year };
+        }
+        await logMembershipEvent({ clubId, userId, action: 'confirmed', academicYear: year });
+        await syncCoreDataFromSupabase();
+        return { left: false, year };
+    },
+
     getClubMembershipHistory: (clubId) => {
         const students = new Map(generateMockStudents().map(s => [s.id, s]));
         const profiles = new Map((getDB().realProfiles || []).map(p => [p.id, p]));

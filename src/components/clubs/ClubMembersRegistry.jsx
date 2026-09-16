@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Users, Search, Download, RotateCcw, Phone } from 'lucide-react';
+import { Users, Search, Download, RotateCcw, Phone, BellRing } from 'lucide-react';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import Pagination from '../common/Pagination';
@@ -26,7 +26,7 @@ const PAGE_SIZE_OPTIONS = [20, 50, 100, 'all'];
 // administrator ko'radi, klub koordinatori esa "ko'rsatilmadi" deb oladi
 // (u pasport tizimida alohida ko'ruvchi turi emas). Shuning uchun bu
 // komponentda maxfiylikni qayta yozadigan hech narsa yo'q.
-const ClubMembersRegistry = ({ clubId = null, showContact = false, refreshKey = 0 }) => {
+const ClubMembersRegistry = ({ clubId = null, showContact = false, refreshKey = 0, canRequestConfirmation = false }) => {
     const { user } = useAuth();
     const [search, setSearch] = useState('');
     const [faculty, setFaculty] = useState('');
@@ -38,12 +38,21 @@ const ClubMembersRegistry = ({ clubId = null, showContact = false, refreshKey = 
     const [onlyPositions, setOnlyPositions] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
+    const [requesting, setRequesting] = useState(false);
+    const [requestNote, setRequestNote] = useState('');
 
     const rows = useMemo(
         () => buildClubMemberRows(db, { clubId }),
         [clubId, refreshKey]
     );
     const options = useMemo(() => getMemberFilterOptions(rows), [rows]);
+
+    // Tasdiqlash holati faqat bitta klub ko'rinishida ma'noga ega.
+    const confirmations = useMemo(
+        () => (clubId ? db.getMembershipConfirmations(clubId) : {}),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [clubId, refreshKey, requestNote]
+    );
 
     const filters = { search, faculty, course, status, year, onlyInactive, onlyPositions, clubId: club || null };
     const filtered = useMemo(
@@ -89,6 +98,27 @@ const ClubMembersRegistry = ({ clubId = null, showContact = false, refreshKey = 
         });
     };
 
+    // So'rov EKRANDAGI filtrga yuboriladi: koordinator masalan faqat
+    // "faolsizlar"ni tanlab, so'rovni o'shalarga yuborishi mumkin.
+    const handleRequestConfirmation = async () => {
+        if (!window.confirm(`${filtered.length} ta a'zoga a'zolikni tasdiqlash so'rovi yuborilsinmi?`)) return;
+        setRequesting(true);
+        try {
+            const res = await db.requestMembershipConfirmation({
+                clubId,
+                userIds: filtered.map(r => r.studentId),
+                requestedBy: user?.username,
+            });
+            setRequestNote(res.skipped > 0
+                ? `${res.sent} ta yuborildi, ${res.skipped} ta yuborilmadi (hisob topilmadi).`
+                : `${res.sent} ta a'zoga so'rov yuborildi.`);
+        } catch (e) {
+            setRequestNote(e?.message || 'Xatolik yuz berdi.');
+        } finally {
+            setRequesting(false);
+        }
+    };
+
     const selectClass = 'px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 rounded-xl text-xs';
 
     return (
@@ -101,10 +131,27 @@ const ClubMembersRegistry = ({ clubId = null, showContact = false, refreshKey = 
                     </h3>
                     <span className="text-xs font-black text-indigo-600">{filtered.length}</span>
                 </div>
-                <Button variant="outline" size="sm" icon={Download} onClick={handleExport} disabled={filtered.length === 0}>
-                    Excelga yuklash
-                </Button>
+                <div className="flex items-center gap-2">
+                    {clubId && canRequestConfirmation && (
+                        <Button
+                            variant="outline" size="sm" icon={BellRing}
+                            onClick={handleRequestConfirmation}
+                            disabled={requesting || filtered.length === 0}
+                        >
+                            {requesting ? 'Yuborilmoqda...' : "A'zolikni tasdiqlashni so'rash"}
+                        </Button>
+                    )}
+                    <Button variant="outline" size="sm" icon={Download} onClick={handleExport} disabled={filtered.length === 0}>
+                        Excelga yuklash
+                    </Button>
+                </div>
             </div>
+
+            {requestNote && (
+                <p className="text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2">
+                    {requestNote}
+                </p>
+            )}
 
             <div className="flex flex-wrap gap-2">
                 <div className="relative flex-1 min-w-[180px]">
@@ -210,6 +257,14 @@ const ClubMembersRegistry = ({ clubId = null, showContact = false, refreshKey = 
                                         }`}>
                                             {MEMBER_STATUS_LABELS[r.status] || r.status}
                                         </span>
+                                        {confirmations[r.studentId] && (
+                                            <Badge
+                                                variant={confirmations[r.studentId].status === 'confirmed' ? 'success' : 'warning'}
+                                                size="sm" className="ml-1.5"
+                                            >
+                                                {confirmations[r.studentId].status === 'confirmed' ? 'Tasdiqladi' : 'Javob kutilmoqda'}
+                                            </Badge>
+                                        )}
                                     </td>
                                     {!clubId && <td className="px-3 py-2 text-xs text-gray-600 dark:text-gray-300">{r.clubName}</td>}
                                     {showContact && (
