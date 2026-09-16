@@ -26,14 +26,16 @@
 --                    shuning uchun QO'SHISH ochiq qoladi, o'zgartirish va
 --                    o'chirish esa xodim/koordinatorga.
 --
--- DIQQAT - KOD BILAN JAMOAGA QO'SHILISH: `joinTeamByCode` kapitanning
--- qatorini yangilaydi, lekin qo'shilayotgan talaba hali `team_members`
--- ro'yxatida yo'q. Quyidagi qoida uni TO'SADI. Ikki yechim bor va
--- tanlash kerak (fayl ichida hozircha 1-variant):
---   1) shu holicha qoldirish - kod bilan qo'shilish ishlamaydi, taklif
---      orqali qo'shilish ishlayveradi;
---   2) `joinTeamByCode` ni `security definer` funksiyaga ko'chirish -
---      to'g'ri yechim, lekin ilova kodini o'zgartirib qayta joylash kerak.
+-- KOD BILAN JAMOAGA QO'SHILISH ATAYLAB TO'SILADI (2026-09-16, egasining
+-- qarori: "kod bilan qo'shilish kerak emas"). `joinTeamByCode` kapitanning
+-- qatorini yangilaydi, lekin qo'shilayotgan talaba o'sha paytda hali
+-- `team_members` ro'yxatida yo'q - shuning uchun quyidagi qoida uni
+-- o'tkazmaydi. TAKLIF ORQALI qo'shilish ishlayveradi: taklif qilingan
+-- talaba `team_members` ichida turadi.
+--
+-- Oqibati: "Kod bilan qo'shilish" maydoni ilovada hali ko'rinadi va
+-- bosilganda xatolik beradi. Uni yashirish - alohida kichik ish (ilova
+-- kodi o'zgaradi, qayta joylash kerak).
 --
 -- ISHGA TUSHIRISH: Supabase -> SQL Editor -> butun faylni nusxalab Run.
 -- Keyin: supabase/rls_events_registrations_test.sql ni ALOHIDA Run.
