@@ -35,6 +35,9 @@ import ActivityRegistrationPanel from '../activities/ActivityRegistrationPanel';
 import RegistrationStatusBadge from '../activities/RegistrationStatusBadge';
 import EventEditForm from '../admin/EventEditForm';
 
+import {
+    JoinFormBuilder, JoinFormFields, emptyJoinForm, validateJoinAnswers, buildAnswerRecords,
+} from './ClubJoinForm';
 // Per the professional "Klub tarkibi" management-workspace spec: "Koordinatorlar" and "A'zolar" are no
 // longer separate tabs — Klub tarkibi now covers the whole roster (public sees only the coordinators,
 // coordinator/admin see internal positions too). ClubCoordinatorsSection.jsx/ClubMembersSection.jsx are
@@ -273,6 +276,7 @@ const ClubProfilePage = () => {
             joinPolicy: club.joinPolicy || 'open',
             ladder: mergeLadder(club.ladder),
             about: { ...(club.about || {}) },
+            joinForm: club.joinForm || emptyJoinForm(),
         });
         setIsEditOpen(true);
     };
@@ -298,16 +302,21 @@ const ClubProfilePage = () => {
     );
     const [joinRequestOpen, setJoinRequestOpen] = useState(false);
     const [joinMotivation, setJoinMotivation] = useState('');
+    const [joinAnswers, setJoinAnswers] = useState({});
     const [joinError, setJoinError] = useState('');
 
     const handleSubmitJoinRequest = async () => {
         setJoinError('');
         try {
+            const invalid = validateJoinAnswers(club.joinForm, joinAnswers);
+            if (invalid) { setJoinError(invalid); return; }
             await db.requestToJoinClub({
                 userId: user.id || user.username, clubId: club.id, motivation: joinMotivation,
+                answers: buildAnswerRecords(club.joinForm, joinAnswers),
             });
             setJoinRequestOpen(false);
             setJoinMotivation('');
+            setJoinAnswers({});
             setRefreshKey(k => k + 1);
         } catch (err) {
             setJoinError(err?.message || 'Ariza yuborilmadi.');
@@ -677,6 +686,15 @@ const ClubProfilePage = () => {
                                     {r.motivation && (
                                         <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{r.motivation}</p>
                                     )}
+                                    {Array.isArray(r.answers) && r.answers.length > 0 && (
+                                        <div className="mt-1.5 space-y-0.5">
+                                            {r.answers.map(a => (
+                                                <p key={a.id} className="text-xs text-gray-600 dark:text-gray-300">
+                                                    <span className="font-semibold text-gray-500">{a.label}:</span> {a.value}
+                                                </p>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex gap-1.5 shrink-0">
                                     <button
@@ -855,6 +873,26 @@ const ClubProfilePage = () => {
                         <b>{club.name}</b> klubi a'zolarni ariza orqali qabul qiladi.
                         Arizangizni klub koordinatori ko'rib chiqadi.
                     </p>
+                    {/* SHAXSIY MA'LUMOT SO'RALMAYDI - tizimdan olinadi va
+                        faqat ko'rsatiladi. Qaytadan so'rash xato yozilishiga
+                        va ortiqcha ma'lumot yig'ilishiga olib kelardi. */}
+                    <div className="rounded-2xl bg-gray-50 border border-gray-100 p-3">
+                        <p className="text-[11px] font-black text-gray-400 uppercase mb-1.5">
+                            Ma'lumotlaringiz (tizimdan)
+                        </p>
+                        <p className="text-sm font-bold text-gray-900">{user?.fullName || user?.username}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {[user?.faculty, user?.course ? `${user.course}-kurs` : null, user?.group, user?.studentId]
+                                .filter(Boolean).join(' · ') || "Ma'lumot yo'q"}
+                        </p>
+                    </div>
+
+                    {club.joinForm?.intro && (
+                        <p className="text-sm text-gray-600 whitespace-pre-line">{club.joinForm.intro}</p>
+                    )}
+
+                    <JoinFormFields form={club.joinForm} answers={joinAnswers} onChange={setJoinAnswers} />
+
                     <div>
                         <label className="block text-xs font-black text-gray-500 uppercase mb-1">
                             Nega bu klubga qo'shilmoqchisiz? (ixtiyoriy)
@@ -966,6 +1004,19 @@ const ClubProfilePage = () => {
                                 </p>
                             </div>
                         </div>
+
+                        {/* A'ZOLIK ANKETASI. Faqat "ariza orqali" tartibida ma'noga
+                            ega: ochiq klubda talaba tugmani bosishi bilan a'zo bo'ladi,
+                            ya'ni javob beradigan joyning o'zi yo'q. */}
+                        {editForm.joinPolicy === 'application' && (
+                            <div className="pt-4 border-t border-gray-100">
+                                <h4 className="text-sm font-black text-gray-700 mb-2">A'zolik anketasi</h4>
+                                <JoinFormBuilder
+                                    value={editForm.joinForm || emptyJoinForm()}
+                                    onChange={jf => setEditForm({ ...editForm, joinForm: jf })}
+                                />
+                            </div>
+                        )}
 
                         {/* ZINAPOYA TALABLARI.
                             Har klub o'zinikini belgilaydi: yiliga 2 ta tadbir o'tkazadigan

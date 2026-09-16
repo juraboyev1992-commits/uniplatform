@@ -2264,6 +2264,10 @@ const mapClubFromSupabase = (row) => ({
     createdBy: row.data?.createdBy || null,
     applicationId: row.data?.applicationId || null,
     clubType: row.data?.clubType || null,
+    // A'ZOLIK ANKETASI (koordinator o'zi tuzadi). Yozuvi bo'lmasa `null` -
+    // shunda ariza oynasi faqat eski "nega qo'shilmoqchisiz" savolini
+    // ko'rsatadi, ya'ni mavjud klublarga hech narsa qilish kerak emas.
+    joinForm: row.data?.joinForm || null,
 });
 const mapMembershipFromSupabase = (row) => ({
     id: row.id, userId: row.user_id, clubId: row.club_id, role: row.role, joinedAt: row.joined_at
@@ -4030,6 +4034,8 @@ export const db = {
             // belgilaydi: yiliga 2 ta tadbir o'tkazadigan klub bilan har oy tadbir
             // qiladigan klubga bir xil talab qo'yish bajarib bo'lmaydigan bo'lardi.
             'ladder',
+            // A'zolik anketasi - savollar ro'yxati (components/clubs/ClubJoinForm.jsx).
+            'joinForm',
         ];
         const touchedDataFields = DATA_FIELDS.filter(f => updates[f] !== undefined);
         if (touchedDataFields.length > 0) {
@@ -4530,7 +4536,7 @@ export const db = {
             .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     },
 
-    requestToJoinClub: async ({ userId, clubId, motivation = '' }) => {
+    requestToJoinClub: async ({ userId, clubId, motivation = '', answers = [] }) => {
         await assertAuthenticated();
         const dbData = getDB();
         if ((dbData.memberships || []).some(m => m.userId === userId && String(m.clubId) === String(clubId))) {
@@ -4544,6 +4550,9 @@ export const db = {
         const record = {
             id, clubId: String(clubId), userId, status: 'pending',
             motivation: String(motivation || '').trim(),
+            // Javoblar SAVOL MATNI bilan birga: koordinator keyin anketani
+            // o'zgartirsa ham eski arizalar o'qilaveradi.
+            answers: Array.isArray(answers) ? answers : [],
             createdAt: new Date().toISOString(),
             reviewedBy: null, reviewedAt: null, comment: '',
         };
