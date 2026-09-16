@@ -5407,7 +5407,36 @@ export const db = {
             generateMockStudents().find(s => s.id === studentId)?.fullName
         );
 
-        if (positionTitle === 'head_coordinator') {
+        // KIM TAYINLAYAPTI. Platforma roli loginidan olinadi (createCompetition
+        // dagi bilan bir xil uslub) - chunki "koordinator" alohida platforma
+        // roli emas, u TALABA rolining ustidagi klub lavozimi.
+        //
+        // Admin bo'lmagan odamning tayinlovi darhol kuchga KIRMAYDI: u
+        // `pending` holatida yoziladi va admin tasdiqlagandan keyingina
+        // a'zolik roli beriladi (reviewPositionAssignment). Sabablari:
+        //   1. tashkiliy - lavozim vakolat beradi, uni admin tasdiqlaydi;
+        //   2. texnik - `memberships.role` ga admin bo'lmagan odam yoza
+        //      olmaydi (bazadagi guard_membership_role trigger), ya'ni
+        //      darhol yozishga urinish baribir xato bilan tugardi.
+        const actorRole = (getDB().realProfiles || [])
+            .find(p => p.username === assignedByUserId)?.role;
+        const isProposal = actorRole !== 'ADMINISTRATOR';
+
+        // Asosiy koordinatorni FAQAT administrator tayinlaydi - taklif sifatida
+        // ham qabul qilinmaydi. Interfeysda ham bu variant koordinatorga
+        // ko'rsatilmaydi; bu yerdagi tekshiruv interfeysni chetlab o'tishdan
+        // himoya qiladi.
+        if (isProposal && positionTitle === 'head_coordinator') {
+            throw Object.assign(
+                new Error("Asosiy koordinatorni faqat administrator tayinlaydi"),
+                { status: 403 }
+            );
+        }
+
+        // Amaldagi asosiy koordinatorni almashtirish - faqat haqiqiy tayinlashda.
+        // Taklif bosqichida hech kim lavozimdan olinmaydi: aks holda admin rad
+        // etsa, klub boshsiz qolardi.
+        if (positionTitle === 'head_coordinator' && !isProposal) {
             const currentHead = roster.find(r => r.positionTitle === 'head_coordinator' && r.studentId !== studentId);
             if (currentHead) {
                 await db.removeFromClubPosition({
@@ -5431,15 +5460,18 @@ export const db = {
         const mappedRole = POSITION_TO_MEMBERSHIP_ROLE[positionTitle] || 'member';
 
         // A'zolik roli Supabase'ga yoziladi va shundan keyingina lavozim
-        // tayinlanadi - izohi persistMembershipRole ustida.
-        await persistMembershipRole(fresh, {
-            studentId, clubId, role: mappedRole, joinedAt: timestamp,
-        });
+        // tayinlanadi - izohi persistMembershipRole ustida. Taklif bosqichida
+        // rol YOZILMAYDI: u admin tasdiqlaganda beriladi.
+        if (!isProposal) {
+            await persistMembershipRole(fresh, {
+                studentId, clubId, role: mappedRole, joinedAt: timestamp,
+            });
+        }
 
         const assignment = {
             id: 'posasg_' + Date.now().toString() + uniqueSuffix(),
             clubId, studentId, positionTitle,
-            status: 'active',
+            status: isProposal ? 'pending' : 'active',
             assignedBy: assignedByUserId,
             assignedAt: timestamp,
             endedAt: null, endedBy: null, endReason: null,
@@ -5451,7 +5483,8 @@ export const db = {
         const assignLog = {
             id: 'poslog_' + Date.now().toString(36) + uniqueSuffix(),
             applicationId: null, clubId, studentId, positionTitle,
-            action: 'ASSIGNED', fromStatus: null, toStatus: 'active',
+            action: isProposal ? 'PROPOSED' : 'ASSIGNED',
+            fromStatus: null, toStatus: isProposal ? 'pending' : 'active',
             reviewer: assignedByUserId, comment, time: timestamp
         };
         fresh.clubPositionAuditLogs.push(assignLog);
@@ -5462,7 +5495,7 @@ export const db = {
         // keyingi sinxronlashda butunlay yo'qolardi.
         await persistRecordRow('club_position_assignments', assignment, {
             club_id: clubId, student_id: studentId,
-            position_title: positionTitle, status: 'active',
+            position_title: positionTitle, status: assignment.status,
         });
         await persistClubPositionLog(assignLog);
         saveDB(fresh);
@@ -5473,7 +5506,7 @@ export const db = {
         //
         // Xabar yuborish ikkilamchi amal - u muvaffaqiyatsiz bo'lsa ham tayinlash
         // bekor qilinmaydi.
-        if (positionTitle === 'head_coordinator') {
+        if (positionTitle === 'head_coordinator' && !isProposal) {
             const club = (fresh.clubs || []).find(c => c.id === clubId);
             addNotificationToSupabase({
                 userId: studentId,
@@ -5484,6 +5517,109 @@ export const db = {
                 refId: clubId, refType: 'club',
             }).catch(e => console.warn('[indeks] xabar yuborilmadi:', e.message));
         }
+
+        return assignment;
+    },
+
+    // Tasdiqlashni kutayotgan tayinlovlar - koordinator taklif qilgan, admin
+    // hali ko'rib chiqmagan yozuvlar. Ro'yxatga (getCurrentClubRoster) ular
+    // TUSHMAYDI, chunki u faqat `active` ni o'qiydi.
+    getPendingPositionAssignments: (clubId = null) =>
+        (getDB().clubPositionAssignments || [])
+            .filter(a => a.status === 'pending' && (!clubId || a.clubId === clubId)),
+
+    // Koordinatorning taklifini ADMIN tasdiqlaydi yoki rad etadi.
+    //
+    // A'zolik roli aynan shu yerda yoziladi - ya'ni vakolat admin tugmani
+    // bosgandan keyin kuchga kiradi. Bazadagi guard_membership_role trigger
+    // ham shuni talab qiladi: `member` dan boshqa rolni faqat administrator
+    // yoza oladi.
+    reviewPositionAssignment: async (assignmentId, action, reviewer, comment = '') => {
+        if (!['approve', 'reject'].includes(action)) {
+            throw new Error("Noma'lum amal: " + action);
+        }
+        const reviewerRole = (getDB().realProfiles || [])
+            .find(p => p.username === reviewer)?.role;
+        if (reviewerRole !== 'ADMINISTRATOR') {
+            throw Object.assign(
+                new Error('Tayinlovni faqat administrator tasdiqlaydi'),
+                { status: 403 }
+            );
+        }
+
+        const dbData = getDB();
+        const assignment = (dbData.clubPositionAssignments || []).find(a => a.id === assignmentId);
+        if (!assignment) throw new Error('Tayinlov topilmadi');
+        if (assignment.status !== 'pending') {
+            throw new Error("Bu tayinlov allaqachon ko'rib chiqilgan");
+        }
+
+        const timestamp = new Date().toISOString();
+        const fromStatus = assignment.status;
+
+        if (action === 'approve') {
+            // Taklif berilgandan keyin holat o'zgargan bo'lishi mumkin (talaba
+            // boshqa klubda lavozim olgan, o'rinlar to'lgan) - shuning uchun
+            // tekshiruvlar tasdiqlash paytida QAYTA bajariladi.
+            assertCanHoldClubPosition(
+                dbData, assignment.studentId, assignment.clubId,
+                generateMockStudents().find(s => s.id === assignment.studentId)?.fullName
+            );
+            if (assignment.positionTitle === 'assistant_coordinator') {
+                const roster = db.getCurrentClubRoster(assignment.clubId);
+                const current = roster.filter(r =>
+                    r.positionTitle === 'assistant_coordinator' && r.studentId !== assignment.studentId);
+                if (current.length >= POSITION_MAX_SLOTS.assistant_coordinator) {
+                    throw new Error(`Yordamchi koordinator uchun eng ko'pi bilan ${POSITION_MAX_SLOTS.assistant_coordinator} o'rin band bo'lishi mumkin`);
+                }
+            }
+
+            const mappedRole = POSITION_TO_MEMBERSHIP_ROLE[assignment.positionTitle] || 'member';
+            await persistMembershipRole(dbData, {
+                studentId: assignment.studentId, clubId: assignment.clubId,
+                role: mappedRole, joinedAt: timestamp,
+            });
+            assignment.status = 'active';
+            assignment.assignedAt = timestamp;
+        } else {
+            assignment.status = 'rejected';
+            assignment.endedAt = timestamp;
+            assignment.endedBy = reviewer;
+            assignment.endReason = 'rejected';
+        }
+
+        await persistRecordRow('club_position_assignments', assignment, {
+            club_id: assignment.clubId, student_id: assignment.studentId,
+            position_title: assignment.positionTitle, status: assignment.status,
+        });
+
+        if (!dbData.clubPositionAuditLogs) dbData.clubPositionAuditLogs = [];
+        const reviewLog = {
+            id: 'poslog_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+            applicationId: null,
+            clubId: assignment.clubId,
+            studentId: assignment.studentId,
+            positionTitle: assignment.positionTitle,
+            action: action === 'approve' ? 'ASSIGNMENT_APPROVED' : 'ASSIGNMENT_REJECTED',
+            fromStatus, toStatus: assignment.status,
+            reviewer, comment: comment || '', time: timestamp
+        };
+        dbData.clubPositionAuditLogs.push(reviewLog);
+        await persistClubPositionLog(reviewLog);
+        saveDB(dbData);
+
+        // Talaba javobni bilishi kerak - tasdiqlangan ham, rad etilgan ham.
+        // Xabar ikkilamchi: yuborilmasa ham amal bekor qilinmaydi.
+        const club = (dbData.clubs || []).find(c => c.id === assignment.clubId);
+        addNotificationToSupabase({
+            userId: assignment.studentId,
+            type: action === 'approve' ? 'success' : 'info',
+            title: action === 'approve' ? 'Lavozim tasdiqlandi' : 'Lavozim tasdiqlanmadi',
+            message: `"${club?.name || 'Klub'}" - ${POSITION_TYPE_LABELS[assignment.positionTitle] || assignment.positionTitle}`
+                + (action === 'approve' ? ' lavozimi tasdiqlandi.' : ' bo\'yicha taklif rad etildi.')
+                + (comment ? ` Izoh: ${comment}` : ''),
+            refId: assignment.clubId, refType: 'club',
+        }).catch(e => console.warn('[klub lavozimi] xabar yuborilmadi:', e.message));
 
         return assignment;
     },

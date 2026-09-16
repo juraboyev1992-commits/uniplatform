@@ -31,6 +31,36 @@ const ClubOrgStructureSection = ({ club, refreshKey, onRefresh }) => {
     const [formError, setFormError] = useState('');
 
     const roster = useMemo(() => db.getCurrentClubRoster(club.id), [club.id, refreshKey]);
+
+    // KOORDINATOR TAKLIF QILGAN, ADMIN HALI KO'RIB CHIQMAGAN TAYINLOVLAR.
+    //
+    // Ular tarkib ro'yxatiga TUSHMAYDI (getCurrentClubRoster faqat `active`
+    // ni o'qiydi), shuning uchun alohida ko'rsatiladi - aks holda taklif
+    // yuborilgandan keyin hech qayerda ko'rinmasdi va admin uni bilmasdi.
+    const pendingAssignments = useMemo(
+        () => db.getPendingPositionAssignments(club.id),
+        [club.id, refreshKey]
+    );
+    const [reviewError, setReviewError] = useState('');
+
+    // Ism ikki manbadan izlanadi - demo talabalar va haqiqiy akkauntlar
+    // (ClubProfilePage dagi bilan bir xil qolip).
+    const nameOfStudent = (studentId) => {
+        const mock = db.getMockStudents().find(s => s.id === studentId);
+        if (mock) return mock.fullName;
+        const profile = db.getSyncedProfiles().find(p => p.username === studentId || p.id === studentId);
+        return profile?.fullName || studentId;
+    };
+
+    const handleReviewAssignment = async (assignmentId, action) => {
+        setReviewError('');
+        try {
+            await db.reviewPositionAssignment(assignmentId, action, user.username);
+            onRefresh?.();
+        } catch (e) {
+            setReviewError(e?.message || 'Amal bajarilmadi');
+        }
+    };
     // Ariza bosqichida "Klub rahbari (taklif etiladigan)" nomi kiritilgan -
     // bu HALI HAQIQIY TAYINLOV EMAS (talaba erkin matn yozgan, platformada
     // ro'yxatdan o'tgan foydalanuvchi bo'lmasligi ham mumkin). Shuning uchun
@@ -137,6 +167,57 @@ const ClubOrgStructureSection = ({ club, refreshKey, onRefresh }) => {
                             ))}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* TASDIQLASHNI KUTAYOTGAN TAYINLOVLAR. Koordinator ham ko'radi
+                (o'z taklifi qayerda turganini bilishi kerak), lekin tugmalar
+                faqat adminda - tasdiqlash uning vakolati. */}
+            {canManage && pendingAssignments.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-3xl border border-amber-200 dark:border-amber-900/40 shadow-sm p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Clock size={14} className="text-amber-500" />
+                        <h4 className="font-bold text-gray-900 dark:text-gray-100 text-sm">
+                            Tasdiqlashni kutayotgan tayinlovlar
+                        </h4>
+                        <span className="text-xs font-black text-amber-600">{pendingAssignments.length}</span>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mb-3">
+                        Koordinator taklif qildi. Lavozim vakolati admin tasdiqlagandan keyin kuchga kiradi.
+                    </p>
+                    {reviewError && (
+                        <p className="text-[11px] text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 mb-2">
+                            {reviewError}
+                        </p>
+                    )}
+                    <div className="divide-y divide-gray-50 dark:divide-gray-700">
+                        {pendingAssignments.map(a => (
+                            <div key={a.id} className="py-2.5 flex flex-wrap items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
+                                        {nameOfStudent(a.studentId)}
+                                    </p>
+                                    <p className="text-[11px] text-gray-400">
+                                        {POSITION_TYPE_LABELS[a.positionTitle] || a.positionTitle}
+                                        {a.assignedBy ? ` · taklif qildi: ${a.assignedBy}` : ''}
+                                        {a.assignedAt ? ` · ${new Date(a.assignedAt).toLocaleDateString('uz-UZ')}` : ''}
+                                    </p>
+                                </div>
+                                {isAdmin ? (
+                                    <div className="flex gap-2 shrink-0">
+                                        <Button variant="primary" size="sm" onClick={() => handleReviewAssignment(a.id, 'approve')}>
+                                            Tasdiqlash
+                                        </Button>
+                                        <Button variant="outline" size="sm" onClick={() => handleReviewAssignment(a.id, 'reject')}>
+                                            Rad etish
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <Badge variant="warning" size="sm">Admin tasdig'i kutilmoqda</Badge>
+                                )}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 

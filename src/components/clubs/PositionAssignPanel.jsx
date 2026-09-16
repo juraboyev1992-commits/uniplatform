@@ -14,7 +14,13 @@ const ALL_POSITION_TYPES = [...OFFICIAL_POSITION_TYPES, ...INTERNAL_POSITION_TYP
 // menu), review their current workload, then assign. Separate from the "Ochiq imkoniyatlar" ariza flow
 // (OpenPositionCard/PositionApplicationModal) — this is the immediate admin/coordinator-driven path,
 // that one stays the student-initiated application path; neither replaces the other.
-const PositionAssignPanel = ({ isOpen, onClose, club, assignedByUserId, onAssigned, presetStudent = null }) => {
+const PositionAssignPanel = ({ isOpen, onClose, club, assignedByUserId, onAssigned, presetStudent = null, isAdmin = false }) => {
+    // ASOSIY KOORDINATOR faqat adminda. Koordinatorga bu variant umuman
+    // ko'rsatilmaydi; db.assignPosition ham shu qoidani mustaqil tekshiradi,
+    // ya'ni interfeysni chetlab o'tib bo'lmaydi.
+    const availablePositions = isAdmin
+        ? ALL_POSITION_TYPES
+        : ALL_POSITION_TYPES.filter(t => t !== 'head_coordinator');
     const [selectedPositions, setSelectedPositions] = useState([]);
     const [query, setQuery] = useState('');
     const [selected, setSelected] = useState(presetStudent);
@@ -138,8 +144,14 @@ const PositionAssignPanel = ({ isOpen, onClose, club, assignedByUserId, onAssign
                 <div className="flex-1 overflow-y-auto p-5 space-y-6">
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Qo'shiladigan lavozimlar</label>
+                        {!isAdmin && (
+                            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-2">
+                                Tayinlov darhol kuchga kirmaydi: u administrator tasdig'iga yuboriladi.
+                                Asosiy koordinatorni faqat administrator tayinlaydi.
+                            </p>
+                        )}
                         <div className="flex flex-wrap gap-2">
-                            {ALL_POSITION_TYPES.map(t => {
+                            {availablePositions.map(t => {
                                 const active = selectedPositions.includes(t);
                                 return (
                                     <button

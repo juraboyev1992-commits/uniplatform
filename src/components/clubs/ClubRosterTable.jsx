@@ -356,6 +356,7 @@ const ClubRosterTable = ({ club, roster, isAdmin, assignedByUserId, onRefresh })
                 assignedByUserId={assignedByUserId}
                 presetStudent={assignState.presetStudent}
                 onAssigned={onRefresh}
+                isAdmin={isAdmin}
             />
 
             <RemovePositionModal
