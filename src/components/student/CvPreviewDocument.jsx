@@ -3,6 +3,7 @@ import {
     Mail, Phone, MapPin, Link2, User, GraduationCap, Briefcase, Building2,
     FolderKanban, Wrench, Languages, FileText, Users, Heart, Trophy, Medal,
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { db } from '../../services/db';
 import { buildCv, SOURCE } from '../../utils/cvEngine';
 
@@ -46,24 +47,40 @@ const Section = ({ id, title, children }) => {
     );
 };
 
+// QR FAQAT TASDIQLANGAN HUJJATDA. Talaba o'zi yuklagan hujjatda
+// tekshirish tokeni yo'q, ya'ni QR ham bo'lmaydi - ikkalasini bir xil
+// ko'rsatish tashqi o'quvchini chalg'itardi.
+//
+// Manzil `window.location.origin` dan olinadi: loyihada bir joyda
+// `uniplatform.uz` qotirib yozilgan, lekin jonli sayt boshqa domenda -
+// bosilgan QR mavjud bo'lmagan manzilga olib borsa, u umuman
+// bo'lmaganidan yomonroq.
 const Entry = ({ item }) => (
-    <div className="py-1">
-        <div className="flex items-baseline justify-between gap-4">
-            <p className="text-[12px] font-bold text-slate-900 leading-snug">
-                {item.title}
-                {item.subtitle && (
-                    <span className="font-normal text-slate-500"> — {item.subtitle}</span>
+    <div className="py-1 flex items-start gap-2.5">
+        <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-4">
+                <p className="text-[12px] font-bold text-slate-900 leading-snug">
+                    {item.title}
+                    {item.subtitle && (
+                        <span className="font-normal text-slate-500"> — {item.subtitle}</span>
+                    )}
+                </p>
+                {item.period && (
+                    <p className="text-[10px] text-slate-500 shrink-0 tabular-nums">{item.period}</p>
                 )}
-            </p>
-            {item.period && (
-                <p className="text-[10px] text-slate-500 shrink-0 tabular-nums">{item.period}</p>
+            </div>
+            {item.note && (
+                <p className="text-[10.5px] text-slate-500 leading-snug mt-0.5 pl-3 relative">
+                    <span className="absolute left-0 top-[6px] w-1 h-1 rounded-full bg-slate-300" />
+                    {item.note}
+                </p>
             )}
         </div>
-        {item.note && (
-            <p className="text-[10.5px] text-slate-500 leading-snug mt-0.5 pl-3 relative">
-                <span className="absolute left-0 top-[6px] w-1 h-1 rounded-full bg-slate-300" />
-                {item.note}
-            </p>
+        {item.verifyToken && (
+            <span className="shrink-0 flex flex-col items-center gap-0.5">
+                <QRCodeSVG value={`${window.location.origin}/verify/${item.verifyToken}`} size={40} />
+                <span className="text-[7px] text-slate-400 leading-none">tekshirish</span>
+            </span>
         )}
     </div>
 );

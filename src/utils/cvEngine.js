@@ -1,4 +1,5 @@
 import { buildStudentPortfolio } from './studentPortfolio';
+import { ACTIVITY_LEVELS } from '../config/activityLifecycle';
 
 // CV DVIGATELI — jamlovchi qatlam.
 //
@@ -71,6 +72,12 @@ export const CV_SECTIONS = [
 // Musobaqalarda talaba qatnashganini aniqlash. `participants` massivi
 // musobaqa yozuvining ichida turadi va unda jamoa ham, yakka ishtirokchi
 // ham bo'lishi mumkin - shuning uchun ikkala shakl ham tekshiriladi.
+// Hujjat BOSQICHI. Yozuvi bo'lmasa `null` qaytadi va qatorda umuman
+// ko'rsatilmaydi. `getLevel()` bu yerda ATAYLAB ishlatilmaydi: u daraja
+// yo'q bo'lsa "Universitet" qaytaradi va bosqichi belgilanmagan hujjat
+// qog'ozda universitet bosqichi bo'lib chiqardi.
+const levelLabelOf = (level) => (level ? ACTIVITY_LEVELS[level]?.label || null : null);
+
 const competitionsOf = (db, studentId) => {
     const list = (db.getPublicCompetitions?.() || db.getCompetitions?.() || []);
     return list
@@ -121,20 +128,29 @@ export const buildCv = (db, studentId) => {
     const awards = p.documents.filter(d => d.place).map(d => ({
         id: d.id,
         title: d.title,
-        subtitle: [d.place ? `${d.place}-o'rin` : null, d.typeLabel].filter(Boolean).join('  ·  '),
+        // BOSQICH o'rindan keyin turadi: bosqichsiz "1-o'rin" deyarli hech
+        // narsa anglatmaydi - universitet ichidagi va xalqaro birinchi
+        // o'rin bir xil o'qiladi.
+        subtitle: [
+            d.place ? `${d.place}-o'rin` : null,
+            levelLabelOf(d.level),
+            d.typeLabel,
+        ].filter(Boolean).join('  ·  '),
         note: d.registrationNumber ? `№ ${d.registrationNumber}` : null,
         period: yearOf(d.date),
         source: SOURCE.VERIFIED,
+        verifyToken: d.verificationToken || null,
     }));
 
     const certificates = [
         ...p.documents.filter(d => !d.place).map(d => ({
             id: d.id,
             title: d.title,
-            subtitle: d.typeLabel,
+            subtitle: [levelLabelOf(d.level), d.typeLabel].filter(Boolean).join('  ·  '),
             note: d.registrationNumber ? `№ ${d.registrationNumber}` : null,
             period: yearOf(d.date),
             source: SOURCE.VERIFIED,
+            verifyToken: d.verificationToken || null,
         })),
         // Talaba yuklagan tashqi hujjatlar - AYNI bo'limda, lekin boshqa
         // belgi bilan. Ularni yashirish CV ni kambag'al qilardi, rasmiy
