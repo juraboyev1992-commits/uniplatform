@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Users, Search, Download, RotateCcw, Phone, BellRing } from 'lucide-react';
+import { Users, Search, Download, RotateCcw, Phone, BellRing, CheckCircle2, X } from 'lucide-react';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import Pagination from '../common/Pagination';
@@ -147,10 +147,20 @@ const ClubMembersRegistry = ({ clubId = null, showContact = false, refreshKey = 
                 </div>
             </div>
 
+            {/* Natija xabari. Avval 11px och chiziq edi va tugmani bosgan
+                odam uni umuman payqamasdi - yuborildimi yoki yo'qmi degan
+                savol javobsiz qolardi. Endi to'liq kenglikdagi blok. */}
             {requestNote && (
-                <p className="text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2">
-                    {requestNote}
-                </p>
+                <div className="flex items-start gap-2.5 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+                    <CheckCircle2 size={18} className="text-indigo-600 shrink-0 mt-px" />
+                    <p className="flex-1 text-sm font-semibold text-indigo-900">{requestNote}</p>
+                    <button
+                        type="button" onClick={() => setRequestNote('')}
+                        className="text-indigo-400 hover:text-indigo-700 shrink-0" title="Yopish"
+                    >
+                        <X size={16} />
+                    </button>
+                </div>
             )}
 
             <div className="flex flex-wrap gap-2">
