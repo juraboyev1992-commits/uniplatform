@@ -160,9 +160,14 @@ create policy team_members_w_delete on public.team_members
 notify pgrst, 'reload schema';
 
 -- ---------------------------------------------------------------------
--- TEKSHIRUV - holat. To'g'ri natija: `auth.role` ishlatadigan qoida
--- qolmasin; ochiq_yozish faqat registration_audit_logs, teams va
--- team_members da 1 (ular ataylab QO'SHISHGA ochiq).
+-- TEKSHIRUV - holat. To'g'ri natija:
+--   ochiq_yozish -> faqat registration_audit_logs, teams va team_members
+--                   da 1 (ular ataylab QO'SHISHGA ochiq), qolganida 0;
+--   eski_qoida   -> har jadvalda 1 bo'lishi NORMAL: bu eski qoidaning
+--                   O'QISH qismi, u aynan saqlab qolingan va ichida
+--                   `auth.role() = 'authenticated'` turadi. Ya'ni o'qish
+--                   avvalgidek kirgan foydalanuvchiga ochiq. Faqat
+--                   YOZISH o'zgardi.
 -- ---------------------------------------------------------------------
 select
     t.tablename as jadval,
