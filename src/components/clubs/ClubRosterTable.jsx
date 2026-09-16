@@ -132,7 +132,7 @@ const RowActionsMenu = ({ isAdmin, onDetails, onHistory, onPortfolio, onAssignMo
                     {isAdmin && item(<History size={14} />, 'Tarix', onHistory)}
                     {item(<ShieldCheck size={14} />, 'Vakolatlarni ko\'rish', onPortfolio)}
                     <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
-                    {item(<UserPlus size={14} />, 'Tayinlash', onAssignMore)}
+                    {item(<UserPlus size={14} />, isAdmin ? 'Tayinlash' : 'Tavsiya qilish', onAssignMore)}
                     {isAdmin && item(<UserMinus size={14} />, 'Lavozimni olib tashlash', onRemove, true)}
                 </div>,
                 document.body
@@ -215,7 +215,10 @@ const ClubRosterTable = ({ club, roster, isAdmin, assignedByUserId, onRefresh })
                         onClick={() => openAssign(null)}
                         className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
                     >
-                        <Plus size={14} /> Lavozimga tayinlash
+                        {/* Koordinator uchun bu TAYINLASH emas, TAVSIYA:
+                            yozuv admin tasdig'igacha kuchga kirmaydi
+                            (db.assignPosition -> status 'pending'). */}
+                        <Plus size={14} /> {isAdmin ? 'Lavozimga tayinlash' : 'Lavozimga tavsiya'}
                     </button>
                 </div>
             </div>

@@ -599,26 +599,14 @@ const ClubProfilePage = () => {
                 </div>
             )}
 
-            {/* TEZ AMALLAR - koordinator uchun. Ilgari tadbir yoki musobaqa
-                yaratish uchun boshqa bo'limga o'tish kerak edi, holbuki
-                qaror aynan klub sahifasida tug'iladi. */}
-            {canManageThisClub && club.status !== 'archived' && (
-                <div className="flex flex-wrap gap-2">
-                    {/* "Tadbir yaratish" va "Musobaqa yaratish" BU YERDAN OLIB
-                        TASHLANDI: ikkalasi ham /admin/* ga yuborardi va
-                        koordinator bosganda bosh sahifaga otib yuborilardi -
-                        ya'ni tugma ko'rinardi, lekin hech qachon ishlamagan.
-                        Musobaqa yaratish endi yuqorida, "Sozlash" yonida va
-                        shu sahifaning o'zida ochiladi. Tadbir yaratish
-                        koordinator uchun hali yo'q - forma yozilishi kerak. */}
-                    <Button variant="outline" size="sm" icon={UsersRound} onClick={() => setActiveTab('teams')}>
-                        Jamoa qo'shish
-                    </Button>
-                    <Button variant="outline" size="sm" icon={UserPlus} onClick={() => setActiveTab('structure')}>
-                        Lavozimga tayinlash
-                    </Button>
-                </div>
-            )}
+            {/* TEZ AMALLAR BLOKI BUTUNLAY OLIB TASHLANDI.
+                Undagi to'rt tugmadan ikkitasi ("Tadbir yaratish", "Musobaqa
+                yaratish") /admin/* ga yuborardi va koordinatorda hech qachon
+                ishlamagan - musobaqa yaratish endi yuqorida, "Sozlash"
+                yonida. Qolgan ikkitasi ("Jamoa qo'shish", "Lavozimga
+                tayinlash") shunchaki tabni almashtirardi, holbuki o'sha
+                amallar aynan o'sha tablarning ichida allaqachon bor -
+                ya'ni bir ishni ikki joyda ko'rsatish edi. */}
 
             {/* A'ZOLIKKA ARIZALAR - faqat kutayotganlari bo'lsa. */}
             {canManageThisClub && pendingJoinRequests.length > 0 && (

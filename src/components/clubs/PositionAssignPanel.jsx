@@ -135,7 +135,11 @@ const PositionAssignPanel = ({ isOpen, onClose, club, assignedByUserId, onAssign
             <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={handleClose} />
             <div className="fixed inset-y-0 right-0 w-[420px] max-w-full bg-white dark:bg-gray-900 shadow-2xl flex flex-col">
                 <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Lavozimga tayinlash</h2>
+                    {/* Koordinator uchun bu TAYINLASH emas, TAVSIYA - yozuv
+                        admin tasdig'igacha kuchga kirmaydi. */}
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                        {isAdmin ? 'Lavozimga tayinlash' : 'Lavozimga tavsiya'}
+                    </h2>
                     <button type="button" onClick={handleClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
                         <X size={18} />
                     </button>
@@ -313,7 +317,7 @@ const PositionAssignPanel = ({ isOpen, onClose, club, assignedByUserId, onAssign
                         disabled={!selected || selectedPositions.length === 0 || !!conflict}
                         onClick={handleAssign}
                     >
-                        Tayinlash
+                        {isAdmin ? 'Tayinlash' : 'Tavsiya yuborish'}
                     </Button>
                 </div>
             </div>
