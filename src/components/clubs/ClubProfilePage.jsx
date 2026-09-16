@@ -28,6 +28,7 @@ import ClubMembershipHistory from './ClubMembershipHistory';
 import ClubDocumentsTab from './ClubDocumentsTab';
 import ClubRegistrationTab from './ClubRegistrationTab';
 import ClubActivitiesPanel from './ClubActivitiesPanel';
+import TournamentCreateWizard from '../common/TournamentCreateWizard';
 import UpcomingActivitiesPreview from './UpcomingActivitiesPreview';
 import CopyableId from '../common/CopyableId';
 import ActivityRegistrationPanel from '../activities/ActivityRegistrationPanel';
@@ -80,6 +81,12 @@ const ClubProfilePage = () => {
     const [activeTab, setActiveTab] = useTabParam(TAB_IDS, 'about');
     const [refreshKey, setRefreshKey] = useState(0);
     const [isEditOpen, setIsEditOpen] = useState(false);
+    // Musobaqa yaratish sehrgari SHU sahifada ochiladi. Ilgari "Musobaqa
+    // yaratish" tugmasi /admin/competitions ga yuborardi - u faqat
+    // administrator uchun ochiq marshrut, ya'ni koordinator bosganda bosh
+    // sahifaga otib yuborilardi. Sehrgarning o'zi koordinator uchun
+    // allaqachon ishlaydi (actingRole ni o'zi COORDINATOR deb uzatadi).
+    const [isCreatingCompetition, setIsCreatingCompetition] = useState(false);
     const [editForm, setEditForm] = useState({ name: '', description: '', category: '', pointsModifier: 1.0, contacts: {} });
     // Saqlash xatosi oynada ko'rsatiladi. Ilgari `updateClub` xatosi hech
     // qayerda ushlanmasdi va oyna jimgina ochiq qolardi.
@@ -513,6 +520,20 @@ const ClubProfilePage = () => {
                                 </Button>
                             )
                         )}
+                        {/* YARATISH - "Sozlash" yonida, chunki ikkalasi ham
+                            "bu klubni boshqarish" amali. Admin koordinatorlar
+                            uchun yaratishni yopgan bo'lsa (EventManagement dagi
+                            ON/OFF), tugma koordinatorga ko'rinmaydi; adminda
+                            har doim turadi. */}
+                        {canManageThisClub && club.status !== 'archived'
+                            && (isAdmin || db.isCoordinatorCreationEnabled()) && (
+                            <Button
+                                variant="secondary" className="bg-white/10 text-white border-none hover:bg-white/20"
+                                icon={Trophy} onClick={() => setIsCreatingCompetition(true)}
+                            >
+                                Musobaqa yaratish
+                            </Button>
+                        )}
                         {canManageThisClub && (
                             <Button variant="secondary" className="bg-white/10 text-white border-none hover:bg-white/20" icon={Settings} onClick={handleOpenEdit}>
                                 Sozlash
@@ -583,18 +604,13 @@ const ClubProfilePage = () => {
                 qaror aynan klub sahifasida tug'iladi. */}
             {canManageThisClub && club.status !== 'archived' && (
                 <div className="flex flex-wrap gap-2">
-                    {/* Admin koordinatorlar uchun yaratishni yopgan bo'lsa bu
-                        ikki tugma ko'rinmaydi (EventManagement dagi ON/OFF). */}
-                    {(user?.role === 'ADMINISTRATOR' || db.isCoordinatorCreationEnabled()) && (
-                        <>
-                            <Button variant="primary" size="sm" icon={Calendar} onClick={() => navigate('/admin/events')}>
-                                Tadbir yaratish
-                            </Button>
-                            <Button variant="outline" size="sm" icon={Trophy} onClick={() => navigate('/admin/competitions')}>
-                                Musobaqa yaratish
-                            </Button>
-                        </>
-                    )}
+                    {/* "Tadbir yaratish" va "Musobaqa yaratish" BU YERDAN OLIB
+                        TASHLANDI: ikkalasi ham /admin/* ga yuborardi va
+                        koordinator bosganda bosh sahifaga otib yuborilardi -
+                        ya'ni tugma ko'rinardi, lekin hech qachon ishlamagan.
+                        Musobaqa yaratish endi yuqorida, "Sozlash" yonida va
+                        shu sahifaning o'zida ochiladi. Tadbir yaratish
+                        koordinator uchun hali yo'q - forma yozilishi kerak. */}
                     <Button variant="outline" size="sm" icon={UsersRound} onClick={() => setActiveTab('teams')}>
                         Jamoa qo'shish
                     </Button>
@@ -1091,6 +1107,32 @@ const ClubProfilePage = () => {
                             <Button variant="primary" className="flex-1 font-bold bg-indigo-600" onClick={handleSaveEdit}>Saqlash</Button>
                         </div>
                     </div>
+                </Modal>
+            )}
+
+            {isCreatingCompetition && club && (
+                <Modal
+                    isOpen={isCreatingCompetition}
+                    onClose={() => setIsCreatingCompetition(false)}
+                    title="Yangi musobaqa"
+                    size="lg"
+                >
+                    <TournamentCreateWizard
+                        contextType="club"
+                        contextId={club.id}
+                        onCancel={() => setIsCreatingCompetition(false)}
+                        onCreated={(created) => {
+                            setIsCreatingCompetition(false);
+                            setRefreshKey(k => k + 1);
+                            // Yaratilgach darhol ish maydoniga - keyingi qadam
+                            // (ishtirokchi, jadval, natija) o'sha yerda.
+                            if (workspaceBase && created?.id) {
+                                navigate(`${workspaceBase}/competitions/${created.id}`, {
+                                    state: { from: `${location.pathname}${location.search}` },
+                                });
+                            }
+                        }}
+                    />
                 </Modal>
             )}
 
