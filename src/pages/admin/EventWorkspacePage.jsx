@@ -8,11 +8,13 @@ import {
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
 import Card from '../../components/common/Card';
+import Modal from '../../components/common/Modal';
 import EventManagementPanel from '../../components/admin/EventManagementPanel';
+import EventEditForm from '../../components/admin/EventEditForm';
 import ParticipantStatsPanel from '../../components/common/ParticipantStatsPanel';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
-import { EVENT_TYPES, ACTIVITY_LEVELS } from '../../config/activityLifecycle';
+import { EVENT_TYPES, ACTIVITY_LEVELS, DEFAULT_ACTIVITY_LEVEL } from '../../config/activityLifecycle';
 
 // Tadbir boshqaruv sahifasi — musobaqadagi /admin/competitions/:id bilan bir xil shakl.
 //
@@ -57,6 +59,19 @@ const EventWorkspacePage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [version, setVersion] = useState(0);
 
+    // TAFSILOTLARNI TAHRIRLASH SHU YERDA.
+    //
+    // Ilgari bu tugma kalendarga QAYTARARDI va koordinatorga umuman
+    // ko'rsatilmasdi - u tahrirlashni klub sahifasidagi oynadan qidirardi.
+    // Endi klub sahifasidan bosilganda to'g'ridan-to'g'ri shu ish maydoni
+    // ochiladi, shuning uchun forma ham shu yerda: bir joyda davomat, ball,
+    // hisobot va tafsilot. Forma - kalendar va klub sahifasidagi bilan
+    // BIR XIL komponent (EventEditForm), shuning uchun maydonlar ham,
+    // saqlash shartnomasi ham ayni o'sha.
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editFormData, setEditFormData] = useState(null);
+    const [editSaveError, setEditSaveError] = useState('');
+
     const event = useMemo(() => db.getEvents().find(e => e.id === id) || null, [id, version]);
     const club = useMemo(
         () => (event?.clubId ? db.getClubs().find(c => c.id === event.clubId) : null),
@@ -90,6 +105,84 @@ const EventWorkspacePage = () => {
     );
     const canEditDetails = isAdmin || isClubCoordinator;
     const canManageAttendance = canEditDetails || hasAttendanceDelegation;
+
+    // Forma holati - klub sahifasidagi bilan AYNAN bir xil shakl, chunki
+    // ikkalasi ham bitta EventEditForm ni to'ldiradi. Shakl o'zgarsa, ikkala
+    // joyda ham o'zgarishi kerak.
+    const openEdit = () => {
+        if (!event) return;
+        const [datePart, timePart] = (event.date || '').split('T');
+        setEditSaveError('');
+        setEditFormData({
+            title: event.title, description: event.description || '',
+            date: datePart || '', time: timePart ? timePart.slice(0, 5) : '',
+            endTime: event.endTime || '',
+            clubId: event.clubId, location: event.location || '',
+            locationType: event.locationType || 'physical',
+            registrationRequired: !!event.registrationRequired,
+            registrationType: event.registrationType || 'individual',
+            maxParticipants: event.maxParticipants ?? null,
+            teamMinSize: event.teamMinSize ?? null,
+            teamMaxSize: event.teamMaxSize ?? null,
+            teamCompositionRule: event.teamCompositionRule || 'mixed',
+            teamCourseRule: event.teamCourseRule || 'mixed',
+            waitlistEnabled: !!event.waitlistEnabled,
+            approvalRequired: !!event.approvalRequired,
+            registrationOpensAt: event.registrationOpensAt || '',
+            registrationClosesAt: event.registrationClosesAt || '',
+            eventType: event.eventType || '',
+            level: event.level || DEFAULT_ACTIVITY_LEVEL,
+        });
+        setIsEditOpen(true);
+    };
+
+    // Joy bandligi: boshqa tadbir shu vaqtda o'sha joyni band qilgan bo'lsa,
+    // saqlashga yo'l qo'yilmaydi (kalendar va klub sahifasidagi bilan bir xil
+    // tekshiruv - o'sha `db.checkLocationConflict`).
+    const editLocationConflict = useMemo(() => {
+        if (!editFormData?.location?.trim() || !editFormData?.date) return null;
+        return db.checkLocationConflict(
+            editFormData.location,
+            db.combineDateTime(editFormData.date, editFormData.time),
+            event?.id
+        );
+    }, [editFormData, event?.id]);
+
+    const handleSaveEdit = async () => {
+        if (!event || !editFormData) return;
+        setEditSaveError('');
+        if (editLocationConflict) {
+            setEditSaveError(`"${editFormData.location}" shu vaqtda band: "${editLocationConflict.title}" tadbiri uchun allaqachon band qilingan.`);
+            return;
+        }
+        const payload = {
+            title: editFormData.title, description: editFormData.description,
+            date: db.combineDateTime(editFormData.date, editFormData.time),
+            endTime: editFormData.endTime || null,
+            clubId: editFormData.clubId, location: editFormData.location,
+            locationType: editFormData.locationType,
+            registrationRequired: editFormData.registrationRequired,
+            registrationType: editFormData.registrationRequired ? editFormData.registrationType : undefined,
+            maxParticipants: editFormData.registrationRequired ? editFormData.maxParticipants : null,
+            teamMinSize: editFormData.registrationRequired ? editFormData.teamMinSize : null,
+            teamMaxSize: editFormData.registrationRequired ? editFormData.teamMaxSize : null,
+            teamCompositionRule: editFormData.registrationRequired ? editFormData.teamCompositionRule : 'mixed',
+            teamCourseRule: editFormData.registrationRequired ? editFormData.teamCourseRule : 'mixed',
+            waitlistEnabled: editFormData.registrationRequired ? !!editFormData.waitlistEnabled : false,
+            approvalRequired: editFormData.registrationRequired ? !!editFormData.approvalRequired : false,
+            registrationOpensAt: editFormData.registrationRequired ? editFormData.registrationOpensAt : '',
+            registrationClosesAt: editFormData.registrationRequired ? editFormData.registrationClosesAt : '',
+            eventType: editFormData.eventType || null,
+            level: editFormData.level || DEFAULT_ACTIVITY_LEVEL,
+        };
+        try {
+            await db.updateEvent(event.id, payload);
+            setVersion(v => v + 1);
+            setIsEditOpen(false);
+        } catch (err) {
+            setEditSaveError(err?.message || "Tadbirni saqlashda xatolik yuz berdi.");
+        }
+    };
 
     // Bir sahifa, ikki manzil: admin /admin/events/:id dan, klub koordinatori
     // /student/events/:id dan kiradi. Qaytish HAR DOIM aniq manzilga - brauzer
@@ -165,11 +258,11 @@ const EventWorkspacePage = () => {
                             </p>
                         </div>
                     </div>
-                    {/* Tahrirlash formasi kalendarda (admin) yoki klub sahifasida
-                        (koordinator). Koordinatorga kalendar havolasi berilmaydi -
-                        u yerda tahrirlash oynasi unga ochilmaydi. */}
-                    {canEditDetails && !isStudentRoute && (
-                        <Button variant="outline" size="sm" icon={Settings} onClick={backToEvents} className="rounded-xl">
+                    {/* Tahrirlash SHU SAHIFADA ochiladi - admin ham, koordinator
+                        ham. Ilgari bu tugma faqat adminga ko'rinardi va uni
+                        kalendarga qaytarardi. */}
+                    {canEditDetails && (
+                        <Button variant="outline" size="sm" icon={Settings} onClick={openEdit} className="rounded-xl">
                             Tafsilotlarni tahrirlash
                         </Button>
                     )}
@@ -270,6 +363,32 @@ const EventWorkspacePage = () => {
                     refs={statsRefs}
                     subtitle={`"${event.title}" bo'yicha`}
                 />
+            )}
+
+            {isEditOpen && editFormData && (
+                <Modal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} title="Tadbir tafsilotlari" size="lg">
+                    <EventEditForm
+                        event={event}
+                        formData={editFormData}
+                        onChange={patch => setEditFormData(prev => ({ ...prev, ...patch }))}
+                        clubs={club ? [club] : db.getClubs()}
+                        lockClub={!!club && !isAdmin}
+                        locationConflict={editLocationConflict}
+                        saveError={editSaveError}
+                        onSave={handleSaveEdit}
+                        user={user}
+                        hasClubRole={hasClubRole}
+                        isAdmin={isAdmin}
+                        isManagement={isManagement}
+                        canEditDetails={canEditDetails}
+                        canManageAttendance={canManageAttendance}
+                        actingUsername={user?.username || 'admin'}
+                        onDataChanged={() => setVersion(v => v + 1)}
+                        // Boshqaruv bloklari ish maydonining O'Z tablarida turibdi -
+                        // oynada ularni ikkinchi marta ko'rsatish chalkashtirardi.
+                        showManagement={false}
+                    />
+                </Modal>
             )}
         </div>
     );

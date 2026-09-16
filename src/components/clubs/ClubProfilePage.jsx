@@ -150,6 +150,35 @@ const ClubProfilePage = () => {
     // "Sozlash" (spec): admin OR this specific club's own coordinator. "A'zo bo'lish" (spec): plain
     // students only — admin/rahbariyat/coordinator viewing a club they manage shouldn't see a join button.
     const canManageThisClub = !!club && (isAdmin || isClubCoordinator(user, hasClubRole, club.id));
+
+    // O'NG PANELDAGI RO'YXATDAN BOSILGANDA QAYERGA BORADI.
+    //
+    // Boshqaruv huquqi borlar TO'G'RIDAN-TO'G'RI ish maydoniga o'tadi -
+    // tahrirlash ham, davomat ham, natija ham o'sha yerda. Ilgari avval
+    // oyna ochilib, undan yana "Boshqarish" tugmasini bosish kerak edi.
+    //
+    // Qolganlarga (oddiy talaba) avvalgidek ro'yxatdan o'tish oynasi
+    // ochiladi - ular uchun ish maydoni baribir "huquqingiz yo'q" deb
+    // qaytarardi.
+    //
+    // Ish maydoni marshruti FAQAT /admin va /student da bor (App.jsx);
+    // rahbariyatda yo'q, shuning uchun u rolda ham oyna qoladi.
+    const workspaceBase = location.pathname.startsWith('/admin')
+        ? '/admin'
+        : (location.pathname.startsWith('/student') ? '/student' : null);
+
+    const openActivity = (item) => {
+        if (canManageThisClub && workspaceBase && item?.activityId) {
+            // `from` - ish maydonidagi "Orqaga" aynan shu klub sahifasiga
+            // qaytarishi uchun (EventWorkspacePage location.state.from ni o'qiydi).
+            navigate(
+                `${workspaceBase}/${item.type === 'competition' ? 'competitions' : 'events'}/${item.activityId}`,
+                { state: { from: `${location.pathname}${location.search}` } }
+            );
+            return;
+        }
+        setSelectedActivity(item);
+    };
     const canJoinAsStudent = user?.role === ROLES.STUDENT;
 
     // YUTUQLAR.
@@ -738,7 +767,7 @@ const ClubProfilePage = () => {
             </div>
             </div>
 
-            <ClubActivitiesPanel events={clubEvents} competitions={clubCompetitions} onSelectActivity={setSelectedActivity} />
+            <ClubActivitiesPanel events={clubEvents} competitions={clubCompetitions} onSelectActivity={openActivity} />
             </div>
 
             {/* A'ZOLIKKA ARIZA. Motivatsiya IXTIYORIY: uni majburiy qilish

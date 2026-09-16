@@ -58,6 +58,9 @@ const CompetitionPassportHero = ({
     onToggleTheme,
     hasFullAdminAccess,
     canManageGroups,
+    // Musobaqaning O'Z KLUBI koordinatori "Musobaqa sozlamalari" bandini
+    // ocha oladi (nomni tahrirlash). Qolgan bandlar avvalgidek adminda.
+    canEditBasics,
     onSelectSettingsSection,
     onFinishTournament,
     onDeleteCompetition,
@@ -174,6 +177,7 @@ const CompetitionPassportHero = ({
                                 competition={competition}
                                 hasFullAdminAccess={hasFullAdminAccess}
                                 canManageGroups={canManageGroups}
+                                canEditBasics={canEditBasics}
                                 onSelectSection={onSelectSettingsSection}
                                 onFinish={onFinishTournament}
                                 onDelete={onDeleteCompetition}

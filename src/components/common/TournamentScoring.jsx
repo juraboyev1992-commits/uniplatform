@@ -978,6 +978,10 @@ const TournamentScoring = ({
                                 stats={heroStats}
                                 hasFullAdminAccess={hasFullAdminAccess}
                                 canManageGroups={canManageGroups}
+                                // Klub sahifasidan kirgan koordinator endi to'g'ridan-to'g'ri
+                                // ish maydoniga tushadi, shuning uchun tahrirlash ham shu
+                                // yerda bo'lishi kerak: "Musobaqa sozlamalari" unga ochiladi.
+                                canEditBasics={hasFullAdminAccess() || isOwningClubCoordinator()}
                                 onSelectSettingsSection={setSettingsSection}
                                 onFinishTournament={handleFinishTournament}
                                 onDeleteCompetition={() => handleDeleteCompetition(activeComp.id)}

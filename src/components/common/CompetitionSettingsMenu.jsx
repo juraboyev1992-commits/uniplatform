@@ -8,13 +8,19 @@ import { isMatchBasedEngine } from '../../config/competitionEngines';
 // qilish" are direct actions with no modal at all, same as the original menu.
 const isFinished = (c) => (c.currentRound || 1) > (c.roundsCount || 1);
 
-const CompetitionSettingsMenu = ({ competition, hasFullAdminAccess, canManageGroups, onSelectSection, onFinish, onDelete, onClose }) => {
+const CompetitionSettingsMenu = ({ competition, hasFullAdminAccess, canManageGroups, canEditBasics, onSelectSection, onFinish, onDelete, onClose }) => {
     const isAdmin = hasFullAdminAccess();
     // A "Guruh bosqichlarini boshqarish" delegate (not admin) only needs "Turlarni boshqarish" open — every
-    // other section here (general settings, judges, granting further delegations, finish/delete) stays
-    // strictly admin-only, so this menu still renders for them but with just that one row.
+    // other section here (judges, granting further delegations, finish/delete) stays strictly admin-only,
+    // so this menu still renders for them but with just that one row.
     const canOpenRounds = isAdmin || (canManageGroups && canManageGroups());
-    if (!isAdmin && !canOpenRounds) return null;
+    // "Musobaqa sozlamalari" (nomni tahrirlash) - musobaqaning O'Z KLUBI
+    // koordinatoriga ham ochiq: u musobaqani o'zi olib boradi va ish
+    // maydonida tahrirlash uchun boshqa joy yo'q edi. Hakamlar, vakolat,
+    // yakunlash va bekor qilish avvalgidek faqat adminda - ular musobaqa
+    // natijasiga ta'sir qiladi (bazada ham trigger bilan qo'riqlanadi).
+    const canOpenGeneral = isAdmin || !!canEditBasics;
+    if (!isAdmin && !canOpenRounds && !canOpenGeneral) return null;
     // Both match-based engines (Sport/match_play, Munozara/debate_match) manage rounds via their own
     // Raundlar tab (matches, not generic round cards) — "Turlarni boshqarish" is meaningless for either.
     const usesMatchBasedEngine = isMatchBasedEngine(competition.scoringMethod);
