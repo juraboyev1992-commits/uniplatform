@@ -48,11 +48,17 @@ begin
         end loop;
 
     else
+        -- Qoidalar juda ko'p va bitta xabarga sig'maydi, shuning uchun
+        -- jadval nomining birinchi harfi bo'yicha uchga bo'lingan:
+        --   bolim 3 = a...c, bolim 4 = d...m, bolim 5 = n...z
         for r in
             select tablename, policyname, cmd, permissive,
                    array_to_string(roles, ', ') as roles, qual, with_check
             from pg_policies
             where schemaname = 'public'
+              and (   (bolim = 3 and left(tablename, 1) between 'a' and 'c')
+                   or (bolim = 4 and left(tablename, 1) between 'd' and 'm')
+                   or (bolim = 5 and left(tablename, 1) between 'n' and 'z'))
             order by tablename, policyname
         loop
             report := report || format(
