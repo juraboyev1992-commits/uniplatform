@@ -121,6 +121,9 @@ drop policy if exists st_all  on public.sport_teams;
 drop policy if exists stn_all on public.sport_team_nominations;
 drop policy if exists scf_all on public.sport_conduct_flags;
 
-create policy st_all  on public.sport_teams            for all to authenticated using (true) with check (true);
-create policy stn_all on public.sport_team_nominations for all to authenticated using (true) with check (true);
-create policy scf_all on public.sport_conduct_flags    for all to authenticated using (true) with check (true);
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida beriladi. Shu fayl qayta ishga tushirilsa
+-- teshik qayta ochilmasligi uchun bu yerda faqat O'QISH qoldirilgan.
+create policy st_read on public.sport_teams for select to authenticated using (true);
+create policy stn_read on public.sport_team_nominations for select to authenticated using (true);
+create policy scf_read on public.sport_conduct_flags for select to authenticated using (true);

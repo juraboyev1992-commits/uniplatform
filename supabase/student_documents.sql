@@ -147,14 +147,14 @@ drop policy if exists student_documents_insert on public.student_documents;
 drop policy if exists student_documents_update on public.student_documents;
 drop policy if exists student_documents_delete on public.student_documents;
 
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida beriladi. Shu fayl qayta ishga tushirilsa
+-- teshik qayta ochilmasligi uchun bu yerda faqat O'QISH qoldirilgan.
 create policy student_documents_select on public.student_documents
     for select to authenticated using (true);
-create policy student_documents_insert on public.student_documents
-    for insert to authenticated with check (true);
-create policy student_documents_update on public.student_documents
-    for update to authenticated using (true) with check (true);
-create policy student_documents_delete on public.student_documents
-    for delete to authenticated using (true);
+-- (olib tashlandi: student_documents_insert insert -> rls_* faylida)
+-- (olib tashlandi: student_documents_update update -> rls_* faylida)
+-- (olib tashlandi: student_documents_delete delete -> rls_* faylida)
 
 -- --- social_index_evidence ---
 drop policy if exists sie_select on public.social_index_evidence;
@@ -164,12 +164,9 @@ drop policy if exists sie_delete on public.social_index_evidence;
 
 create policy sie_select on public.social_index_evidence
     for select to authenticated using (true);
-create policy sie_insert on public.social_index_evidence
-    for insert to authenticated with check (true);
-create policy sie_update on public.social_index_evidence
-    for update to authenticated using (true) with check (true);
-create policy sie_delete on public.social_index_evidence
-    for delete to authenticated using (true);
+-- (olib tashlandi: sie_insert insert -> rls_* faylida)
+-- (olib tashlandi: sie_update update -> rls_* faylida)
+-- (olib tashlandi: sie_delete delete -> rls_* faylida)
 
 -- --- social_index_assessments ---
 drop policy if exists sia_select on public.social_index_assessments;
@@ -179,12 +176,9 @@ drop policy if exists sia_delete on public.social_index_assessments;
 
 create policy sia_select on public.social_index_assessments
     for select to authenticated using (true);
-create policy sia_insert on public.social_index_assessments
-    for insert to authenticated with check (true);
-create policy sia_update on public.social_index_assessments
-    for update to authenticated using (true) with check (true);
-create policy sia_delete on public.social_index_assessments
-    for delete to authenticated using (true);
+-- (olib tashlandi: sia_insert insert -> rls_* faylida)
+-- (olib tashlandi: sia_update update -> rls_* faylida)
+-- (olib tashlandi: sia_delete delete -> rls_* faylida)
 
 -- --- social_index_requests ---
 drop policy if exists sir_select on public.social_index_requests;
@@ -194,12 +188,9 @@ drop policy if exists sir_delete on public.social_index_requests;
 
 create policy sir_select on public.social_index_requests
     for select to authenticated using (true);
-create policy sir_insert on public.social_index_requests
-    for insert to authenticated with check (true);
-create policy sir_update on public.social_index_requests
-    for update to authenticated using (true) with check (true);
-create policy sir_delete on public.social_index_requests
-    for delete to authenticated using (true);
+-- (olib tashlandi: sir_insert insert -> rls_* faylida)
+-- (olib tashlandi: sir_update update -> rls_* faylida)
+-- (olib tashlandi: sir_delete delete -> rls_* faylida)
 
 -- --- social_index_appeals ---
 drop policy if exists sap_select on public.social_index_appeals;
@@ -209,12 +200,9 @@ drop policy if exists sap_delete on public.social_index_appeals;
 
 create policy sap_select on public.social_index_appeals
     for select to authenticated using (true);
-create policy sap_insert on public.social_index_appeals
-    for insert to authenticated with check (true);
-create policy sap_update on public.social_index_appeals
-    for update to authenticated using (true) with check (true);
-create policy sap_delete on public.social_index_appeals
-    for delete to authenticated using (true);
+-- (olib tashlandi: sap_insert insert -> rls_* faylida)
+-- (olib tashlandi: sap_update update -> rls_* faylida)
+-- (olib tashlandi: sap_delete delete -> rls_* faylida)
 
 -- ---------------------------------------------------------------------------
 -- 7. FAYL OMBORI

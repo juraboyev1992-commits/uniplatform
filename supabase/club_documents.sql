@@ -30,18 +30,17 @@ drop policy if exists club_documents_update on public.club_documents;
 
 -- O'qish: hamma - "Klub hujjatlari" tabi ochiq (club_achievements/nizom
 -- fayl bilan bir xil qolip: yozuvchi kim ekani KODDA (canManage) tekshiriladi).
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida beriladi. Shu fayl qayta ishga tushirilsa
+-- teshik qayta ochilmasligi uchun bu yerda faqat O'QISH qoldirilgan.
 create policy club_documents_select on public.club_documents
     for select to authenticated
     using (true);
 
-create policy club_documents_insert on public.club_documents
-    for insert to authenticated
-    with check (true);
+-- (olib tashlandi: club_documents_insert insert -> rls_* faylida)
 
 -- O'chirish alohida amal emas - `status: 'removed'`/'replaced' UPDATE bilan.
-create policy club_documents_update on public.club_documents
-    for update to authenticated
-    using (true) with check (true);
+-- (olib tashlandi: club_documents_update update -> rls_* faylida)
 
 insert into storage.buckets (id, name, public)
 values ('club-documents', 'club-documents', false)

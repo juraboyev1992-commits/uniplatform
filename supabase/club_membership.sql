@@ -80,14 +80,15 @@ drop policy if exists club_join_requests_select on public.club_join_requests;
 drop policy if exists club_join_requests_insert on public.club_join_requests;
 drop policy if exists club_join_requests_update on public.club_join_requests;
 
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida beriladi. Shu fayl qayta ishga tushirilsa
+-- teshik qayta ochilmasligi uchun bu yerda faqat O'QISH qoldirilgan.
 create policy club_join_requests_select on public.club_join_requests
     for select to authenticated using (true);
 
-create policy club_join_requests_insert on public.club_join_requests
-    for insert to authenticated with check (true);
+-- (olib tashlandi: club_join_requests_insert insert -> rls_* faylida)
 
-create policy club_join_requests_update on public.club_join_requests
-    for update to authenticated using (true) with check (true);
+-- (olib tashlandi: club_join_requests_update update -> rls_* faylida)
 
 drop policy if exists club_membership_events_select on public.club_membership_events;
 drop policy if exists club_membership_events_insert on public.club_membership_events;
@@ -97,8 +98,7 @@ create policy club_membership_events_select on public.club_membership_events
 
 -- Faqat qo'shish. O'chirish va tahrirlash siyosati ATAYLAB yaratilmaydi -
 -- tarixni o'zgartirib bo'lmasligi kerak.
-create policy club_membership_events_insert on public.club_membership_events
-    for insert to authenticated with check (true);
+-- (olib tashlandi: club_membership_events_insert insert -> rls_* faylida)
 
 -- ---------------------------------------------------------------------------
 -- 4. TEKSHIRUV

@@ -67,8 +67,7 @@ drop policy if exists social_logs_all on public.social_activity_audit_logs;
 -- alohida rls_* fayllarida (admin/xodim/koordinator bo'yicha) beriladi.
 -- Shu fayl qayta ishga tushirilsa teshik qayta ochilmasligi uchun
 -- bu yerda faqat O'QISH qoldirilgan.
-create policy social_apps_all on public.social_activity_applications
-    for all to authenticated using (true) with check (true);
+create policy social_apps_read on public.social_activity_applications for select to authenticated using (true);
 
 create policy social_logs_read on public.social_activity_audit_logs for select to authenticated using (true);
 

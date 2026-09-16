@@ -76,10 +76,8 @@ drop policy if exists club_pos_logs_all  on public.club_position_audit_logs;
 -- alohida rls_* fayllarida (admin/xodim/koordinator bo'yicha) beriladi.
 -- Shu fayl qayta ishga tushirilsa teshik qayta ochilmasligi uchun
 -- bu yerda faqat O'QISH qoldirilgan.
-create policy club_positions_all on public.club_positions
-    for all to authenticated using (true) with check (true);
-create policy club_pos_apps_all on public.club_position_applications
-    for all to authenticated using (true) with check (true);
+create policy club_positions_read on public.club_positions for select to authenticated using (true);
+create policy club_pos_apps_read on public.club_position_applications for select to authenticated using (true);
 create policy club_pos_logs_read on public.club_position_audit_logs for select to authenticated using (true);
 
 revoke all on public.club_positions             from anon;

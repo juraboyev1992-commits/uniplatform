@@ -67,13 +67,14 @@ drop policy if exists club_achievements_insert on public.club_achievements;
 drop policy if exists club_achievements_update on public.club_achievements;
 drop policy if exists club_achievements_delete on public.club_achievements;
 
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida beriladi. Shu fayl qayta ishga tushirilsa
+-- teshik qayta ochilmasligi uchun bu yerda faqat O'QISH qoldirilgan.
 create policy club_achievements_select on public.club_achievements
     for select to authenticated
     using (true);
 
-create policy club_achievements_insert on public.club_achievements
-    for insert to authenticated
-    with check (true);
+-- (olib tashlandi: club_achievements_insert insert -> rls_* faylida)
 
 -- Tasdiqlash va tahrirlash - administrator, va yozuvni KIRITGAN odam.
 --
