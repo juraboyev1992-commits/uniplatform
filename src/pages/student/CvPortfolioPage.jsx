@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import {
     GraduationCap, Trophy, FileText, Heart, Printer, X, BadgeCheck, Info,
     User, Briefcase, Building2, FolderKanban, Wrench, Languages, Users,
-    Medal, Sparkles, ArrowRight, Eye,
+    Medal, Sparkles, ArrowRight, Eye, Pencil,
 } from 'lucide-react';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import { buildCv, SOURCE, SOURCE_META } from '../../utils/cvEngine';
 import CvPreviewDocument from '../../components/student/CvPreviewDocument';
+import CvProfileEditor from '../../components/student/CvProfileEditor';
 
 // CV / PORTFOLIO — talabaning ish maydoni.
 //
@@ -145,7 +146,8 @@ const initialsOf = (name) => (name || '?')
 const CvPortfolioPage = () => {
     const { user } = useAuth();
     const studentId = user?.username;
-    const [version] = useState(0);
+    const [version, setVersion] = useState(0);
+    const [editorOpen, setEditorOpen] = useState(false);
     const [previewOpen, setPreviewOpen] = useState(true);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -203,6 +205,13 @@ const CvPortfolioPage = () => {
                 <div className="flex flex-wrap gap-2">
                     <button
                         type="button"
+                        onClick={() => setEditorOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm font-bold transition-colors"
+                    >
+                        <Pencil size={15} /> Tahrirlash
+                    </button>
+                    <button
+                        type="button"
                         onClick={() => setPreviewOpen(v => !v)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-colors ${
                             previewOpen
@@ -245,6 +254,13 @@ const CvPortfolioPage = () => {
                                             Qisqacha ma'lumot, ko'nikmalar, tillar va ish tajribasi hali
                                             kiritilmagan — ular platformada saqlanmaydi, shuning uchun
                                             faqat siz kirita olasiz.
+                                            {' '}
+                                            <button
+                                                type="button" onClick={() => setEditorOpen(true)}
+                                                className="font-bold text-blue-800 hover:text-blue-900 underline"
+                                            >
+                                                Hozir kiritish
+                                            </button>
                                         </p>
                                     )}
                             </div>
@@ -407,6 +423,13 @@ const CvPortfolioPage = () => {
                     </aside>
                 )}
             </div>
+
+            <CvProfileEditor
+                isOpen={editorOpen}
+                studentId={studentId}
+                onClose={() => setEditorOpen(false)}
+                onSaved={() => setVersion(v => v + 1)}
+            />
         </div>
     );
 };
