@@ -10,6 +10,7 @@ import OpenPositionCard from './OpenPositionCard';
 import PositionApplicationReviewPanel from './PositionApplicationReviewPanel';
 import ClubRosterCard from './ClubRosterCard';
 import ClubRosterTable from './ClubRosterTable';
+import ClubMembersRegistry from './ClubMembersRegistry';
 import ClubHistoryPanel from './ClubHistoryPanel';
 import ClubAuditTimeline from './ClubAuditTimeline';
 
@@ -248,6 +249,13 @@ const ClubOrgStructureSection = ({ club, refreshKey, onRefresh }) => {
                     </div>
                 </div>
             )}
+
+            {/* KLUB A'ZOLARI RO'YXATI - yuqoridagi lavozimlar jadvali "kim
+                javobgar" degan savolga javob beradi, bu esa "klubda umuman
+                kim bor" degan savolga. Aloqa ma'lumoti ataylab so'ralmaydi
+                (showContact berilmagan): koordinator o'z klubi a'zosining
+                shaxsiy raqamini ko'rmasligi kerak. */}
+            <ClubMembersRegistry clubId={club.id} refreshKey={refreshKey} />
 
             {/* Ariza-based open positions — unchanged, full width */}
             <div>

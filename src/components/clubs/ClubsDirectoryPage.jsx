@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, Plus, LayoutGrid, List, Upload, FileText, X, FilePlus2, ClipboardList, Sparkles } from 'lucide-react';
+import { Search, Plus, LayoutGrid, List, Upload, FileText, X, FilePlus2, ClipboardList, Sparkles, Users, ChevronDown } from 'lucide-react';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Badge from '../common/Badge';
@@ -15,6 +15,7 @@ import { TOURNAMENT_FILE_UPLOAD } from '../../constants';
 import ClubCard from './ClubCard';
 import ClubMediaUploader from './ClubMediaUploader';
 import ClubsListView from './ClubsListView';
+import ClubMembersRegistry from './ClubMembersRegistry';
 import Pagination from '../common/Pagination';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 100, 'all'];
@@ -89,6 +90,9 @@ const ClubsDirectoryPage = () => {
     const [showArchived, setShowArchived] = useState(false);
     const nizomInputRef = useRef(null);
     const [refreshKey, setRefreshKey] = useState(0);
+    // Yopiq turadi: barcha klublar bo'yicha a'zolar ro'yxatini yig'ish
+    // katalogning asosiy vazifasi emas, shuning uchun so'ralgandagina hisoblanadi.
+    const [isMembersOpen, setIsMembersOpen] = useState(false);
 
     const students = useMemo(() => db.getMockStudents(), []);
     const studentById = useMemo(() => new Map(students.map(s => [s.id, s])), [students]);
@@ -236,6 +240,32 @@ const ClubsDirectoryPage = () => {
                 <h1 className="text-3xl font-black mb-2">Klublar ro'yxati</h1>
                 <p className="text-indigo-100">Bilim, ijod, sport va ijtimoiy tashabbuslarda faol yoshlar jamoasi</p>
             </div>
+
+            {/* BARCHA KLUB A'ZOLARI - faqat administrator uchun. Klub
+                koordinatori xuddi shu jadvalni o'z klubi doirasida "Klub
+                tarkibi" tabidan ko'radi; bu yerda esa hamma klub bitta
+                ro'yxatda va bitta Excel fayliga tushadi - har bir klubga
+                kirib alohida yuklab olish kerak bo'lmasin.
+                `showContact` - aloqa ustuni SO'RALADI, lekin haqiqiy qaror
+                db.getStudentContact ichidagi pasport qoidalarida qabul qilinadi. */}
+            {isAdmin && (
+                <div>
+                    <button
+                        type="button" onClick={() => setIsMembersOpen(v => !v)}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-colors"
+                    >
+                        <span className="flex items-center gap-2 font-bold text-gray-900 dark:text-gray-100 text-sm">
+                            <Users size={16} className="text-indigo-600" /> Barcha klub a'zolari ro'yxati
+                        </span>
+                        <ChevronDown size={16} className={`text-gray-400 transition-transform ${isMembersOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isMembersOpen && (
+                        <div className="mt-3">
+                            <ClubMembersRegistry showContact refreshKey={refreshKey} />
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* MENING KLUBLARIM — lavozimdagilar va oddiy a'zolik ALOHIDA.
                 Talabaning ikki savoli boshqa-boshqa: "qayerda javobgarman"
