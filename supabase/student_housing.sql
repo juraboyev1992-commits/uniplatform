@@ -88,5 +88,9 @@ alter table public.student_housing  enable row level security;
 drop policy if exists dorm_all on public.dormitories;
 drop policy if exists sh_all   on public.student_housing;
 
-create policy dorm_all on public.dormitories     for all to authenticated using (true) with check (true);
-create policy sh_all   on public.student_housing for all to authenticated using (true) with check (true);
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida (admin/xodim/koordinator bo'yicha) beriladi.
+-- Shu fayl qayta ishga tushirilsa teshik qayta ochilmasligi uchun
+-- bu yerda faqat O'QISH qoldirilgan.
+create policy dorm_read on public.dormitories for select to authenticated using (true);
+create policy sh_read on public.student_housing for select to authenticated using (true);

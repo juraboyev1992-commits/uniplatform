@@ -95,11 +95,18 @@ drop policy if exists test_questions_all on public.test_questions;
 drop policy if exists tests_all          on public.tests;
 drop policy if exists test_attempts_all  on public.test_attempts;
 
-create policy question_bases_all on public.question_bases
-    for all to authenticated using (true) with check (true);
-create policy test_questions_all on public.test_questions
-    for all to authenticated using (true) with check (true);
-create policy tests_all on public.tests
-    for all to authenticated using (true) with check (true);
-create policy test_attempts_all on public.test_attempts
-    for all to authenticated using (true) with check (true);
+-- DIQQAT (2026-09-16): bu yerda ilgari to'rtta `for all ... using (true)`
+-- qoidasi turardi - ya'ni istalgan talaba test savollarini tahrirlashi va
+-- o'z natijasini o'zgartirishi mumkin edi. Endi faqat O'QISH shu yerda
+-- beriladi; yozish qoidalari alohida fayllarda:
+--   tests / test_questions / question_bases -> rls_staff_records_and_logs.sql
+--   test_attempts                           -> rls_documents_attendance.sql
+-- Shu faylni qayta ishga tushirish teshikni QAYTA OCHMASLIGI uchun shunday.
+create policy question_bases_read on public.question_bases
+    for select to authenticated using (true);
+create policy test_questions_read on public.test_questions
+    for select to authenticated using (true);
+create policy tests_read on public.tests
+    for select to authenticated using (true);
+create policy test_attempts_read on public.test_attempts
+    for select to authenticated using (true);

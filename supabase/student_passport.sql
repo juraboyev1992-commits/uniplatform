@@ -95,6 +95,9 @@ drop policy if exists sp_all  on public.student_passport;
 drop policy if exists seh_all on public.student_enrollment_history;
 drop policy if exists pal_all on public.passport_access_logs;
 
-create policy sp_all  on public.student_passport           for all to authenticated using (true) with check (true);
-create policy seh_all on public.student_enrollment_history for all to authenticated using (true) with check (true);
-create policy pal_all on public.passport_access_logs       for all to authenticated using (true) with check (true);
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida beriladi. Shu fayl qayta ishga tushirilsa
+-- teshik qayta ochilmasligi uchun bu yerda faqat O'QISH qoldirilgan.
+create policy sp_read on public.student_passport for select to authenticated using (true);
+create policy seh_read on public.student_enrollment_history for select to authenticated using (true);
+create policy pal_read on public.passport_access_logs for select to authenticated using (true);

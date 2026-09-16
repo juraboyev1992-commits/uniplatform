@@ -72,12 +72,15 @@ drop policy if exists club_pos_logs_all  on public.club_position_audit_logs;
 -- (koordinator o'z klubini, admin hammasini). Baza darajasida toraytirish
 -- uchun klub a'zoligini tekshiradigan qoida kerak - alohida ish, va uni
 -- sinovsiz qilish butun ariza oqimini buzishi mumkin.
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida (admin/xodim/koordinator bo'yicha) beriladi.
+-- Shu fayl qayta ishga tushirilsa teshik qayta ochilmasligi uchun
+-- bu yerda faqat O'QISH qoldirilgan.
 create policy club_positions_all on public.club_positions
     for all to authenticated using (true) with check (true);
 create policy club_pos_apps_all on public.club_position_applications
     for all to authenticated using (true) with check (true);
-create policy club_pos_logs_all on public.club_position_audit_logs
-    for all to authenticated using (true) with check (true);
+create policy club_pos_logs_read on public.club_position_audit_logs for select to authenticated using (true);
 
 revoke all on public.club_positions             from anon;
 revoke all on public.club_position_applications from anon;

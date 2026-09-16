@@ -78,12 +78,13 @@ drop policy if exists criteria_subcat_all  on public.social_criteria_subcategori
 -- Yozish ham kirgan foydalanuvchiga ochiq - kim sozlashi ilova tomonida
 -- hal qilinadi (Sozlamalar bo'limi faqat administratorga ochiq). Baza
 -- darajasida toraytirish alohida ish.
-create policy scoring_sources_all on public.social_scoring_sources
-    for all to authenticated using (true) with check (true);
-create policy criteria_cat_all on public.social_criteria_categories
-    for all to authenticated using (true) with check (true);
-create policy criteria_subcat_all on public.social_criteria_subcategories
-    for all to authenticated using (true) with check (true);
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida (admin/xodim/koordinator bo'yicha) beriladi.
+-- Shu fayl qayta ishga tushirilsa teshik qayta ochilmasligi uchun
+-- bu yerda faqat O'QISH qoldirilgan.
+create policy scoring_sources_read on public.social_scoring_sources for select to authenticated using (true);
+create policy criteria_cat_read on public.social_criteria_categories for select to authenticated using (true);
+create policy criteria_subcat_read on public.social_criteria_subcategories for select to authenticated using (true);
 
 revoke all on public.social_scoring_sources        from anon;
 revoke all on public.social_criteria_categories    from anon;

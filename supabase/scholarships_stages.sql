@@ -53,5 +53,7 @@ alter table public.scholarship_evaluations enable row level security;
 
 drop policy if exists scholarship_evaluations_all on public.scholarship_evaluations;
 
-create policy scholarship_evaluations_all on public.scholarship_evaluations
-    for all to authenticated using (true) with check (true);
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida beriladi. Shu fayl qayta ishga tushirilsa
+-- teshik qayta ochilmasligi uchun bu yerda faqat O'QISH qoldirilgan.
+create policy scholarship_evaluations_read on public.scholarship_evaluations for select to authenticated using (true);

@@ -166,10 +166,14 @@ drop policy if exists ar_all    on public.academic_records;
 drop policy if exists is_all    on public.integration_settings;
 drop policy if exists isl_all   on public.integration_sync_logs;
 
-create policy sst_all  on public.social_score_transactions      for all to authenticated using (true) with check (true);
-create policy aa_all   on public.activity_attendance            for all to authenticated using (true) with check (true);
-create policy aal_all  on public.activity_attendance_locks      for all to authenticated using (true) with check (true);
-create policy aaal_all on public.activity_attendance_audit_logs for all to authenticated using (true) with check (true);
-create policy ar_all   on public.academic_records               for all to authenticated using (true) with check (true);
-create policy is_all   on public.integration_settings           for all to authenticated using (true) with check (true);
-create policy isl_all  on public.integration_sync_logs          for all to authenticated using (true) with check (true);
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida (admin/xodim/koordinator bo'yicha) beriladi.
+-- Shu fayl qayta ishga tushirilsa teshik qayta ochilmasligi uchun
+-- bu yerda faqat O'QISH qoldirilgan.
+create policy sst_read on public.social_score_transactions for select to authenticated using (true);
+create policy aa_read on public.activity_attendance for select to authenticated using (true);
+create policy aal_read on public.activity_attendance_locks for select to authenticated using (true);
+create policy aaal_read on public.activity_attendance_audit_logs for select to authenticated using (true);
+create policy ar_read on public.academic_records for select to authenticated using (true);
+create policy is_read on public.integration_settings for select to authenticated using (true);
+create policy isl_read on public.integration_sync_logs for select to authenticated using (true);

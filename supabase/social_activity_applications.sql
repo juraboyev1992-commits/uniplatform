@@ -63,11 +63,14 @@ drop policy if exists social_logs_all on public.social_activity_audit_logs;
 -- talaba o'zinikini, admin hammasini ko'radigan qoida yozish kerak, xuddi
 -- `notifications` da qilinganidek (supabase/rls_notifications.sql).
 -- Hozir toraytirilsa, tasdiqlash oqimi sinovsiz buzilishi mumkin.
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida (admin/xodim/koordinator bo'yicha) beriladi.
+-- Shu fayl qayta ishga tushirilsa teshik qayta ochilmasligi uchun
+-- bu yerda faqat O'QISH qoldirilgan.
 create policy social_apps_all on public.social_activity_applications
     for all to authenticated using (true) with check (true);
 
-create policy social_logs_all on public.social_activity_audit_logs
-    for all to authenticated using (true) with check (true);
+create policy social_logs_read on public.social_activity_audit_logs for select to authenticated using (true);
 
 revoke all on public.social_activity_applications from anon;
 revoke all on public.social_activity_audit_logs   from anon;

@@ -47,9 +47,11 @@ drop policy if exists event_delegations_all on public.event_delegations;
 -- tomonida hal qilinadi (tadbir ish maydoni faqat administrator va klub
 -- koordinatoriga ochiq). Buni baza darajasida toraytirish uchun tadbirning
 -- klubi bilan a'zolikni solishtirish kerak - alohida ish.
-create policy event_delegations_all on public.event_delegations
-    for all to authenticated
-    using (true) with check (true);
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida (admin/xodim/koordinator bo'yicha) beriladi.
+-- Shu fayl qayta ishga tushirilsa teshik qayta ochilmasligi uchun
+-- bu yerda faqat O'QISH qoldirilgan.
+create policy event_delegations_read on public.event_delegations for select to authenticated using (true);
 
 revoke all on public.event_delegations from anon;
 grant select, insert, update, delete on public.event_delegations to authenticated;

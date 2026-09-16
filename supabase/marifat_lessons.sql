@@ -106,6 +106,10 @@ drop policy if exists ml_all  on public.marifat_lessons;
 drop policy if exists ma_all  on public.marifat_attendance;
 drop policy if exists mas_all on public.marifat_activity_scores;
 
-create policy ml_all  on public.marifat_lessons         for all to authenticated using (true) with check (true);
-create policy ma_all  on public.marifat_attendance      for all to authenticated using (true) with check (true);
-create policy mas_all on public.marifat_activity_scores for all to authenticated using (true) with check (true);
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida (admin/xodim/koordinator bo'yicha) beriladi.
+-- Shu fayl qayta ishga tushirilsa teshik qayta ochilmasligi uchun
+-- bu yerda faqat O'QISH qoldirilgan.
+create policy ml_read on public.marifat_lessons for select to authenticated using (true);
+create policy ma_read on public.marifat_attendance for select to authenticated using (true);
+create policy mas_read on public.marifat_activity_scores for select to authenticated using (true);

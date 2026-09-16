@@ -80,9 +80,10 @@ drop policy if exists scholarship_grants_all       on public.scholarship_grants;
 drop policy if exists scholarship_applications_all on public.scholarship_applications;
 drop policy if exists scholarship_settings_all     on public.scholarship_settings;
 
-create policy scholarship_grants_all       on public.scholarship_grants
-    for all to authenticated using (true) with check (true);
-create policy scholarship_applications_all on public.scholarship_applications
-    for all to authenticated using (true) with check (true);
-create policy scholarship_settings_all     on public.scholarship_settings
-    for all to authenticated using (true) with check (true);
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida (admin/xodim/koordinator bo'yicha) beriladi.
+-- Shu fayl qayta ishga tushirilsa teshik qayta ochilmasligi uchun
+-- bu yerda faqat O'QISH qoldirilgan.
+create policy scholarship_grants_read on public.scholarship_grants for select to authenticated using (true);
+create policy scholarship_applications_read on public.scholarship_applications for select to authenticated using (true);
+create policy scholarship_settings_read on public.scholarship_settings for select to authenticated using (true);

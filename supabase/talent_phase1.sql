@@ -256,13 +256,17 @@ drop policy if exists rr_all  on public.recognition_records;
 drop policy if exists rrules_all on public.recognition_rules;
 drop policy if exists tal_all on public.talent_audit_logs;
 
-create policy tp_all     on public.talent_profiles     for all to authenticated using (true) with check (true);
-create policy ta_all     on public.talent_assignments  for all to authenticated using (true) with check (true);
-create policy ti_all     on public.talent_idps         for all to authenticated using (true) with check (true);
-create policy tg_all     on public.talent_goals        for all to authenticated using (true) with check (true);
-create policy tm_all     on public.talent_monitoring   for all to authenticated using (true) with check (true);
-create policy tt_all     on public.talent_targets      for all to authenticated using (true) with check (true);
-create policy rc_all     on public.recognition_cases   for all to authenticated using (true) with check (true);
-create policy rr_all     on public.recognition_records for all to authenticated using (true) with check (true);
-create policy rrules_all on public.recognition_rules   for all to authenticated using (true) with check (true);
-create policy tal_all    on public.talent_audit_logs   for all to authenticated using (true) with check (true);
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida (admin/xodim/koordinator bo'yicha) beriladi.
+-- Shu fayl qayta ishga tushirilsa teshik qayta ochilmasligi uchun
+-- bu yerda faqat O'QISH qoldirilgan.
+create policy tp_read on public.talent_profiles for select to authenticated using (true);
+create policy ta_read on public.talent_assignments for select to authenticated using (true);
+create policy ti_read on public.talent_idps for select to authenticated using (true);
+create policy tg_read on public.talent_goals for select to authenticated using (true);
+create policy tm_read on public.talent_monitoring for select to authenticated using (true);
+create policy tt_read on public.talent_targets for select to authenticated using (true);
+create policy rc_read on public.recognition_cases for select to authenticated using (true);
+create policy rr_read on public.recognition_records for select to authenticated using (true);
+create policy rrules_read on public.recognition_rules for select to authenticated using (true);
+create policy tal_read on public.talent_audit_logs for select to authenticated using (true);

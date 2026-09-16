@@ -54,8 +54,10 @@ drop policy if exists competition_delegation_logs_all on public.competition_dele
 -- O'qish kirgan har bir foydalanuvchiga ochiq va bu SHART: vakolat olgan
 -- odam o'z yozuvini ko'ra olishi kerak, aks holda musobaqa unga ochilmaydi.
 -- Yozuvda shaxsiy ma'lumot yo'q - faqat login va huquq nomlari.
-create policy competition_delegations_all on public.competition_delegations
-    for all to authenticated using (true) with check (true);
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida beriladi. Shu fayl qayta ishga tushirilsa
+-- teshik qayta ochilmasligi uchun bu yerda faqat O'QISH qoldirilgan.
+create policy competition_delegations_read on public.competition_delegations for select to authenticated using (true);
 
 create policy competition_delegation_logs_all on public.competition_delegation_audit_logs
     for all to authenticated using (true) with check (true);

@@ -89,6 +89,10 @@ on conflict (id) do nothing;
 drop policy if exists cv_read   on storage.objects;
 drop policy if exists cv_insert on storage.objects;
 
+-- DIQQAT (2026-09-16): yozish qoidasi bu yerdan OLIB TASHLANDI - u
+-- alohida rls_* fayllarida (admin/xodim/koordinator bo'yicha) beriladi.
+-- Shu fayl qayta ishga tushirilsa teshik qayta ochilmasligi uchun
+-- bu yerda faqat O'QISH qoldirilgan.
 create policy cv_read on storage.objects
     for select to authenticated
     using (bucket_id = 'cultural-visits');
@@ -106,5 +110,5 @@ alter table public.cultural_visits enable row level security;
 drop policy if exists cp_all on public.cultural_places;
 drop policy if exists cvi_all on public.cultural_visits;
 
-create policy cp_all  on public.cultural_places for all to authenticated using (true) with check (true);
-create policy cvi_all on public.cultural_visits for all to authenticated using (true) with check (true);
+create policy cp_read on public.cultural_places for select to authenticated using (true);
+create policy cvi_read on public.cultural_visits for select to authenticated using (true);
