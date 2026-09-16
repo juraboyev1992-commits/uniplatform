@@ -53,7 +53,11 @@ const TABS = [
     { id: 'documents', label: 'Klub hujjatlari' },
     // Ro'yxatdan o'tish/guvohnoma - koordinator/admin uchun, xuddi 'stats' kabi
     // pastda `visibleTabs` da oddiy talaba/tashqi ko'ruvchidan yashiriladi.
-    { id: 'registration', label: "Ro'yxat" }
+    { id: 'registration', label: "Ro'yxat" },
+    // O'ng tomondagi panel bilan BIR XIL ro'yxat, lekin butun kenglikda:
+    // yon panel tor va uzun ro'yxatda qidirish qiyin. Hammaga ochiq -
+    // klubning tadbirlari yopiq ma'lumot emas.
+    { id: 'activities', label: 'Tadbir va turnirlar' }
 ];
 
 const TAB_IDS = TABS.map(t => t.id);
@@ -210,7 +214,8 @@ const ClubProfilePage = () => {
         teams: teams.length,
         achievements: achievementItems.length,
         stats: uniqueCoverage,
-        documents: clubDocuments.length
+        documents: clubDocuments.length,
+        activities: activitiesCount
     };
 
     const handleJoin = async () => {
@@ -761,6 +766,19 @@ const ClubProfilePage = () => {
                             isAdmin={isAdmin}
                             onRefresh={() => setRefreshKey(k => k + 1)}
                             onGoToDocuments={() => setActiveTab('documents')}
+                        />
+                    )}
+
+                    {/* Yon paneldagi ro'yxatning o'zi, faqat keng ko'rinishda.
+                        Bosilganda ham xuddi shunday ishlaydi: boshqaruv huquqi
+                        borlar ish maydoniga o'tadi, qolganlarga ro'yxatdan
+                        o'tish oynasi ochiladi (`openActivity`). */}
+                    {effectiveActiveTab === 'activities' && (
+                        <ClubActivitiesPanel
+                            events={clubEvents}
+                            competitions={clubCompetitions}
+                            onSelectActivity={openActivity}
+                            variant="page"
                         />
                     )}
                 </div>

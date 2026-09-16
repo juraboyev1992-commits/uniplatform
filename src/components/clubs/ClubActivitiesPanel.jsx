@@ -46,7 +46,13 @@ const isUserParticipating = (user, activityId, activityType, rawActivity) => {
     return (rawActivity.participants || []).some(p => p.userId === user.username);
 };
 
-const ClubActivitiesPanel = ({ events, competitions, onSelectActivity }) => {
+// `variant`:
+//   'sidebar' (standart) - o'ng tomondagi yopishqoq panel, balandligi ekran
+//                          bo'yicha cheklangan va o'zi aylantiriladi;
+//   'page'               - tab ichidagi keng blok: yopishqoqlik ham, balandlik
+//                          chegarasi ham kerak emas, aks holda tab ichida
+//                          ikkinchi aylantirish paydo bo'lardi.
+const ClubActivitiesPanel = ({ events, competitions, onSelectActivity, variant = 'sidebar' }) => {
     const { user } = useAuth();
     // Admin/Rahbariyat are managing the club, not participating in it — the "am I registered" indicator
     // and its filter are student-only (this also covers club coordinators, since coordinator is a
@@ -97,7 +103,11 @@ const ClubActivitiesPanel = ({ events, competitions, onSelectActivity }) => {
     const hasActiveFilters = typeFilter !== 'all' || statusFilter !== 'all' || onlyMine || !!search || !!dateFrom || !!dateTo;
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto space-y-4">
+        <div className={`space-y-4 ${
+            variant === 'page'
+                ? ''
+                : 'bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto'
+        }`}>
             <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">Tadbir va musobaqalar</h3>
 
             <div className="space-y-2">
