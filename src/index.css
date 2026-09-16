@@ -176,6 +176,19 @@ select:focus {
     position: static !important;
   }
 
+  /* SAHIFANING QOLGAN QISMI JOYNI EGALLAMASIN.
+     `visibility: hidden` elementni ko'rinmas qiladi, lekin joyini
+     BO'SHATMAYDI - yashirilgan mazmunning balandligi saqlanib qolgani
+     uchun chop etish 3 varaq bo'lib ketardi va 2-3-varaqlar bo'sh
+     chiqardi. Balandlikni nolga tushirish o'sha bo'shliqni yo'q qiladi.
+     CV ning o'ziga ta'sir qilmaydi: u `absolute` va ajdodlari `static`
+     bo'lgani uchun VARAQQA nisbatan joylashadi, ya'ni yig'ilgan
+     konteyner uni na siljitadi, na qirqadi. */
+  body.cv-printing > * {
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
   /* Bu qoida yuqoridagidan KUCHLIROQ (ikkita klass), shuning uchun
      `.cv-print` ning o'zi absolute bo'lib qoladi. */
   body.cv-printing .cv-print {
