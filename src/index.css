@@ -163,14 +163,30 @@ select:focus {
   body.cv-printing .cv-print * {
     visibility: visible;
   }
+
+  /* AJDODLAR STATIK BO'LSIN.
+     `absolute` ENG YAQIN JOYLASHTIRILGAN ajdodga nisbatan hisoblanadi.
+     CV paneli `xl:sticky` bo'lgani uchun aynan o'sha ajdod bo'lib qolardi
+     va `width: 100%` varaq kengligi emas, panelning 430px i degani edi -
+     natijada hujjat qog'ozning tor ustunida siqilib chiqardi. */
+  body.cv-printing aside,
+  body.cv-printing main,
+  body.cv-printing section,
+  body.cv-printing div {
+    position: static !important;
+  }
+
+  /* Bu qoida yuqoridagidan KUCHLIROQ (ikkita klass), shuning uchun
+     `.cv-print` ning o'zi absolute bo'lib qoladi. */
   body.cv-printing .cv-print {
-    position: absolute;
+    position: absolute !important;
     left: 0;
     top: 0;
     width: 100%;
   }
 
   @page {
+    size: A4;
     margin: 14mm;
   }
 }

@@ -194,7 +194,7 @@ const CvPortfolioPage = () => {
     return (
         <div className="space-y-5">
             {/* SARLAVHA */}
-            <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="no-print flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                     <h1 className="text-3xl font-black text-blue-950">Mening CV'im</h1>
                     <p className="text-sm text-gray-500 mt-1">
@@ -402,7 +402,7 @@ const CvPortfolioPage = () => {
 
                 {previewOpen && (
                     <aside className="w-full xl:w-[430px] shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 xl:sticky xl:top-4">
-                        <div className="flex items-center justify-between gap-3 mb-4">
+                        <div className="no-print flex items-center justify-between gap-3 mb-4">
                             <h3 className="font-black text-blue-950">CV</h3>
                             <div className="flex items-center gap-2">
                                 <button
