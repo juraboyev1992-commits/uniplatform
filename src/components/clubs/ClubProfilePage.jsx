@@ -52,16 +52,21 @@ const TABS = [
     { id: 'achievements', label: 'Yutuqlar' },
     { id: 'stats', label: 'Statistika' },
     { id: 'documents', label: 'Klub hujjatlari' },
-    // Ro'yxatdan o'tish/guvohnoma - koordinator/admin uchun, xuddi 'stats' kabi
-    // pastda `visibleTabs` da oddiy talaba/tashqi ko'ruvchidan yashiriladi.
-    { id: 'registration', label: "Ro'yxat" },
+    // "Ro'yxat" ALOHIDA TAB EMAS: u "Klub hujjatlari" ichiga birlashtirildi.
+    // Ikkalasi ham bitta narsa - klubning rasmiy qog'ozlari; ro'yxat tabi
+    // nizom uchun baribir hujjatlar tabiga havola qilib turardi. Eski
+    // `?tab=registration` havolalari pastda hujjatlar tabiga yo'naltiriladi.
     // O'ng tomondagi panel bilan BIR XIL ro'yxat, lekin butun kenglikda:
     // yon panel tor va uzun ro'yxatda qidirish qiyin. Hammaga ochiq -
     // klubning tadbirlari yopiq ma'lumot emas.
     { id: 'activities', label: 'Tadbir va turnirlar' }
 ];
 
-const TAB_IDS = TABS.map(t => t.id);
+// `registration` - eski havolalar uchun qoldirilgan taxallus: tab endi yo'q,
+// lekin yuborilgan havola ishlashda davom etsin (pastda 'documents' ga
+// aylantiriladi). Aks holda useTabParam uni noto'g'ri deb hisoblab, "Haqida"
+// ni ochardi va odam nima uchun boshqa joyga tushganini tushunmasdi.
+const TAB_IDS = [...TABS.map(t => t.id), 'registration'];
 
 const ClubProfilePage = () => {
     const { slug } = useParams();
@@ -210,8 +215,12 @@ const ClubProfilePage = () => {
     );
     // "Statistika" tab + the fuller 5-card admin KPI row stay coordinator/admin-only — public/student
     // view gets the simplified 4-card set below (spec: "boshqaruv statistikasi emas, klub pasporti").
-    const visibleTabs = canManageThisClub ? TABS : TABS.filter(t => t.id !== 'stats' && t.id !== 'registration');
-    const effectiveActiveTab = (['stats', 'registration'].includes(activeTab) && !canManageThisClub) ? 'about' : activeTab;
+    const visibleTabs = canManageThisClub ? TABS : TABS.filter(t => t.id !== 'stats');
+    // Eski `?tab=registration` havolasi -> "Klub hujjatlari" (ro'yxat qismi
+    // endi o'sha tabning ichida). 'stats' esa oddiy talabaga ochilmaydi.
+    const effectiveActiveTab = activeTab === 'registration'
+        ? 'documents'
+        : ((activeTab === 'stats' && !canManageThisClub) ? 'about' : activeTab);
     // Admin/coordinator's stat-card row is compacted into small corner badges on the tab bar itself
     // (per direct feedback) instead of a separate row: A'zolar -> Klub tarkibi, Jamoalar -> Jamoalar,
     // Yutuqlar -> Yutuqlar, Haqiqiy qamrov -> Statistika (which also shows the full number in its own
@@ -754,23 +763,34 @@ const ClubProfilePage = () => {
                             achievementCount={achievementItems.length}
                         />
                     )}
+                    {/* KLUB HUJJATLARI = fayllar + nizom + RASMIYLASHTIRISH.
+                        "Ro'yxat" alohida tab edi, endi shu yerning ichida:
+                        ikkalasi ham klubning rasmiy qog'ozlari haqida va
+                        ro'yxat tabi nizom uchun baribir shu tabga havola
+                        qilib turardi. Rasmiylashtirish qismi faqat
+                        koordinator/adminga ko'rinadi - talaba uchun bu tab
+                        avvalgidek faqat hujjatlar ro'yxati bo'lib qoladi. */}
                     {effectiveActiveTab === 'documents' && (
-                        <ClubDocumentsTab
-                            club={club}
-                            documents={clubDocuments}
-                            canManage={canManageThisClub}
-                            isAdmin={isAdmin}
-                            onRefresh={() => setRefreshKey(k => k + 1)}
-                        />
-                    )}
-
-                    {effectiveActiveTab === 'registration' && canManageThisClub && (
-                        <ClubRegistrationTab
-                            club={club}
-                            isAdmin={isAdmin}
-                            onRefresh={() => setRefreshKey(k => k + 1)}
-                            onGoToDocuments={() => setActiveTab('documents')}
-                        />
+                        <div className="space-y-6">
+                            <ClubDocumentsTab
+                                club={club}
+                                documents={clubDocuments}
+                                canManage={canManageThisClub}
+                                isAdmin={isAdmin}
+                                onRefresh={() => setRefreshKey(k => k + 1)}
+                            />
+                            {canManageThisClub && (
+                                <ClubRegistrationTab
+                                    club={club}
+                                    isAdmin={isAdmin}
+                                    onRefresh={() => setRefreshKey(k => k + 1)}
+                                    // Nizom kartasi shu tabning O'ZIDA turibdi,
+                                    // shuning uchun unga havola qiluvchi karta
+                                    // bu yerda ortiqcha.
+                                    showRegulationLink={false}
+                                />
+                            )}
+                        </div>
                     )}
 
                     {/* Yon paneldagi ro'yxatning o'zi, faqat keng ko'rinishda.

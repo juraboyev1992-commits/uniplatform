@@ -20,7 +20,10 @@ const formatDate = (iso) => iso ? new Date(iso).toLocaleString('uz-UZ', { day: '
 // Ko'rish - koordinator ham, administrator ham (canView). Ro'yxatdan
 // o'tkazish va guvohnoma berish - FAQAT administrator (isAdmin), chunki bu
 // rasmiy davlat/universitet hujjati chiqarish amali.
-const ClubRegistrationTab = ({ club, isAdmin, onRefresh, onGoToDocuments }) => {
+// `showRegulationLink` - nizomga havola qiluvchi karta kerakmi. Bu bo'lim
+// "Klub hujjatlari" tabining ICHIGA birlashtirilgandan keyin nizom o'sha
+// tabning o'zida turibdi, ya'ni havola o'ziga o'zi ishora qilardi.
+const ClubRegistrationTab = ({ club, isAdmin, onRefresh, onGoToDocuments, showRegulationLink = true }) => {
     const { user } = useAuth();
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
@@ -179,26 +182,28 @@ const ClubRegistrationTab = ({ club, isAdmin, onRefresh, onGoToDocuments }) => {
                 )}
             </Card>
 
-            <Card>
-                <button
-                    type="button" onClick={onGoToDocuments}
-                    className="w-full flex items-center justify-between gap-3 text-left"
-                >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                        <FileCheck size={17} className="text-indigo-600 shrink-0" />
-                        <div className="min-w-0">
-                            <h3 className="font-bold text-gray-900">Klub nizomi</h3>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                                {regulation
-                                    ? `${regulationFilled} / ${regulationSections.length || 0} band to'ldirilgan · ${REGULATION_STATUS_LABELS[regulation.status] || regulation.status}`
-                                    : "Hali yozilmagan"}
-                                {' '}— "Klub hujjatlari" tabida ko'rish va tahrirlash
-                            </p>
+            {showRegulationLink && (
+                <Card>
+                    <button
+                        type="button" onClick={onGoToDocuments}
+                        className="w-full flex items-center justify-between gap-3 text-left"
+                    >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            <FileCheck size={17} className="text-indigo-600 shrink-0" />
+                            <div className="min-w-0">
+                                <h3 className="font-bold text-gray-900">Klub nizomi</h3>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                    {regulation
+                                        ? `${regulationFilled} / ${regulationSections.length || 0} band to'ldirilgan · ${REGULATION_STATUS_LABELS[regulation.status] || regulation.status}`
+                                        : "Hali yozilmagan"}
+                                    {' '}— "Klub hujjatlari" tabida ko'rish va tahrirlash
+                                </p>
+                            </div>
                         </div>
-                    </div>
-                    <ChevronRight size={18} className="text-gray-300 shrink-0" />
-                </button>
-            </Card>
+                        <ChevronRight size={18} className="text-gray-300 shrink-0" />
+                    </button>
+                </Card>
+            )}
 
             <Card>
                 <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
