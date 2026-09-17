@@ -55,6 +55,26 @@ const MarifatLessonsPage = () => {
         [students]
     );
 
+    // DARSLAR RO'YXATI FILTRI.
+    //
+    // Ilgari butun o'quv yilidagi hamma dars ikki ustunli kartalar bo'lib
+    // chiqardi - na qidiruv, na filtr. Bitta auditoriya bilan ishlaydigan
+    // odam o'zinikini begona darslar orasidan qidirardi.
+    const [lessonFaculty, setLessonFaculty] = useState('');
+    const [lessonCourse, setLessonCourse] = useState('');
+    const [lessonSearch, setLessonSearch] = useState('');
+
+    const visibleLessons = useMemo(() => {
+        const q = lessonSearch.trim().toLowerCase();
+        return lessons.filter(l => {
+            if (lessonFaculty && l.faculty !== lessonFaculty) return false;
+            if (lessonCourse && Number(l.course) !== Number(lessonCourse)) return false;
+            if (!q) return true;
+            return [l.title, l.topic, l.venue].filter(Boolean)
+                .some(v => String(v).toLowerCase().includes(q));
+        });
+    }, [lessons, lessonFaculty, lessonCourse, lessonSearch]);
+
     const run = async (fn, ok = '') => {
         setBusy(true); setError(''); setMessage('');
         try { await fn(); setVersion(v => v + 1); if (ok) setMessage(ok); }
@@ -320,10 +340,46 @@ const MarifatLessonsPage = () => {
                     <div className="flex justify-between items-center gap-3 flex-wrap">
                         <p className="text-sm text-gray-500">
                             {academicYear} o'quv yilida {lessons.length} ta dars
+                            {visibleLessons.length !== lessons.length
+                                && ` · filtrda ${visibleLessons.length} ta`}
                         </p>
                         <Button variant="primary" icon={Plus} onClick={() => openForm()}>
                             Dars qo'shish
                         </Button>
+                    </div>
+
+                    <div className="flex gap-2 flex-wrap">
+                        <div className="relative flex-1 min-w-[200px]">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+                            <input
+                                type="text" value={lessonSearch} onChange={e => setLessonSearch(e.target.value)}
+                                placeholder="Dars nomi, mavzu yoki joyi..."
+                                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm"
+                            />
+                        </div>
+                        <select
+                            value={lessonFaculty} onChange={e => setLessonFaculty(e.target.value)}
+                            className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white"
+                        >
+                            <option value="">Barcha fakultetlar</option>
+                            {faculties.map(f => <option key={f} value={f}>{f}</option>)}
+                        </select>
+                        <select
+                            value={lessonCourse} onChange={e => setLessonCourse(e.target.value)}
+                            className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white"
+                        >
+                            <option value="">Barcha kurslar</option>
+                            {[1, 2, 3, 4].map(c => <option key={c} value={String(c)}>{c}-kurs</option>)}
+                        </select>
+                        {(lessonFaculty || lessonCourse || lessonSearch) && (
+                            <button
+                                type="button"
+                                onClick={() => { setLessonFaculty(''); setLessonCourse(''); setLessonSearch(''); }}
+                                className="px-3 py-2 rounded-xl text-xs font-bold bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            >
+                                Tozalash
+                            </button>
+                        )}
                     </div>
 
                     {lessons.length === 0 ? (
@@ -334,8 +390,15 @@ const MarifatLessonsPage = () => {
                             </p>
                         </Card>
                     ) : (
+                        visibleLessons.length === 0 ? (
+                        <Card>
+                            <p className="p-10 text-center text-sm text-gray-400">
+                                Bu filtrga mos dars yo'q. Filtrni tozalab ko'ring.
+                            </p>
+                        </Card>
+                        ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {lessons.map(l => {
+                            {visibleLessons.map(l => {
                                 const att = db.getMarifatAttendance(l.id);
                                 const present = att.filter(a => a.present).length;
                                 return (
@@ -394,6 +457,7 @@ const MarifatLessonsPage = () => {
                                 );
                             })}
                         </div>
+                        )
                     )}
                 </>
             )}
@@ -509,7 +573,9 @@ const MarifatLessonsPage = () => {
 
                     {roster.length === 0 ? (
                         <p className="p-8 text-center text-sm text-gray-400">
-                            Bu auditoriyada talaba topilmadi.
+                            «{openLesson.faculty}», {openLesson.course}-kurs bo'yicha talaba topilmadi.
+                            Darsning fakulteti va kursi talabalar ro'yxatidagi yozuv bilan
+                            aynan mos kelishi kerak.
                         </p>
                     ) : (
                         <div className="divide-y divide-gray-50 max-h-[28rem] overflow-y-auto">
