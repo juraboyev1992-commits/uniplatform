@@ -59,8 +59,10 @@ const StudentCvPanel = ({ student = null, studentId = null }) => {
                     <h4 className="flex items-center gap-2 font-bold text-gray-900 text-sm">
                         <FileText size={15} className="text-blue-700" /> CV va portfolio
                     </h4>
+                    {/* KIMNIKI ekani ATAYLAB ko'rsatiladi: noto'g'ri talaba
+                        ochilgan bo'lsa, bu bir qarashda ko'rinsin. */}
                     <p className="text-[11px] text-gray-500 mt-0.5">
-                        Talabaning o'z sahifasidagi hujjatning aynan o'zi
+                        {cv.student?.fullName || uname} — talabaning o'z sahifasidagi ko'rinish
                     </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

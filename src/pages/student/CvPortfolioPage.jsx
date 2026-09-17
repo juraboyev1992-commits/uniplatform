@@ -152,7 +152,15 @@ const initialsOf = (name) => (name || '?')
 // o'ziga tegishli va xodimda ishlamaydi ham (`cv_write` faqat egasiga).
 const CvPortfolioPage = ({ studentId: studentIdProp = null, embedded = false }) => {
     const { user } = useAuth();
-    const studentId = studentIdProp || user?.username;
+    // XODIM REJIMIDA ZAXIRA YO'Q.
+    //
+    // Ilgari bu yerda `studentIdProp || user?.username` turardi. Natijada
+    // identifikator biror sababdan yo'qolsa, ekran xato bermay, KO'RUVCHINING
+    // O'Z CV sini ko'rsatardi - ya'ni bir talabani ochib, boshqasining
+    // ma'lumotini ko'rish mumkin edi. Bu jimgina noto'g'ri odamni ko'rsatish,
+    // eng yomon xato turi. Endi `embedded` rejimda faqat berilgan
+    // identifikator ishlatiladi; u bo'lmasa ochiq xabar chiqadi.
+    const studentId = embedded ? studentIdProp : (studentIdProp || user?.username);
     const [version, setVersion] = useState(0);
     const [editorOpen, setEditorOpen] = useState(false);
     // Sukut bo'yicha YOPIQ: CV ko'rinishi so'ralganda ochiladi.
@@ -184,6 +192,15 @@ const CvPortfolioPage = ({ studentId: studentIdProp = null, embedded = false }) 
             });
         });
     };
+
+    if (embedded && !studentId) {
+        return (
+            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                Talaba aniqlanmadi — CV ko'rsatilmadi. (Ilgari bu holatda ko'ruvchining
+                o'z CV si chiqib qolardi.)
+            </p>
+        );
+    }
 
     if (!cv) return null;
     const s = cv.student;
