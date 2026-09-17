@@ -266,7 +266,7 @@ const CvPortfolioPage = ({ studentId: studentIdProp = null, embedded = false }) 
                 Ilgari u chap ustun ichida edi va o'ng ustun yonida
                 siqilib turardi. Profil sahifaning sarlavhasi - u butun
                 kenglikni egallashi kerak, ustun mazmuni emas. */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <div className={embedded ? 'hidden' : "bg-white rounded-2xl border border-gray-100 shadow-sm p-6"}>
                 <div className="flex items-start gap-5 flex-wrap">
                     <div className="w-[86px] h-[86px] rounded-full bg-blue-50 text-blue-900 flex items-center justify-center text-2xl font-black shrink-0">
                         {initialsOf(s?.fullName)}

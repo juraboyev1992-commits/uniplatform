@@ -64,6 +64,16 @@ const StudentCvPanel = ({ student = null, studentId = null }) => {
                     <p className="text-[11px] text-gray-500 mt-0.5">
                         {cv.student?.fullName || uname} — talabaning o'z sahifasidagi ko'rinish
                     </p>
+                    {/* BIO shu yerda, chunki xodim rejimida CV ning profil
+                        kartasi yashiriladi: modalning o'z sarlavhasi allaqachon
+                        avatar, ism, fakultet, guruh va emailni ko'rsatadi, ya'ni
+                        ikkinchi shaxs bloki takror edi. Bio esa faqat CV da bor,
+                        shuning uchun u yo'qolib ketmasligi kerak. */}
+                    {cv.manual?.bio && (
+                        <p className="text-xs text-gray-600 mt-1.5 max-w-2xl leading-relaxed">
+                            {cv.manual.bio}
+                        </p>
+                    )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[11px] font-bold">
