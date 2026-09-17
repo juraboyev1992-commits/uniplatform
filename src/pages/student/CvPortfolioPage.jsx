@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-    GraduationCap, Trophy, FileText, Heart, Printer, X, BadgeCheck, Info,
+    GraduationCap, Trophy, FileText, Heart, Printer, BadgeCheck, Info,
     User, Briefcase, Building2, FolderKanban, Wrench, Languages, Users,
     Medal, Sparkles, ArrowRight, Eye, Pencil, BarChart3, BookOpen,
 } from 'lucide-react';
@@ -9,6 +9,7 @@ import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import { buildCv, SOURCE, SOURCE_META } from '../../utils/cvEngine';
 import CvPreviewDocument from '../../components/student/CvPreviewDocument';
+import Modal from '../../components/common/Modal';
 import CvProfileEditor from '../../components/student/CvProfileEditor';
 
 // CV / PORTFOLIO — talabaning ish maydoni.
@@ -148,7 +149,8 @@ const CvPortfolioPage = () => {
     const studentId = user?.username;
     const [version, setVersion] = useState(0);
     const [editorOpen, setEditorOpen] = useState(false);
-    const [previewOpen, setPreviewOpen] = useState(true);
+    // Sukut bo'yicha YOPIQ: CV ko'rinishi so'ralganda ochiladi.
+    const [previewOpen, setPreviewOpen] = useState(false);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const cv = useMemo(() => (studentId ? buildCv(db, studentId) : null), [studentId, version]);
@@ -160,14 +162,20 @@ const CvPortfolioPage = () => {
     // kutmay qaytadi.
     const printCv = () => {
         setPreviewOpen(true);
+        // IKKI KADR: birinchisida React modal oynani joylashtiradi,
+        // ikkinchisida u DOM da haqiqatan turadi. Bitta kadr bilan
+        // `window.print()` hujjat hali qo'shilmasdan chaqirilib, bo'sh
+        // varaq chiqishi mumkin edi.
         window.requestAnimationFrame(() => {
-            document.body.classList.add('cv-printing');
-            const cleanup = () => {
-                document.body.classList.remove('cv-printing');
-                window.removeEventListener('afterprint', cleanup);
-            };
-            window.addEventListener('afterprint', cleanup);
-            window.print();
+            window.requestAnimationFrame(() => {
+                document.body.classList.add('cv-printing');
+                const cleanup = () => {
+                    document.body.classList.remove('cv-printing');
+                    window.removeEventListener('afterprint', cleanup);
+                };
+                window.addEventListener('afterprint', cleanup);
+                window.print();
+            });
         });
     };
 
@@ -415,29 +423,26 @@ const CvPortfolioPage = () => {
                     )}
                 </div>
 
-                {previewOpen && (
-                    <aside className="w-full xl:w-[430px] shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 xl:sticky xl:top-4">
-                        <div className="no-print flex items-center justify-between gap-3 mb-4">
-                            <h3 className="font-black text-blue-950">CV</h3>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button" onClick={printCv}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50"
-                                >
-                                    <Printer size={13} /> Chop etish
-                                </button>
-                                <button
-                                    type="button" onClick={() => setPreviewOpen(false)} aria-label="Yopish"
-                                    className="w-7 h-7 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 flex items-center justify-center"
-                                >
-                                    <X size={16} />
-                                </button>
-                            </div>
-                        </div>
-                        <CvPreviewDocument studentId={studentId} version={version} />
-                    </aside>
-                )}
             </div>
+
+            {/* CV KO'RINISHI - MODAL OYNADA.
+                Ilgari u doimiy ochiq yon panel edi: 430px joyni egallab,
+                asosiy ish maydonini eng tor ustunga aylantirardi. Ustiga A4
+                hujjatni 430px ga siqish "ko'rinish" so'zining ma'nosini
+                yo'qotardi - ekrandagi oqim qog'ozdagidan boshqacha edi.
+                `lg` (896px) esa A4 ning 794px iga deyarli teng, ya'ni
+                ko'ringan narsa chop etilgan bilan bir xil bo'ladi. */}
+            <Modal isOpen={previewOpen} onClose={() => setPreviewOpen(false)} title="CV" size="lg">
+                <div className="no-print flex justify-end mb-3">
+                    <button
+                        type="button" onClick={printCv}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                    >
+                        <Printer size={13} /> Chop etish
+                    </button>
+                </div>
+                <CvPreviewDocument studentId={studentId} version={version} />
+            </Modal>
 
             <CvProfileEditor
                 isOpen={editorOpen}
