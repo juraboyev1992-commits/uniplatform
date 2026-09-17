@@ -118,6 +118,27 @@ const CvPreviewDocument = ({ studentId, version = 0 }) => {
 
     const show = (id) => !hidden.has(id) && (cv.sections[id] || []).length > 0;
 
+    // Atamalar `PortfolioSummary` dagi bilan AYNAN bir xil - bitta raqam
+    // ikki joyda ikki xil nomlanmasin.
+    const TREND_LABELS = { up: "o'sish", down: 'pasayish', stable: 'barqaror' };
+    const st = cv.stats;
+    const metrics = [
+        st.gpa !== null && st.gpa !== undefined ? {
+            key: 'gpa', label: 'GPA', value: st.gpa,
+            hint: st.gpaTrend
+                ? `${TREND_LABELS[st.gpaTrend]}${st.gpaDelta ? ` ${st.gpaDelta > 0 ? '+' : ''}${st.gpaDelta}` : ''}`
+                : null,
+        } : null,
+        st.socialIndex !== null && st.socialIndex !== undefined ? {
+            key: 'index', label: 'Ijtimoiy faollik indeksi', value: `${st.socialIndex} / 100`,
+            hint: null,
+        } : null,
+        st.books > 0 ? {
+            key: 'books', label: "O'qilgan asarlar", value: st.books,
+            hint: st.totalBooks ? `${st.totalBooks} tadan` : null,
+        } : null,
+    ].filter(Boolean);
+
     return (
         <div className="cv-print bg-white rounded-xl border border-slate-200 p-7 space-y-4 print:border-0 print:rounded-none print:p-0">
             {/* SARLAVHA */}
@@ -144,6 +165,29 @@ const CvPreviewDocument = ({ studentId, version = 0 }) => {
                     )}
                 </div>
             </header>
+
+            {/* KO'RSATKICHLAR CHIZIG'I.
+                Platformaning eng qimmatli uchta raqami shu paytgacha faqat
+                ekranda turardi: ijtimoiy faollik indeksi, o'qilgan asarlar
+                va GPA dinamikasi. Ular hujjatda yo'q edi, holbuki aynan
+                shular CV ni oddiy qo'lda yozilgan CV dan ajratib turadi.
+
+                HAR BIRI FAQAT HAQIQATAN MAVJUD BO'LSA chiziladi. Bo'sh
+                qiymat "0" bo'lib chiqmaydi - nol "faolligi yo'q" degan
+                da'vo bo'lardi, holbuki ma'lumot shunchaki hisoblanmagan. */}
+            {metrics.length > 0 && (
+                <div className="flex flex-wrap gap-x-6 gap-y-1.5 pb-1">
+                    {metrics.map(m => (
+                        <div key={m.key} className="flex items-baseline gap-1.5">
+                            <span className="text-[9.5px] font-black tracking-[0.1em] text-blue-900 uppercase">
+                                {m.label}
+                            </span>
+                            <span className="text-[11.5px] font-bold text-slate-900 tabular-nums">{m.value}</span>
+                            {m.hint && <span className="text-[9.5px] text-slate-500">{m.hint}</span>}
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {cv.isEmpty && (
                 <p className="text-[12px] text-slate-500 leading-relaxed">

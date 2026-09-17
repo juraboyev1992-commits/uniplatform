@@ -262,12 +262,26 @@ export const buildCv = (db, studentId) => {
         stats: {
             gpa: p.academic.gpa,
             gpaYear: p.academic.gpaYear,
+            // GPA DINAMIKASI. `trend` 'unknown' bo'lsa yo'nalish
+            // KO'RSATILMAYDI: u "o'sish yo'q" degani emas, "ikkitadan kam
+            // yozuv bor, hisoblab bo'lmaydi" degani. `delta` portfolio
+            // orqali o'tmaydi, shuning uchun tarixdan hisoblanadi.
+            gpaTrend: p.academic.trend && p.academic.trend !== 'unknown' ? p.academic.trend : null,
+            gpaDelta: (() => {
+                const h = p.academic.history || [];
+                if (h.length < 2) return null;
+                return Math.round((h[h.length - 1].gpa - h[h.length - 2].gpa) * 100) / 100;
+            })(),
             awards: awards.length,
             certificates: certificates.length,
             clubs: p.counts.clubs,
             attendance: p.counts.attendance,
             books: p.counts.books,
             totalBooks: p.counts.totalBooks,
+            // IJTIMOIY FAOLLIK INDEKSI (186-buyruq). Hisoblanmagan bo'lsa
+            // `null` - nol emas: nol "faolligi yo'q" degan da'vo bo'lardi.
+            socialIndex: p.socialIndex.total,
+            socialIndexUncomputed: p.socialIndex.uncomputed,
         },
         completeness: {
             percent: Math.round((filled / checklist.length) * 100),

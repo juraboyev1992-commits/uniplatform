@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
     GraduationCap, Trophy, FileText, Heart, Printer, X, BadgeCheck, Info,
     User, Briefcase, Building2, FolderKanban, Wrench, Languages, Users,
-    Medal, Sparkles, ArrowRight, Eye, Pencil,
+    Medal, Sparkles, ArrowRight, Eye, Pencil, BarChart3, BookOpen,
 } from 'lucide-react';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
@@ -304,6 +304,21 @@ const CvPortfolioPage = () => {
                         <StatCard
                             icon={Users} label="Klublar" value={cv.stats.clubs}
                             hint="a'zolik" source={SOURCE.AUTO}
+                        />
+                        {/* Ekranda va qog'ozda BIR XIL raqamlar tursin. */}
+                        <StatCard
+                            icon={BarChart3} label="Ijtimoiy faollik indeksi"
+                            value={cv.stats.socialIndex} unit="100"
+                            hint={cv.stats.socialIndexUncomputed > 0
+                                ? `${cv.stats.socialIndexUncomputed} ta mezon hali baholanmagan`
+                                : '186-buyruq metodikasi'}
+                            source={SOURCE.VERIFIED} missing="hisoblanmagan"
+                        />
+                        <StatCard
+                            icon={BookOpen} label="O'qilgan asarlar"
+                            value={cv.stats.books}
+                            hint={`${cv.stats.totalBooks} tadan`}
+                            source={SOURCE.VERIFIED}
                         />
                     </div>
 
