@@ -14,6 +14,7 @@ import {
 } from '../../config/talent';
 import { computeIdpProgress } from '../../utils/talentScoring';
 import { getDocumentTypeLabel } from '../../config/documents';
+import { formatTimeLeft } from '../../utils/timeLeft';
 
 // Individual rivojlanish rejasi (IDP).
 //
@@ -28,9 +29,15 @@ const TIMING_TONE = {
     closed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 
-const timingLabel = (t) => {
+// Muddat matni `utils/timeLeft.js` dan - kun aniqligidagi o'z hisobi
+// o'rniga. `goal.deadline` sana (vaqtsiz), `goalTiming` esa uni kun
+// OXIRIGA bog'laydi; shu bilan bir xil bo'lishi uchun bu yerda ham
+// `T23:59:59` qo'shiladi, aks holda ikki joyda bir kun farq chiqardi.
+const endOfDay = (d) => (d ? `${d}T23:59:59` : null);
+
+const timingLabel = (t, goal) => {
     if (t.state === 'overdue') return `${Math.abs(t.days)} kun kechikdi`;
-    if (t.state === 'due_soon') return `${t.days} kun qoldi`;
+    if (t.state === 'due_soon') return formatTimeLeft(endOfDay(goal?.deadline), { maxUnits: 2 });
     if (t.state === 'closed') return 'Yakunlangan';
     return t.days === null ? 'Muddatsiz' : `${t.days} kun`;
 };
@@ -323,7 +330,7 @@ const IdpEditor = ({ item, assignableUsers, busy, user, run }) => {
                                                 {cat.label}
                                             </span>
                                             <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold border ${TIMING_TONE[timing.state]}`}>
-                                                {goal.deadline || 'muddatsiz'} · {timingLabel(timing)}
+                                                {goal.deadline || 'muddatsiz'} · {timingLabel(timing, goal)}
                                             </span>
                                             {goal.responsibleId && (
                                                 <span className="text-[10px] text-gray-400">

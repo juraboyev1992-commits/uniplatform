@@ -20,6 +20,7 @@ import {
     collectDimensionValues, computeTalentScore, computeIdpProgress, computeReadiness,
 } from '../../utils/talentScoring';
 import { buildStudentEligibilityProfile } from '../../utils/scholarshipEligibility';
+import { formatTimeLeft } from '../../utils/timeLeft';
 
 // "Mening shogirdlarim" — mentor, tyutor va ilmiy rahbar uchun yagona ish maydoni.
 //
@@ -483,7 +484,7 @@ const MenteeDetail = ({ mentee, user, busy, run, nameOf, onDone }) => {
                                                 {timing.days !== null && timing.state !== 'closed' && (
                                                     timing.state === 'overdue'
                                                         ? ` · ${Math.abs(timing.days)} kun kechikdi`
-                                                        : ` · ${timing.days} kun qoldi`
+                                                        : ` · ${formatTimeLeft(`${goal.deadline}T23:59:59`, { maxUnits: 2 })}`
                                                 )}
                                             </p>
                                         )}
