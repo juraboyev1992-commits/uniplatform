@@ -5,6 +5,7 @@ import Card from '../common/Card';
 import { db } from '../../services/db';
 import { criterionVisual } from '../../config/criterionVisuals';
 import { getIndexReadiness, getPendingWorkload, getSystemHealth } from '../../utils/indexReadiness';
+import TimeLeft from '../common/TimeLeft';
 
 // ===========================================================================
 // ADMINISTRATOR BOSH SAHIFASIGA QO'SHIMCHA
@@ -77,7 +78,11 @@ export const DeadlineStrip = () => {
                             <p className={`text-[11px] mt-1 font-semibold ${d.passed
                                 ? 'text-gray-400'
                                 : d.daysLeft <= 7 ? 'text-red-600' : 'text-indigo-600'}`}>
-                                {d.passed ? "muddat o'tgan" : `${d.daysLeft} kun qoldi`}
+                                {/* Muddat endi BITTA manbadan hisoblanadi
+                                    (utils/timeLeft.js) va soniyagacha aniq.
+                                    Ilgari bu yerda "N kun qoldi" edi - kun
+                                    aniqligidagi o'z hisobi bilan. */}
+                                <TimeLeft target={d.date} />
                             </p>
                         </button>
                     );
