@@ -239,97 +239,101 @@ const CvPortfolioPage = () => {
                 </div>
             </div>
 
-            <div className="flex flex-col xl:flex-row gap-5 items-start">
-                <div className="flex-1 min-w-0 space-y-4">
-                    {/* PROFIL */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                        <div className="flex items-start gap-5 flex-wrap">
-                            <div className="w-[86px] h-[86px] rounded-full bg-blue-50 text-blue-900 flex items-center justify-center text-2xl font-black shrink-0">
-                                {initialsOf(s?.fullName)}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <h3 className="text-2xl font-black text-blue-950 leading-tight">
-                                    {s?.fullName || studentId}
-                                </h3>
-                                <p className="text-sm text-gray-500 mt-1">
-                                    {['TDYU', s?.course ? `${s.course}-bosqich` : null, s?.faculty, s?.group]
-                                        .filter(Boolean).join('   |   ')}
+            {/* PROFIL - USTUNLARDAN YUQORIDA, TO'LIQ KENGLIKDA.
+                Ilgari u chap ustun ichida edi va o'ng ustun yonida
+                siqilib turardi. Profil sahifaning sarlavhasi - u butun
+                kenglikni egallashi kerak, ustun mazmuni emas. */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div className="flex items-start gap-5 flex-wrap">
+                    <div className="w-[86px] h-[86px] rounded-full bg-blue-50 text-blue-900 flex items-center justify-center text-2xl font-black shrink-0">
+                        {initialsOf(s?.fullName)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <h3 className="text-2xl font-black text-blue-950 leading-tight">
+                            {s?.fullName || studentId}
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-1">
+                            {['TDYU', s?.course ? `${s.course}-bosqich` : null, s?.faculty, s?.group]
+                                .filter(Boolean).join('   |   ')}
+                        </p>
+                        {cv.manual.bio
+                            ? <p className="text-sm text-gray-600 mt-2.5 max-w-xl leading-relaxed">{cv.manual.bio}</p>
+                            : (
+                                <p className="text-xs text-gray-400 mt-2.5 max-w-xl leading-relaxed">
+                                    Qisqacha ma'lumot, ko'nikmalar, tillar va ish tajribasi hali
+                                    kiritilmagan — ular platformada saqlanmaydi, shuning uchun
+                                    faqat siz kirita olasiz.
+                                    {' '}
+                                    <button
+                                        type="button" onClick={() => setEditorOpen(true)}
+                                        className="font-bold text-blue-800 hover:text-blue-900 underline"
+                                    >
+                                        Hozir kiritish
+                                    </button>
                                 </p>
-                                {cv.manual.bio
-                                    ? <p className="text-sm text-gray-600 mt-2.5 max-w-xl leading-relaxed">{cv.manual.bio}</p>
-                                    : (
-                                        <p className="text-xs text-gray-400 mt-2.5 max-w-xl leading-relaxed">
-                                            Qisqacha ma'lumot, ko'nikmalar, tillar va ish tajribasi hali
-                                            kiritilmagan — ular platformada saqlanmaydi, shuning uchun
-                                            faqat siz kirita olasiz.
-                                            {' '}
-                                            <button
-                                                type="button" onClick={() => setEditorOpen(true)}
-                                                className="font-bold text-blue-800 hover:text-blue-900 underline"
-                                            >
-                                                Hozir kiritish
-                                            </button>
-                                        </p>
-                                    )}
-                            </div>
-                            <div className="flex items-center gap-3 shrink-0">
-                                <Ring percent={cv.completeness.percent} />
-                                <div>
-                                    <p className="text-sm font-bold text-blue-950">
-                                        CV {cv.completeness.percent}% tayyor
-                                    </p>
-                                    <p className="text-[11px] text-gray-400">
-                                        {cv.completeness.total} bo'limdan {cv.completeness.filled} tasi
-                                    </p>
-                                    {cv.completeness.missing.length > 0 && (
-                                        <p className="text-[11px] text-amber-700 mt-0.5 max-w-[200px] leading-snug">
-                                            Yetishmaydi: {cv.completeness.missing.slice(0, 3).join(', ')}
-                                            {cv.completeness.missing.length > 3
-                                                ? ` va yana ${cv.completeness.missing.length - 3} ta`
-                                                : ''}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
+                            )}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                        <Ring percent={cv.completeness.percent} />
+                        <div>
+                            <p className="text-sm font-bold text-blue-950">
+                                CV {cv.completeness.percent}% tayyor
+                            </p>
+                            <p className="text-[11px] text-gray-400">
+                                {cv.completeness.total} bo'limdan {cv.completeness.filled} tasi
+                            </p>
+                            {cv.completeness.missing.length > 0 && (
+                                <p className="text-[11px] text-amber-700 mt-0.5 max-w-[200px] leading-snug">
+                                    Yetishmaydi: {cv.completeness.missing.slice(0, 3).join(', ')}
+                                    {cv.completeness.missing.length > 3
+                                        ? ` va yana ${cv.completeness.missing.length - 3} ta`
+                                        : ''}
+                                </p>
+                            )}
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    {/* KO'RSATKICHLAR */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                        <StatCard
-                            icon={GraduationCap} label="GPA" value={cv.stats.gpa} unit="4.0"
-                            hint={cv.stats.gpaYear || "so'nggi semestr"}
-                            source={SOURCE.VERIFIED} missing="hali kiritilmagan"
-                        />
-                        <StatCard
-                            icon={Trophy} label="Yutuqlar" value={cv.stats.awards}
-                            hint="sovrinli o'rin" source={SOURCE.VERIFIED}
-                        />
-                        <StatCard
-                            icon={FileText} label="Sertifikatlar" value={cv.stats.certificates}
-                            hint="olingan hujjat" source={SOURCE.VERIFIED}
-                        />
-                        <StatCard
-                            icon={Users} label="Klublar" value={cv.stats.clubs}
-                            hint="a'zolik" source={SOURCE.AUTO}
-                        />
-                        {/* Ekranda va qog'ozda BIR XIL raqamlar tursin. */}
-                        <StatCard
-                            icon={BarChart3} label="Ijtimoiy faollik indeksi"
-                            value={cv.stats.socialIndex} unit="100"
-                            hint={cv.stats.socialIndexUncomputed > 0
-                                ? `${cv.stats.socialIndexUncomputed} ta mezon hali baholanmagan`
-                                : '186-buyruq metodikasi'}
-                            source={SOURCE.VERIFIED} missing="hisoblanmagan"
-                        />
-                        <StatCard
-                            icon={BookOpen} label="O'qilgan asarlar"
-                            value={cv.stats.books}
-                            hint={`${cv.stats.totalBooks} tadan`}
-                            source={SOURCE.VERIFIED}
-                        />
-                    </div>
+            {/* KO'RSATKICHLAR - xuddi shunday to'liq kenglikda, keng ekranda
+                bitta qatorda. */}
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                <StatCard
+                    icon={GraduationCap} label="GPA" value={cv.stats.gpa} unit="4.0"
+                    hint={cv.stats.gpaYear || "so'nggi semestr"}
+                    source={SOURCE.VERIFIED} missing="hali kiritilmagan"
+                />
+                <StatCard
+                    icon={Trophy} label="Yutuqlar" value={cv.stats.awards}
+                    hint="sovrinli o'rin" source={SOURCE.VERIFIED}
+                />
+                <StatCard
+                    icon={FileText} label="Sertifikatlar" value={cv.stats.certificates}
+                    hint="olingan hujjat" source={SOURCE.VERIFIED}
+                />
+                <StatCard
+                    icon={Users} label="Klublar" value={cv.stats.clubs}
+                    hint="a'zolik" source={SOURCE.AUTO}
+                />
+                {/* Ekranda va qog'ozda BIR XIL raqamlar tursin. */}
+                <StatCard
+                    icon={BarChart3} label="Ijtimoiy faollik indeksi"
+                    value={cv.stats.socialIndex} unit="100"
+                    hint={cv.stats.socialIndexUncomputed > 0
+                        ? `${cv.stats.socialIndexUncomputed} ta mezon hali baholanmagan`
+                        : '186-buyruq metodikasi'}
+                    source={SOURCE.VERIFIED} missing="hisoblanmagan"
+                />
+                <StatCard
+                    icon={BookOpen} label="O'qilgan asarlar"
+                    value={cv.stats.books}
+                    hint={`${cv.stats.totalBooks} tadan`}
+                    source={SOURCE.VERIFIED}
+                />
+            </div>
 
+            <div className="flex flex-col xl:flex-row gap-5 items-start">
+                <div className="flex-1 min-w-0 space-y-4">
                     {/* CHAP USTUN BO'LIMLARI */}
                     {leftSections.length > 0 && (
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 divide-y divide-gray-50">
