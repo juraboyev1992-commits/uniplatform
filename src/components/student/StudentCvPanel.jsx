@@ -82,6 +82,24 @@ const StudentCvPanel = ({ student = null, studentId = null }) => {
                 </div>
             </div>
 
+            {/* NIMA YETISHMAYOTGANI - xodim uchun yagona HARAKATGA yaroqli
+                ma'lumot. Foiz o'lchov beradi ("67%"), bu esa nima qilish
+                kerakligini aytadi: tyutor talabaga "klub faoliyating
+                ko'rinmayapti" deb ayta oladi.
+                Halqa ATAYLAB qaytarilmadi: u "8/12 bo'lim" belgisi bilan bir
+                xil raqamni ko'rsatadi, ya'ni takrorlash bo'lardi.
+                Matn talaba sahifasidagi bilan bir xil shaklda - bitta narsa
+                ikki joyda ikki xil nomlanmasin. */}
+            {cv.completeness.missing.length > 0 && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 leading-relaxed">
+                    <span className="font-bold">Yetishmaydi:</span>{' '}
+                    {cv.completeness.missing.slice(0, 4).join(', ')}
+                    {cv.completeness.missing.length > 4
+                        ? ` va yana ${cv.completeness.missing.length - 4} ta`
+                        : ''}
+                </p>
+            )}
+
             {/* ALOQA - pasport qoidalari bo'yicha. Ko'rsatilmasa, sababi
                 ruxsat, ma'lumot yo'qligi emas - shuni aytib qo'yamiz. */}
             <div className="rounded-xl border border-gray-100 bg-gray-50 px-3.5 py-2.5">
