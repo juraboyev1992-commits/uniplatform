@@ -6542,8 +6542,22 @@ export const db = {
             payload.data = { ...currentData, ...dataPatch };
         }
 
-        const { data, error } = await supabase.from('events').update(payload).eq('id', id).select().single();
+        // `maybeSingle` - `single` EMAS. Bazada ruxsat bo'lmasa UPDATE nol
+        // qator o'zgartiradi va `single` shunda "Cannot coerce the result to a
+        // single JSON object" deb xato beradi - foydalanuvchi bu xabardan hech
+        // narsa tushunmaydi. Aynan shu xabar jonli saytda talabaga chiqdi:
+        // tadbirga yozilish `events` qatorini yangilaydi, RLS esa yangilashni
+        // faqat xodimga ochgan edi (yechimi: supabase/rls_events_registration_fix.sql).
+        // Endi nol qator tushunarli xabarga aylanadi.
+        const { data, error } = await supabase.from('events').update(payload).eq('id', id).select().maybeSingle();
         if (error) throw error;
+        if (!data) {
+            throw new Error(
+                "Tadbirni yangilab bo'lmadi: bazada ruxsat yo'q yoki tadbir o'chirilgan. "
+                + "Agar bu ro'yxatdan o'tish bo'lsa, administratorga ayting - "
+                + "supabase/rls_events_registration_fix.sql ishga tushirilishi kerak."
+            );
+        }
         await syncCoreDataFromSupabase();
         return mapEventFromSupabase(data);
     },
@@ -16868,7 +16882,7 @@ export const db = {
     //
     // Mavjud Event/Competition/Ranking/Scoring mexanizmlarini o'zgartirmaydi -
     // ularning ustiga qo'shiladigan universal agregatsiya qatlami (istalgan ko'p
-    // tadbirli loyiha uchun: festival, hafталik, oylik va h.k., faqat festivalga
+    // tadbirli loyiha uchun: festival, haftalik, oylik va h.k., faqat festivalga
     // bog'lanmagan). Hech qanday "ball" qatorini saqlamaydi - har chaqirilganda
     // joriy natijalardan QAYTA hisoblanadi (sof funksiya), shuning uchun biror
     // musobaqa natijasi o'zgarsa keyingi o'qishda avtomatik yangilanadi va

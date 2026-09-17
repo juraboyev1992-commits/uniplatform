@@ -11,6 +11,7 @@ import Button from '../common/Button';
 import Badge from '../common/Badge';
 import Modal from '../common/Modal';
 import CopyableId from '../common/CopyableId';
+import TimeLeft from '../common/TimeLeft';
 import EventEditForm from './EventEditForm';
 import EventsCalendar from '../student/EventsCalendar';
 import TournamentCreateWizard from '../common/TournamentCreateWizard';
@@ -69,9 +70,20 @@ const EventSummary = ({ event, club, onOpenWorkspace, onEdit }) => {
                         <p className="text-sm text-gray-500 mt-1 whitespace-pre-line">{event.description}</p>
                     )}
                 </div>
-                <Badge variant={isDone ? 'default' : 'success'} size="sm">
-                    {isDone ? 'Yakunlangan' : 'Rejalashtirilgan'}
-                </Badge>
+                {/* HOLAT va QOLGAN VAQT yonma-yon. Ilgari bu yerda faqat
+                    "Rejalashtirilgan" degan yorliq turardi va u tadbir
+                    ertagami yoki olti oydan keyinmi - ayta olmasdi.
+                    Yakunlangan tadbirda sanoq chizilmaydi: sanashga narsa
+                    yo'q. Talabaga ko'rinadigan sanoq bilan bir xil
+                    komponent, ya'ni raqamlar ikkalasida ayni bir xil. */}
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <Badge variant={isDone ? 'default' : 'success'} size="sm">
+                        {isDone ? 'Yakunlangan' : 'Rejalashtirilgan'}
+                    </Badge>
+                    {!isDone && event.date && new Date(event.date) > new Date() && (
+                        <TimeLeft target={event.date} variant="blocks" />
+                    )}
+                </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 bg-slate-50 rounded-xl p-3">
