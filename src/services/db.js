@@ -259,9 +259,29 @@ const generateMockStudents = () => {
     // ishlatadi - shuning uchun urug'lantirilgan ma'lumot o'zgarmaydi.
     try {
         const byId = new Map(students.map(s => [s.id, s]));
+
+        // USERNAME bo'yicha ham moslash.
+        //
+        // Ilgari birlashtirish FAQAT `id` bo'yicha edi. Eski demo yozuvining
+        // `id` si - bu loginning o'zi ('talaba'), haqiqiy Supabase profilida
+        // esa `id` UUID, login esa `username` da. Ikkalasi hech qachon mos
+        // kelmasdi, natijada bitta odam ro'yxatda IKKI MARTA turardi: biri
+        // eski qotirilgan ism bilan, ikkinchisi bazadagi haqiqiy ism bilan.
+        //
+        // Oqibati jimgina va chalg'ituvchi edi: haqiqiy qatorni ochgan odam
+        // `username` ni olardi, keyingi qidiruv esa `id === username` bo'yicha
+        // ESKI qatorni topib, BOSHQA odamning ma'lumotini ko'rsatardi.
+        const byUsername = new Map();
+        students.forEach(entry => {
+            if (entry.username) byUsername.set(entry.username, entry);
+            // Eski yozuvlarda alohida `username` maydoni yo'q - ularning
+            // `id` si loginning o'zi.
+            else if (typeof entry.id === 'string') byUsername.set(entry.id, entry);
+        });
+
         (getDB().realProfiles || []).forEach(p => {
             if (!p?.id) return;
-            const existing = byId.get(p.id);
+            const existing = byId.get(p.id) || (p.username ? byUsername.get(p.username) : null);
             if (existing) {
                 // Bazadagi joriy ma'lumot ustun turadi.
                 Object.assign(existing, p);
