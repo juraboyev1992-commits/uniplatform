@@ -64,6 +64,18 @@ const StudentCvPanel = ({ student = null, studentId = null }) => {
                     <p className="text-[11px] text-gray-500 mt-0.5">
                         {cv.student?.fullName || uname} — talabaning o'z sahifasidagi ko'rinish
                     </p>
+                    {/* VAQTINCHALIK DIAGNOSTIKA.
+                        Bir talabani ochganda boshqasining CV si chiqdi. Kodni
+                        o'qib sabab topilmadi (jadval, chaqiruv joylari, qator
+                        tarkibi va echish mantig'i - hammasi toza chiqdi), shuning
+                        uchun taxmin o'rniga O'LCHANADI: qaysi qiymat kelyapti va
+                        nimaga echilyapti. Sabab topilgach shu qator olib
+                        tashlanadi. */}
+                    <p className="text-[10px] font-mono text-rose-600 mt-1 break-all">
+                        tashxis: qator.id={String(student?.id)} · qator.username={String(student?.username)}
+                        {' · '}prop.studentId={String(studentId)} · echilgan={String(uname)}
+                        {' · '}topilgan={String(cv.student?.fullName)}
+                    </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[11px] font-bold">
