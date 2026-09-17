@@ -145,9 +145,14 @@ const Ring = ({ percent }) => {
 const initialsOf = (name) => (name || '?')
     .split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
-const CvPortfolioPage = () => {
+// `embedded` - XODIM ko'rinishi (admin, rahbariyat, tyutor). Sahifaning
+// o'zi qayta ishlatiladi, chunki ekran ko'rinishi hujjatdan ancha o'qishli:
+// kartalar, manba belgilari, vaqt chizig'i. Faqat ish qurollari o'chiriladi -
+// tahrirlash, chop etish, boshqa bo'limlarga havolalar: ular talabaning
+// o'ziga tegishli va xodimda ishlamaydi ham (`cv_write` faqat egasiga).
+const CvPortfolioPage = ({ studentId: studentIdProp = null, embedded = false }) => {
     const { user } = useAuth();
-    const studentId = user?.username;
+    const studentId = studentIdProp || user?.username;
     const [version, setVersion] = useState(0);
     const [editorOpen, setEditorOpen] = useState(false);
     // Sukut bo'yicha YOPIQ: CV ko'rinishi so'ralganda ochiladi.
@@ -203,7 +208,7 @@ const CvPortfolioPage = () => {
     return (
         <div className="space-y-5">
             {/* SARLAVHA */}
-            <div className="no-print flex flex-wrap items-start justify-between gap-4">
+            <div className={embedded ? 'hidden' : "no-print flex flex-wrap items-start justify-between gap-4"}>
                 <div className="min-w-0">
                     <h1 className="text-3xl font-black text-blue-950">Mening CV'im</h1>
                     <p className="text-sm text-gray-500 mt-1">
@@ -378,7 +383,7 @@ const CvPortfolioPage = () => {
                         moslashtirish" ning haqiqiy manbasi bor varianti:
                         foiz e'lon qilingan talablardan hisoblanadi, yozilgan
                         matndan emas. */}
-                    <CvOpportunityMatch studentId={studentId} version={version} />
+                    {!embedded && <CvOpportunityMatch studentId={studentId} version={version} />}
 
                     {/* O'NG USTUN BO'LIMLARI - keng ekranda alohida ustunda,
                         torida esa shu yerda ketma-ket chiqadi. */}
@@ -394,7 +399,7 @@ const CvPortfolioPage = () => {
 
                     {/* Hujjat boshqaruvi shu sahifada TAKRORLANMAYDI - u
                         "Yutuq va imkoniyatlar" bo'limining ishi. */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <div className={embedded ? 'hidden' : "bg-white rounded-2xl border border-gray-100 shadow-sm p-5"}>
                         <h4 className="font-bold text-blue-950 text-sm mb-1">Hujjat qo'shish</h4>
                         <p className="text-xs text-gray-500 mb-3 max-w-xl leading-relaxed">
                             Rasmiy diplom va sertifikatlar bu yerga o'zi tushadi. Tashqarida olgan
@@ -443,6 +448,7 @@ const CvPortfolioPage = () => {
                 yo'qotardi - ekrandagi oqim qog'ozdagidan boshqacha edi.
                 `lg` (896px) esa A4 ning 794px iga deyarli teng, ya'ni
                 ko'ringan narsa chop etilgan bilan bir xil bo'ladi. */}
+            {!embedded && (
             <Modal isOpen={previewOpen} onClose={() => setPreviewOpen(false)} title="CV" size="lg">
                 <div className="no-print flex justify-end mb-3">
                     <button
@@ -454,13 +460,16 @@ const CvPortfolioPage = () => {
                 </div>
                 <CvPreviewDocument studentId={studentId} version={version} />
             </Modal>
+            )}
 
+            {!embedded && (
             <CvProfileEditor
                 isOpen={editorOpen}
                 studentId={studentId}
                 onClose={() => setEditorOpen(false)}
                 onSaved={() => setVersion(v => v + 1)}
             />
+            )}
         </div>
     );
 };

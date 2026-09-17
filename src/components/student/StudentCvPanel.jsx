@@ -3,7 +3,7 @@ import { FileText, ShieldCheck, Info } from 'lucide-react';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import { buildCv } from '../../utils/cvEngine';
-import CvPreviewDocument from './CvPreviewDocument';
+import CvPortfolioPage from '../../pages/student/CvPortfolioPage';
 
 // XODIM KO'RINISHIDAGI CV / PORTFOLIO.
 //
@@ -99,7 +99,10 @@ const StudentCvPanel = ({ student = null, studentId = null }) => {
                 </p>
             )}
 
-            <CvPreviewDocument studentId={uname} contactOverride={contact} showMetrics={false} />
+            {/* Bosma hujjat emas, EKRAN ko'rinishi: kartalar, manba
+                belgilari va vaqt chizig'i bilan - xodim ham talaba
+                ko'rgan narsani ko'rsin. */}
+            <CvPortfolioPage studentId={uname} embedded />
         </div>
     );
 };
