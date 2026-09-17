@@ -19,6 +19,8 @@ import { matchOpportunitiesForStudent, suggestNextSteps } from '../../utils/oppo
 import { buildStudentEligibilityProfile } from '../../utils/scholarshipEligibility';
 import { CRITERIA_OPS, formatAmount } from '../../config/scholarships';
 import ScholarshipApplyForm from '../../components/student/ScholarshipApplyForm';
+import TimeLeft from '../../components/common/TimeLeft';
+import { formatTimeLeft } from '../../utils/timeLeft';
 
 // Talaba kabinetidagi "Imkoniyatlar".
 //
@@ -140,9 +142,7 @@ const OpportunitiesPage = ({ embedded = false }) => {
                                     {r.opportunity.title}
                                 </span>
                                 {r.fit !== null && <span className="font-black text-gray-700">{r.fit}%</span>}
-                                <span className="text-amber-700 font-bold whitespace-nowrap">
-                                    {r.daysLeft} kun qoldi
-                                </span>
+                                <TimeLeft target={r.opportunity.deadline} live={false} />
                             </div>
                         ))}
                     </div>
@@ -256,7 +256,9 @@ const OpportunitiesPage = ({ embedded = false }) => {
                                     {!isCompetitive(r.opportunity.kind)
                                         ? (r.fit === 100 ? BENEFIT_WORDING.qualified : 'Shartlar to\'liq bajarilmagan')
                                         : r.opportunity.deadline
-                                            ? (r.urgent ? `${r.daysLeft} kun qoldi` : `Muddat: ${r.opportunity.deadline}`)
+                                            ? (r.urgent
+                                                ? formatTimeLeft(r.opportunity.deadline, { maxUnits: 2 })
+                                                : `Muddat: ${r.opportunity.deadline}`)
                                             : 'Muddat belgilanmagan'}
                                     {r.opportunity.group && ` · ${getGroupLabel(r.opportunity.group)}`}
                                 </p>
@@ -388,7 +390,8 @@ const OpportunityDetail = ({ result, onApply }) => {
                     {competitive && opp.deadline && (
                         <p className={`text-xs mt-1.5 font-semibold ${result.urgent ? 'text-amber-700' : 'text-gray-500'}`}>
                             Muddat: {opp.deadline}
-                            {result.daysLeft !== null && result.daysLeft >= 0 && ` · ${result.daysLeft} kun qoldi`}
+                            {' '}
+                            <TimeLeft target={opp.deadline} />
                         </p>
                     )}
                     {!competitive && (
