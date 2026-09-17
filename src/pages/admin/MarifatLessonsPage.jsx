@@ -500,11 +500,7 @@ const MarifatLessonsPage = () => {
                                     Belgilanmagan: {unmarkedCount}
                                 </span>
                             )}
-                            {isDirty && (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold">
-                                    Saqlanmagan
-                                </span>
-                            )}
+
                             {/* Ro'yxatni bir bosishda to'ldirish - 100+ talabani
                                 birma-bir belgilash real ishda bajarilmaydi. */}
                             {!openLesson.locked && (
@@ -627,12 +623,24 @@ const MarifatLessonsPage = () => {
                         </div>
                     )}
 
-                    <div className="p-4 border-t border-gray-100 flex gap-2 flex-wrap">
+                    <div className="p-4 border-t border-gray-100 flex items-center gap-2 flex-wrap sticky bottom-0 bg-white">
                         {!openLesson.locked && (
                             <Button variant="primary" size="sm" icon={Save} disabled={busy} onClick={saveAttendance}>
                                 Davomatni saqlash
                             </Button>
                         )}
+                        {/* HOLAT TUGMANING YONIDA.
+                            "Saqlanmagan" belgisi ekranning TEPASIDA edi, odam esa
+                            ro'yxatning oxirida belgilab tugatadi - ya'ni eslatma
+                            aynan kerak bo'lgan paytda ko'rinmasdi. Panel ham
+                            yopishib turadi: uzun ro'yxatda tugmani qidirib
+                            pastga tushish kerak emas. */}
+                        {!openLesson.locked && isDirty && (
+                            <span className="text-[11px] font-bold px-2 py-1 rounded-lg bg-rose-100 text-rose-700">
+                                Saqlanmagan
+                            </span>
+                        )}
+
                         <Button
                             variant="outline" size="sm"
                             icon={openLesson.locked ? Unlock : Lock}
