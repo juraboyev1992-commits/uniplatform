@@ -21,6 +21,7 @@ import {
 import { buildStudentEligibilityProfile } from '../../utils/scholarshipEligibility';
 import { formatAmount } from '../../config/scholarships';
 import { getDocumentTypeLabel } from '../../config/documents';
+import { formatTimeLeft } from '../../utils/timeLeft';
 
 // Talaba kabinetidagi "Mening rivojlanishim".
 //
@@ -133,7 +134,8 @@ const MyDevelopmentPage = ({ embedded = false }) => {
         ...(progress.timings || [])
             .filter(t => t.timing.state === 'overdue' || t.timing.state === 'due_soon')
             .map(t => `${t.goal.title} — ${t.timing.state === 'overdue'
-                ? `${Math.abs(t.timing.days)} kun kechikdi` : `${t.timing.days} kun qoldi`}`),
+                ? `${Math.abs(t.timing.days)} kun kechikdi`
+                : formatTimeLeft(`${t.goal.deadline}T23:59:59`, { maxUnits: 2 })}`),
     ].slice(0, 3);
 
     return (
@@ -356,7 +358,7 @@ const MyDevelopmentPage = ({ embedded = false }) => {
                                                             {timing.days !== null && timing.state !== 'closed' && (
                                                                 timing.state === 'overdue'
                                                                     ? ` · ${Math.abs(timing.days)} kun kechikdi`
-                                                                    : ` · ${timing.days} kun qoldi`
+                                                                    : ` · ${formatTimeLeft(`${goal.deadline}T23:59:59`, { maxUnits: 2 })}`
                                                             )}
                                                         </p>
                                                     )}

@@ -39,6 +39,7 @@ import StudentPassportCard from '../../components/student/StudentPassportCard';
 import { Link } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import { SOCIAL_REVIEWER_ROLES } from '../../constants/index.js';
+import TimeLeft from '../../components/common/TimeLeft';
 
 // Decorative icon/color + demo detail snapshot for each ORIGINAL mezon key — the grid's name/maxPoints/
 // description now come live from db.getSocialCriteriaCategories() (Sozlamalar -> Ijtimoiy faollik ->
@@ -562,9 +563,7 @@ const SocialActivityIndex = () => {
                                 <p className="text-[11px] mt-1">
                                     {d.passed
                                         ? <span className="text-gray-400">Muddat o'tdi</span>
-                                        : <span className={d.daysLeft <= 14 ? 'font-bold text-amber-700' : 'text-gray-500'}>
-                                            {d.daysLeft} kun qoldi
-                                        </span>}
+                                        : <TimeLeft target={d.date} />}
                                 </p>
                             </div>
                         ))}
