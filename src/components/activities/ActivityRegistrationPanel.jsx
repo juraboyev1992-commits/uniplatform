@@ -7,6 +7,7 @@ import StudentPicker from '../common/StudentPicker';
 import CopyableId from '../common/CopyableId';
 import { db, POSITION_TYPE_LABELS } from '../../services/db';
 import { TOURNAMENT_FILE_UPLOAD } from '../../constants';
+import TimeLeft from '../common/TimeLeft';
 
 const OVERRIDE_REASONS = ['Kechikib keldi', 'Texnik muammo', 'Rasmiy ruxsat', 'Tashkilotchi qarori', 'Boshqa'];
 
@@ -574,7 +575,12 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
                         {myRegistration.offerExpiresAt ? (
                             <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl space-y-2">
                                 <p className="text-sm font-bold text-emerald-800 flex items-center gap-1.5"><Clock size={14} /> Sizga joy taklif qilindi!</p>
+                                {/* Sana ham, sanoq ham: birinchisi "aniq qachon",
+                                    ikkinchisi "qancha qoldi" degan savolga javob
+                                    beradi. Taklif soatlar ichida kuyadi, shuning
+                                    uchun bu yerda soniyalar ham ko'rinadi. */}
                                 <p className="text-xs text-emerald-700">Tasdiqlash muddati: {new Date(myRegistration.offerExpiresAt).toLocaleString('uz-UZ')}</p>
+                                <TimeLeft target={myRegistration.offerExpiresAt} />
                                 <Button variant="primary" size="sm" className="w-full" onClick={handleConfirmOffer}>Tasdiqlash</Button>
                             </div>
                         ) : (
@@ -583,11 +589,19 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
                     </div>
                 )
             ) : !registrationOpen ? (
-                <StatusPill>
-                    {activity.registrationOpensAt && new Date() < new Date(activity.registrationOpensAt)
-                        ? "Ro'yxatdan o'tish hali boshlanmagan"
-                        : "Ro'yxatdan o'tish muddati tugagan"}
-                </StatusPill>
+                <div className="space-y-2">
+                    <StatusPill>
+                        {activity.registrationOpensAt && new Date() < new Date(activity.registrationOpensAt)
+                            ? "Ro'yxatdan o'tish hali boshlanmagan"
+                            : "Ro'yxatdan o'tish muddati tugagan"}
+                    </StatusPill>
+                    {/* Hali boshlanmagan bo'lsa - ochilishigacha sanoq. Muddati
+                        tugaganda sanoq ko'rsatilmaydi: o'tib ketgan vaqtni
+                        sanashning ma'nosi yo'q. */}
+                    {activity.registrationOpensAt && new Date() < new Date(activity.registrationOpensAt) && (
+                        <TimeLeft target={activity.registrationOpensAt} />
+                    )}
+                </div>
             ) : isFull && !activity.waitlistEnabled ? (
                 <StatusPill>To'lgan</StatusPill>
             ) : effectiveMode === 'team' || (activity.registrationType === 'both' && chosenMode === 'team') ? (
