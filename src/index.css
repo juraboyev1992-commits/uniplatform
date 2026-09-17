@@ -96,6 +96,35 @@ body {
   animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* MUDDAT SANOG'I - jonli nuqta (`components/common/TimeLeft.jsx`).
+   Uzoq muddatda ("296 kun 4 soat 23 daqiqa 36 soniya") ko'z oxirgi
+   raqamning o'zgarayotganini ilg'amaydi va sanoq qotib qolganday
+   ko'rinadi. Nuqta har soniyada bir marta urib turadi.
+   Animatsiya CSS da: u React qayta chizishidan mustaqil, ya'ni
+   sahifada o'nlab sanoq bo'lsa ham qo'shimcha hisob talab qilmaydi. */
+@keyframes tl-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  55% {
+    opacity: 0.25;
+    transform: scale(0.65);
+  }
+}
+
+.tl-dot {
+  animation: tl-pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Harakat kamaytirilgan rejimda nuqta tinch turadi - lekin yo'qolmaydi,
+   chunki u holat rangini ham tashiydi. */
+@media (prefers-reduced-motion: reduce) {
+  .tl-dot {
+    animation: none;
+  }
+}
+
 /* Focus Styles */
 button:focus,
 input:focus,

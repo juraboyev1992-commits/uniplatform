@@ -75,15 +75,15 @@ export const DeadlineStrip = () => {
                                 {new Date(d.date).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long' })}
                             </p>
                             <p className={`text-xs mt-0.5 ${d.passed ? 'text-gray-400' : 'text-gray-600'}`}>{d.label}</p>
-                            <p className={`text-[11px] mt-1 font-semibold ${d.passed
-                                ? 'text-gray-400'
-                                : d.daysLeft <= 7 ? 'text-red-600' : 'text-indigo-600'}`}>
-                                {/* Muddat endi BITTA manbadan hisoblanadi
-                                    (utils/timeLeft.js) va soniyagacha aniq.
-                                    Ilgari bu yerda "N kun qoldi" edi - kun
-                                    aniqligidagi o'z hisobi bilan. */}
-                                <TimeLeft target={d.date} />
-                            </p>
+                            {/* Muddat BITTA manbadan hisoblanadi
+                                (utils/timeLeft.js) va soniyagacha aniq.
+                                Ilgari bu yerda "N kun qoldi" edi - kun
+                                aniqligidagi o'z hisobi bilan.
+                                Blokli ko'rinish: bu kartaning butun mazmuni
+                                shu sanoq, shuning uchun u eng yirik element. */}
+                            <span className="block mt-1.5">
+                                <TimeLeft target={d.date} variant="blocks" />
+                            </span>
                         </button>
                     );
                 })}

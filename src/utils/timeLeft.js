@@ -50,29 +50,43 @@ export const breakdown = (ms) => {
 
 // "1 yil 10 kun 3 soat" ko'rinishidagi matn.
 //
-// `maxUnits` - nechta eng katta birlik ko'rsatilsin. Sukut 5, ya'ni
-// to'liq: "296 kun 4 soat 23 daqiqa 36 soniya qoldi". Ilgari 3 edi va
-// uzoq muddatda soniya butunlay tushib qolardi - ekranda raqam qimirlamay
-// turgani uchun sanoq ishlamayotganday ko'rinardi. Tor joylarda chaqiruvchi
-// o'zi kichikroq son beradi (ro'yxatlarda maxUnits: 2).
-export const formatTimeLeft = (target, { now = Date.now(), maxUnits = 5, suffix = true } = {}) => {
+// Muddatni birliklarga ajratib, TAYYOR QISMLAR ro'yxatini beradi:
+// [{ key: 'day', value: 296, label: 'kun' }, ...]. Matn emas, qismlar
+// qaytarilishining sababi - ko'rsatishda har birlikni alohida bezash kerak
+// (raqam yo'g'on, birlik nomi ochroq, soniya alohida ajralib tursin).
+//
+// `maxUnits` - nechta eng katta birlik. Sukut 5, ya'ni to'liq:
+// "296 kun 4 soat 23 daqiqa 36 soniya". Ilgari 3 edi va uzoq muddatda
+// soniya butunlay tushib qolardi - ekranda raqam qimirlamagani uchun sanoq
+// ishlamayotganday ko'rinardi.
+//
+// `null` - muddat belgilanmagan. Bo'sh ro'yxat - muddat o'tib ketgan.
+export const timeLeftParts = (target, { now = Date.now(), maxUnits = 5 } = {}) => {
     const ms = msLeft(target, now);
     if (ms === null) return null;
-    if (ms <= 0) return "Muddat tugagan";
+    if (ms <= 0) return [];
 
     const b = breakdown(ms);
     const parts = [];
     for (const key of ['year', 'day', 'hour', 'minute', 'second']) {
         if (parts.length >= maxUnits) break;
         // Boshidagi nollar tashlab yuboriladi ("0 yil 10 kun" emas), lekin
-        // o'rtadagilari qoladi ("1 yil 0 kun 3 soat" emas, "1 yil 3 soat"
-        // ham noto'g'ri bo'lardi - shuning uchun boshlangandan keyin
-        // hammasi yoziladi).
+        // o'rtadagilari qoladi: "1 yil 3 soat" degan yozuv "0 kun" ni
+        // yashirib, muddatni noto'g'ri ko'rsatgan bo'lardi.
         if (parts.length === 0 && b[key] === 0) continue;
-        parts.push(`${b[key]} ${UNIT_LABELS[key]}`);
+        parts.push({ key, value: b[key], label: UNIT_LABELS[key] });
     }
-    if (parts.length === 0) parts.push(`0 ${UNIT_LABELS.second}`);
-    return parts.join(' ') + (suffix ? ' qoldi' : '');
+    if (parts.length === 0) parts.push({ key: 'second', value: 0, label: UNIT_LABELS.second });
+    return parts;
+};
+
+// O'sha qismlarning oddiy matn ko'rinishi - bezaksiz joylar uchun.
+export const formatTimeLeft = (target, options = {}) => {
+    const { suffix = true } = options;
+    const parts = timeLeftParts(target, options);
+    if (parts === null) return null;
+    if (parts.length === 0) return "Muddat tugagan";
+    return parts.map(p => `${p.value} ${p.label}`).join(' ') + (suffix ? ' qoldi' : '');
 };
 
 // Muddat qanchalik yaqin - rang tanlash uchun.

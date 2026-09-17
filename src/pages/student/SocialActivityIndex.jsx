@@ -560,11 +560,11 @@ const SocialActivityIndex = () => {
                                 <p className={`text-xs font-semibold mt-0.5 ${d.passed ? '' : 'text-gray-800'}`}>
                                     {d.label}
                                 </p>
-                                <p className="text-[11px] mt-1">
+                                <div className="mt-1.5">
                                     {d.passed
-                                        ? <span className="text-gray-400">Muddat o'tdi</span>
-                                        : <TimeLeft target={d.date} />}
-                                </p>
+                                        ? <span className="text-[11px] text-gray-400">Muddat o'tdi</span>
+                                        : <TimeLeft target={d.date} variant="blocks" />}
+                                </div>
                             </div>
                         ))}
                     </div>

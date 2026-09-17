@@ -390,9 +390,9 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
             {startDateTime && new Date(startDateTime) > new Date()
                 && !(activity.registrationRequired && !myRegistration && !myPendingInvite
                     && registrationOpen && !activity.registrationClosesAt) && (
-                <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-gray-500">Boshlanishiga:</span>
-                    <TimeLeft target={startDateTime} />
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-[11px] font-semibold text-gray-500">Boshlanishiga:</span>
+                    <TimeLeft target={startDateTime} variant="blocks" />
                 </div>
             )}
 
