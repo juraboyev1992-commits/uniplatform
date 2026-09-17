@@ -8,6 +8,7 @@ import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
 import Modal from '../../components/common/Modal';
+import StudentCvPanel from '../../components/student/StudentCvPanel';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -432,7 +433,7 @@ const MenteeDetail = ({ mentee, user, busy, run, nameOf, onDone }) => {
             </div>
 
             <div className="flex bg-gray-100 p-1 rounded-xl w-fit">
-                {[['goals', 'Maqsadlar'], ['targets', 'Nomzodlik'], ['monitoring', 'Kuzatuv']].map(([id, label]) => (
+                {[['goals', 'Maqsadlar'], ['targets', 'Nomzodlik'], ['monitoring', 'Kuzatuv'], ['cv', 'CV']].map(([id, label]) => (
                     <button key={id} onClick={() => setSection(id)}
                         className={`px-4 py-1.5 rounded-lg text-xs font-bold ${section === id ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}>
                         {label}
@@ -563,6 +564,14 @@ const MenteeDetail = ({ mentee, user, busy, run, nameOf, onDone }) => {
             )}
 
             {/* --- Kuzatuv --- */}
+            {/* CV. `mentee.studentId` allaqachon USERNAME - u
+                `talent_assignments.student_id` dan keladi va RLS uni
+                `current_username()` bilan solishtiradi. Shuning uchun bu
+                yerda qo'shimcha identifikator echish kerak emas. */}
+            {section === 'cv' && (
+                <StudentCvPanel studentId={mentee.studentId} />
+            )}
+
             {section === 'monitoring' && (
                 <div className="space-y-4">
                     <div className="flex items-start gap-3 p-3 bg-sky-50 border border-sky-100 rounded-xl">

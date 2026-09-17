@@ -101,20 +101,33 @@ const Chips = ({ items }) => (
 const initialsOf = (name) => (name || '?')
     .split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
-const CvPreviewDocument = ({ studentId, version = 0 }) => {
+const CvPreviewDocument = ({ studentId, version = 0, contactOverride = null }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const cv = useMemo(() => buildCv(db, studentId), [studentId, version]);
     const s = cv.student;
     const links = cv.manual.links || {};
     const hidden = new Set(cv.manual.hiddenSections || []);
 
-    const contacts = [
-        links.phone ? { icon: Phone, text: links.phone } : null,
-        links.email ? { icon: Mail, text: links.email } : null,
-        links.location ? { icon: MapPin, text: links.location } : null,
-        links.linkedin ? { icon: Link2, text: links.linkedin } : null,
-        links.portfolio ? { icon: Link2, text: links.portfolio } : null,
-    ].filter(Boolean);
+    // ALOQA IKKI MANBADAN.
+    //
+    // Talabaning O'Z sahifasida - o'zi kiritgan `links`. Xodim ko'rinishida
+    // esa `contactOverride` beriladi va u `db.getStudentContact` dan, ya'ni
+    // PASPORT QOIDALARI bo'yicha keladi. Ikkinchi holatda `links` dagi
+    // shaxsiy maydonlar ATAYLAB olinmaydi: ular filtrlanmagan va xodim
+    // ko'rinishida pasport cheklovini chetlab o'tgan bo'lardi.
+    const contacts = (contactOverride
+        ? [
+            contactOverride.phone ? { icon: Phone, text: contactOverride.phone } : null,
+            contactOverride.email ? { icon: Mail, text: contactOverride.email } : null,
+        ]
+        : [
+            links.phone ? { icon: Phone, text: links.phone } : null,
+            links.email ? { icon: Mail, text: links.email } : null,
+            links.location ? { icon: MapPin, text: links.location } : null,
+            links.linkedin ? { icon: Link2, text: links.linkedin } : null,
+            links.portfolio ? { icon: Link2, text: links.portfolio } : null,
+        ]
+    ).filter(Boolean);
 
     const show = (id) => !hidden.has(id) && (cv.sections[id] || []).length > 0;
 

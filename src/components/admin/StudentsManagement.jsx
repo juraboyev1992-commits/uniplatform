@@ -8,6 +8,7 @@ import { ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Modal from '../common/Modal';
+import StudentCvPanel from '../student/StudentCvPanel';
 import ProgressBar from '../common/ProgressBar';
 import CopyableId from '../common/CopyableId';
 import Pagination from '../common/Pagination';
@@ -461,6 +462,15 @@ const StudentsManagement = () => {
                             data-html2canvas-ignore keeps this header row (and the button itself) out of
                             the exported PDF — html2canvas skips any element carrying that attribute,
                             still renders normally on screen, per direct feedback. */}
+                        {/* CV VA PORTFOLIO.
+                            `data-html2canvas-ignore` - modal tanasi TAS hisoboti
+                            sifatida PDF ga olinadi; CV o'zining alohida hujjati
+                            bor va uni skoring hisobotiga qo'shish ikki xil
+                            hujjatni aralashtirgan bo'lardi. */}
+                        <div data-html2canvas-ignore="true">
+                            <StudentCvPanel student={selectedStudent} />
+                        </div>
+
                         <div className="flex items-center justify-between" data-html2canvas-ignore="true">
                             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Skoring</h3>
                             <ScoreCardExport
