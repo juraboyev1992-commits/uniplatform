@@ -132,7 +132,7 @@ const StudentCvPanel = ({ student = null, studentId = null }) => {
             {/* Bosma hujjat emas, EKRAN ko'rinishi: kartalar, manba
                 belgilari va vaqt chizig'i bilan - xodim ham talaba
                 ko'rgan narsani ko'rsin. */}
-            <CvPortfolioPage studentId={uname} embedded />
+            <CvPortfolioPage studentId={uname} embedded contactOverride={contact} />
         </div>
     );
 };

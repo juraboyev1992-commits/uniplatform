@@ -150,7 +150,7 @@ const initialsOf = (name) => (name || '?')
 // kartalar, manba belgilari, vaqt chizig'i. Faqat ish qurollari o'chiriladi -
 // tahrirlash, chop etish, boshqa bo'limlarga havolalar: ular talabaning
 // o'ziga tegishli va xodimda ishlamaydi ham (`cv_write` faqat egasiga).
-const CvPortfolioPage = ({ studentId: studentIdProp = null, embedded = false }) => {
+const CvPortfolioPage = ({ studentId: studentIdProp = null, embedded = false, contactOverride = null }) => {
     const { user } = useAuth();
     // XODIM REJIMIDA ZAXIRA YO'Q.
     //
@@ -225,6 +225,22 @@ const CvPortfolioPage = ({ studentId: studentIdProp = null, embedded = false }) 
     return (
         <div className="space-y-5">
             {/* SARLAVHA */}
+            {/* XODIM UCHUN CHOP ETISH.
+                Talabaning butun sarlavhasi (Tahrirlash, CV ko'rinishi) xodimga
+                kerak emas - u talabaning o'z ish quroli. PDF esa kerak:
+                stipendiya komissiyasiga ilova, shaxsiy ishga qo'yish,
+                tavsiyanoma tayyorlash. */}
+            {embedded && (
+                <div className="no-print flex justify-end">
+                    <button
+                        type="button" onClick={printCv}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                    >
+                        <Printer size={13} /> PDF yuklab olish
+                    </button>
+                </div>
+            )}
+
             <div className={embedded ? 'hidden' : "no-print flex flex-wrap items-start justify-between gap-4"}>
                 <div className="min-w-0">
                     <h1 className="text-3xl font-black text-blue-950">Mening CV'im</h1>
@@ -465,6 +481,22 @@ const CvPortfolioPage = ({ studentId: studentIdProp = null, embedded = false }) 
                 yo'qotardi - ekrandagi oqim qog'ozdagidan boshqacha edi.
                 `lg` (896px) esa A4 ning 794px iga deyarli teng, ya'ni
                 ko'ringan narsa chop etilgan bilan bir xil bo'ladi. */}
+            {/* Xodim rejimida hujjat EKRANDAN TASHQARIDA chiziladi.
+                `printCv` `.cv-print` elementiga tayanadi, u esa ko'rinish
+                modali ichida yashaydi - modal o'chirilgan bo'lsa, chop etish
+                bo'sh varaq berardi. `display:none` ham yaramaydi: u chop
+                etishda ham yashirin qoladi. Shuning uchun element chiziladi,
+                lekin ekrandan chiqarib qo'yiladi; chop etish uslubi uni
+                `position:absolute; left:0; top:0` bilan varaqqa qaytaradi. */}
+            {embedded && (
+                <div aria-hidden="true" className="absolute -left-[9999px] top-0 w-[794px] pointer-events-none">
+                    <CvPreviewDocument
+                        studentId={studentId} version={version}
+                        contactOverride={contactOverride}
+                    />
+                </div>
+            )}
+
             {!embedded && (
             <Modal isOpen={previewOpen} onClose={() => setPreviewOpen(false)} title="CV" size="lg">
                 <div className="no-print flex justify-end mb-3">
