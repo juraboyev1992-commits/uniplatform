@@ -451,6 +451,21 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
                 </div>
             )}
 
+            {/* RO'YXAT YOPILISHIGACHA QOLGAN VAQT.
+                Ilgari ochiq holatda muddat UMUMAN ko'rsatilmasdi - talaba
+                faqat yopilgandan keyin "muddati tugagan" degan yozuvni
+                ko'rardi. Endi u ulgurish-ulgurmasligini oldindan biladi.
+                Muddat `registrationClosesAt`, u qo'yilmagan bo'lsa faoliyat
+                boshlanish vaqti - `isRegistrationOpen` ham aynan shu
+                mantiqdan foydalanadi, ya'ni yozuv va haqiqat bir xil. */}
+            {activity.registrationRequired && !myRegistration && !myPendingInvite && registrationOpen
+                && (activity.registrationClosesAt || startDateTime) && (
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-gray-500">Ro'yxat yopilishiga:</span>
+                    <TimeLeft target={activity.registrationClosesAt || startDateTime} />
+                </div>
+            )}
+
             {activity.registrationRequired && !myRegistration && !myPendingInvite && registrationOpen && (
                 <div>
                     <input
