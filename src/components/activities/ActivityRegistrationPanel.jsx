@@ -379,6 +379,23 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
 
     return (
         <div className="space-y-3">
+            {/* BOSHLANISHIGACHA QOLGAN VAQT - ro'yxat holatidan QAT'I NAZAR.
+                Ilgari sanoq faqat "ro'yxat ochiq va men hali yozilmaganman"
+                holatida chizilardi. Natijada allaqachon yozilgan talaba ham,
+                ro'yxati yopilgan tadbirga qaragan odam ham "qancha qoldi"
+                degan savolga javob topolmasdi - aynan eski tadbirlarda sanoq
+                yo'qday ko'rinardi. O'tib ketgan tadbirda chizilmaydi: sanashga
+                narsa yo'q. Ro'yxat sanog'i ayni shu vaqtni ko'rsatayotgan
+                bo'lsa (yopilish vaqti alohida belgilanmagan holat) takrorlanmaydi. */}
+            {startDateTime && new Date(startDateTime) > new Date()
+                && !(activity.registrationRequired && !myRegistration && !myPendingInvite
+                    && registrationOpen && !activity.registrationClosesAt) && (
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-gray-500">Boshlanishiga:</span>
+                    <TimeLeft target={startDateTime} />
+                </div>
+            )}
+
             {selfVisible && (<>
             {positionConflict && !myRegistration && (
                 <div className="flex gap-2 text-xs rounded-xl px-3 py-2.5 border text-red-700 bg-red-50 border-red-100">

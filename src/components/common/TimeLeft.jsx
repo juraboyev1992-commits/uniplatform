@@ -21,7 +21,7 @@ const TONES = {
 
 const TimeLeft = ({
     target,
-    maxUnits = 3,
+    maxUnits = 5,
     live = true,
     withIcon = true,
     className = '',
@@ -33,7 +33,11 @@ const TimeLeft = ({
         return subscribeTick(setNow);
     }, [live]);
 
-    const text = formatTimeLeft(target, { now, maxUnits });
+    // Soniya faqat JONLI sanoqda ko'rsatiladi. `live=false` da u yangilanmaydi,
+    // ya'ni "36 soniya qoldi" bir daqiqadan keyin ochiq yolg'on bo'lardi -
+    // shuning uchun u yerda eng kichik birlik daqiqada to'xtaydi.
+    const units = live ? maxUnits : Math.min(maxUnits, 3);
+    const text = formatTimeLeft(target, { now, maxUnits: units });
     // Muddat belgilanmagan bo'lsa HECH NARSA chizilmaydi - "0 kun qoldi"
     // deb yozish muddat bor degan yolg'on taassurot berardi.
     if (!text) return null;

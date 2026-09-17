@@ -50,11 +50,12 @@ export const breakdown = (ms) => {
 
 // "1 yil 10 kun 3 soat" ko'rinishidagi matn.
 //
-// `maxUnits` - nechta eng katta birlik ko'rsatilsin. Sukut 3: bir yildan
-// uzoq muddatda soniyalarni ko'rsatish o'qishni qiyinlashtiradi va har
-// soniyada o'zgarib, ko'zni charchatadi. Muddat yaqinlashganda esa eng
-// katta uchta birlik o'z-o'zidan soat/daqiqa/soniyaga aylanadi.
-export const formatTimeLeft = (target, { now = Date.now(), maxUnits = 3, suffix = true } = {}) => {
+// `maxUnits` - nechta eng katta birlik ko'rsatilsin. Sukut 5, ya'ni
+// to'liq: "296 kun 4 soat 23 daqiqa 36 soniya qoldi". Ilgari 3 edi va
+// uzoq muddatda soniya butunlay tushib qolardi - ekranda raqam qimirlamay
+// turgani uchun sanoq ishlamayotganday ko'rinardi. Tor joylarda chaqiruvchi
+// o'zi kichikroq son beradi (ro'yxatlarda maxUnits: 2).
+export const formatTimeLeft = (target, { now = Date.now(), maxUnits = 5, suffix = true } = {}) => {
     const ms = msLeft(target, now);
     if (ms === null) return null;
     if (ms <= 0) return "Muddat tugagan";
