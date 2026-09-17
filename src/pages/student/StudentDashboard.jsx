@@ -11,6 +11,7 @@ import LeaderboardModule from '../../components/student/LeaderboardModule';
 import MyActivityPanel from '../../components/student/MyActivityPanel';
 import { db } from '../../services/db';
 import { INDEX_TOTAL_MAX } from '../../config/socialActivityIndex';
+import { formatTimeLeft } from '../../utils/timeLeft';
 
 // TALABANING BOSH SAHIFASI.
 //
@@ -168,7 +169,9 @@ const StudentDashboard = () => {
                                         {/* Muddat NOMA'LUM bo'lsa hech narsa yozilmaydi.
                                             "0 kun qoldi" deb yozish yolg'on bo'lardi. */}
                                         {item.daysLeft != null && item.daysLeft >= 0 && (
-                                            item.daysLeft === 0 ? ' · muddat bugun' : ` · ${item.daysLeft} kun qoldi`
+                                            item.deadline
+                                                ? ` · ${formatTimeLeft(item.deadline, { maxUnits: 2 })}`
+                                                : (item.daysLeft === 0 ? ' · muddat bugun' : ` · ${item.daysLeft} kun`)
                                         )}
                                     </p>
                                 </div>

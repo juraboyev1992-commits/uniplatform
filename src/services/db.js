@@ -7405,6 +7405,10 @@ export const db = {
                 // "muddat bugun" butunlay boshqa narsa va ularni aralashtirsak
                 // ekranda qizil belgi asossiz chiqib ketardi.
                 daysLeft: ms == null ? null : Math.floor(ms / DAY),
+                // XOM SANA ham uzatiladi: `daysLeft` faqat KUN aniqligida va
+                // undan soat/daqiqa chiqarib bo'lmaydi. Interfeys sanoqni
+                // `utils/timeLeft.js` orqali o'zi hisoblasin.
+                deadline: deadline || null,
             };
         };
 
