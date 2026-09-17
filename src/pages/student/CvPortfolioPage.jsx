@@ -11,6 +11,7 @@ import { buildCv, SOURCE, SOURCE_META } from '../../utils/cvEngine';
 import CvPreviewDocument from '../../components/student/CvPreviewDocument';
 import Modal from '../../components/common/Modal';
 import CvProfileEditor from '../../components/student/CvProfileEditor';
+import CvOpportunityMatch from '../../components/student/CvOpportunityMatch';
 
 // CV / PORTFOLIO — talabaning ish maydoni.
 //
@@ -372,6 +373,12 @@ const CvPortfolioPage = () => {
                             </div>
                         </div>
                     )}
+
+                    {/* IMKONIYATLARGA MOSLIK. Maketdagi "ish o'rniga
+                        moslashtirish" ning haqiqiy manbasi bor varianti:
+                        foiz e'lon qilingan talablardan hisoblanadi, yozilgan
+                        matndan emas. */}
+                    <CvOpportunityMatch studentId={studentId} version={version} />
 
                     {/* O'NG USTUN BO'LIMLARI - keng ekranda alohida ustunda,
                         torida esa shu yerda ketma-ket chiqadi. */}
