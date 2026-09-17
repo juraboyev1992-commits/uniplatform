@@ -158,6 +158,22 @@ select:focus {
      qo'shilganda uni belgilash esdan chiqmaydi. */
   body.cv-printing * {
     visibility: hidden;
+
+    /* TRANSFORM VA ANIMATSIYA O'CHIRILADI.
+       CSS qoidasi: `transform` qo'llangan element `position: static`
+       bo'lsa ham, ichidagi `absolute` element uchun KONTEYNER BLOK bo'lib
+       qoladi. Modal oynaning ichki bloki `animate-scale-in` (scale(0.95)
+       -> scale(1)) ishlatadi, chop etish esa ikki kadrdan keyin, ya'ni
+       0.2s animatsiya HALI DAVOM ETAYOTGANDA chaqiriladi.
+
+       Natijada CV varaqqa emas, modal qutisiga bog'lanib qolardi; u
+       quti esa balandligi nolga tushirilgan va `overflow: hidden`
+       bo'lgan `#root` ichida turadi - hujjat butunlay qirqilib, OQ
+       VARAQ chiqardi. `filter` ham xuddi shunday ta'sir qiladi,
+       shuning uchun u ham o'chiriladi. */
+    animation: none !important;
+    transform: none !important;
+    filter: none !important;
   }
   body.cv-printing .cv-print,
   body.cv-printing .cv-print * {
