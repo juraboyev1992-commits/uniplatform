@@ -101,7 +101,7 @@ const Chips = ({ items }) => (
 const initialsOf = (name) => (name || '?')
     .split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
-const CvPreviewDocument = ({ studentId, version = 0, contactOverride = null }) => {
+const CvPreviewDocument = ({ studentId, version = 0, contactOverride = null, showMetrics = true }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const cv = useMemo(() => buildCv(db, studentId), [studentId, version]);
     const s = cv.student;
@@ -188,7 +188,14 @@ const CvPreviewDocument = ({ studentId, version = 0, contactOverride = null }) =
                 HAR BIRI FAQAT HAQIQATAN MAVJUD BO'LSA chiziladi. Bo'sh
                 qiymat "0" bo'lib chiqmaydi - nol "faolligi yo'q" degan
                 da'vo bo'lardi, holbuki ma'lumot shunchaki hisoblanmagan. */}
-            {metrics.length > 0 && (
+            {/* XODIM KO'RINISHIDA BU CHIZIQ O'CHIRILADI (`showMetrics=false`).
+                Sababi takrorlanish: admin/rahbariyat modalida GPA, ijtimoiy
+                indeks va kitoblar ALLAQACHON bor, ustiga u yerda 186-buyruq
+                bo'yicha 11 mezonning tafsiloti, manbasi va jarimasi ham
+                ko'rsatiladi - ya'ni o'sha raqamlar boyroq shaklda turadi.
+                Talabaning O'Z sahifasida esa hech narsa o'zgarmaydi: sukut
+                qiymat `true`. */}
+            {showMetrics && metrics.length > 0 && (
                 <div className="flex flex-wrap gap-x-6 gap-y-1.5 pb-1">
                     {metrics.map(m => (
                         <div key={m.key} className="flex items-baseline gap-1.5">

@@ -99,7 +99,7 @@ const StudentCvPanel = ({ student = null, studentId = null }) => {
                 </p>
             )}
 
-            <CvPreviewDocument studentId={uname} contactOverride={contact} />
+            <CvPreviewDocument studentId={uname} contactOverride={contact} showMetrics={false} />
         </div>
     );
 };
