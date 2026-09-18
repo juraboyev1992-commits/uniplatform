@@ -4,6 +4,7 @@ import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import { db } from '../../services/db';
+import { resolveStudentUsername } from '../../utils/resolveStudentUsername';
 import { useAuth } from '../../contexts/AuthContext';
 import {
     FIELD_SOURCES, SENSITIVITY, VIEWER_KINDS, PASSPORT_FIELD_INDEX,
@@ -30,6 +31,14 @@ const VIEWER_LABELS = {
 
 const StudentPassportCard = ({ studentId, canEdit = false }) => {
     const { user } = useAuth();
+
+    // KALIT - LOGIN, har doim. Chaqiruvchilar turlicha uzatadi: talabaning
+    // o'z sahifasi loginni, admin ro'yxati (StudentIndexRoster) profil
+    // UUID sini, tyutor ish maydoni esa mock `id` ni. Pasport jadvali va
+    // uning RLS qoidasi (`student_id = current_username()`) faqat loginni
+    // biladi - shuning uchun UUID bilan yozilgan ma'lumot talabaning
+    // o'ziga ham, `getStudentContact` ga ham ko'rinmay qolardi.
+    const resolvedId = useMemo(() => resolveStudentUsername(studentId), [studentId]);
     const [version, setVersion] = useState(0);
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState({});
@@ -37,8 +46,8 @@ const StudentPassportCard = ({ studentId, canEdit = false }) => {
     const [error, setError] = useState('');
 
     const passport = useMemo(
-        () => db.getStudentPassport(studentId, user),
-        [studentId, user, version]
+        () => db.getStudentPassport(resolvedId, user),
+        [resolvedId, user, version]
     );
 
     // MAXFIY MAYDONGA QARALGANDA IZ QOLADI. Cheklovdan muhimroq: cheklovni
@@ -46,14 +55,14 @@ const StudentPassportCard = ({ studentId, canEdit = false }) => {
     useEffect(() => {
         if (!passport?.openedSensitive?.length) return;
         db.logPassportAccess({
-            studentId,
+            studentId: resolvedId,
             viewer: user,
             viewerKind: passport.viewerKind,
             fields: passport.openedSensitive,
         }).catch(() => {});
         // Bir marta - qayta render izni takrorlamasin.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [studentId, passport?.viewerKind]);
+    }, [resolvedId, passport?.viewerKind]);
 
     const startEdit = () => {
         const values = {};
@@ -69,7 +78,7 @@ const StudentPassportCard = ({ studentId, canEdit = false }) => {
         setBusy(true); setError('');
         try {
             await db.setPassportFields({
-                studentId, values: draft, source: 'manual', by: user?.username,
+                studentId: resolvedId, values: draft, source: 'manual', by: user?.username,
             });
             setEditing(false);
             setVersion(v => v + 1);
@@ -113,7 +122,7 @@ const StudentPassportCard = ({ studentId, canEdit = false }) => {
                     <div>
                         <h3 className="font-extrabold text-gray-900 flex items-center gap-2">
                             <CreditCard size={17} className="text-indigo-600" />
-                            {student?.fullName || studentId}
+                            {student?.fullName || resolvedId}
                         </h3>
                         <p className="text-xs text-gray-500 mt-0.5">
                             {student?.faculty}

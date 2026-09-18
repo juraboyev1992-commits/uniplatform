@@ -17495,6 +17495,37 @@ export const db = {
         return data;
     },
 
+    // EXCELDAN IMPORT - bitta qator.
+    //
+    // `adminCreateUser` dan farqi ikkita:
+    //   1. profil maydonlarini (fakultet, kurs, guruh, talaba ID, jinsi) ham
+    //      yozadi - ularni to'ldiradigan boshqa yo'l ilovada umuman yo'q edi;
+    //   2. login mavjud bo'lsa YANGI foydalanuvchi yaratmaydi, faqat bo'sh
+    //      ma'lumotni to'ldiradi (parolga va rolga tegmaydi).
+    //
+    // `syncCoreDataFromSupabase` bu yerda ATAYLAB chaqirilmaydi: u ~75 ta
+    // so'rov yuboradi va har qator uchun takrorlansa, 200 qatorli fayl
+    // 15 000 ta so'rovga aylanardi. Import tugagach chaqiruvchi BIR MARTA
+    // sinxronlaydi (db.syncCoreDataFromSupabase).
+    adminImportUser: async ({
+        username, fullName = '', role = 'TALABA', password = null,
+        faculty = null, course = null, group = null, studentId = null, gender = null,
+    }) => {
+        const { data, error } = await supabase.rpc('admin_import_user', {
+            p_username: username,
+            p_full_name: fullName,
+            p_role: role,
+            p_password: password,
+            p_faculty: faculty,
+            p_course: course,
+            p_group: group,
+            p_student_id: studentId,
+            p_gender: gender,
+        });
+        if (error) throw userManagementError(error);
+        return data; // { status: 'created' | 'updated', user_id, username }
+    },
+
     adminSetUserRole: async (userId, role) => {
         const { error } = await supabase.rpc('admin_set_user_role', { p_user_id: userId, p_role: role });
         if (error) throw userManagementError(error);

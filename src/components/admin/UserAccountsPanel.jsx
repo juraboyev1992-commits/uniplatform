@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { UserPlus, KeyRound, Search, ShieldCheck, Briefcase, UserCheck, GraduationCap, Ban, Unlock, Trash2, AlertTriangle } from 'lucide-react';
+import { UserPlus, KeyRound, Search, ShieldCheck, Briefcase, UserCheck, GraduationCap, Ban, Unlock, Trash2, AlertTriangle, FileSpreadsheet } from 'lucide-react';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Badge from '../common/Badge';
 import Modal from '../common/Modal';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
+import UserImportModal from './UserImportModal';
 
 // O'z-o'zidan ro'yxatdan o'tish yopilgan - akkauntni faqat admin yaratadi va
 // rolni o'zi belgilaydi. Barcha amallar `security definer` RPC orqali bajariladi
@@ -39,6 +40,7 @@ const UserAccountsPanel = () => {
     const [notice, setNotice] = useState(null); // { username, password } - yaratilgandan keyin ko'rsatiladi
 
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [isImportOpen, setIsImportOpen] = useState(false);
     const [form, setForm] = useState({ username: '', fullName: '', password: suggestPassword(), role: 'TALABA' });
 
     const [pwdTarget, setPwdTarget] = useState(null);
@@ -143,9 +145,17 @@ const UserAccountsPanel = () => {
                         O'z-o'zidan ro'yxatdan o'tish yopilgan — akkauntni siz yaratasiz va rolni o'zingiz belgilaysiz.
                     </p>
                 </div>
-                <Button variant="primary" icon={UserPlus} onClick={() => { setIsCreateOpen(true); setError(''); }}>
-                    Yangi akkaunt
-                </Button>
+                {/* IKKI YO'L: bittalab va ro'yxat bilan.
+                    Import ataylab birinchi emas - kundalik ish bittalab
+                    yaratish, import esa semestr boshidagi amal. */}
+                <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" icon={FileSpreadsheet} onClick={() => { setIsImportOpen(true); setError(''); }}>
+                        Exceldan import
+                    </Button>
+                    <Button variant="primary" icon={UserPlus} onClick={() => { setIsCreateOpen(true); setError(''); }}>
+                        Yangi akkaunt
+                    </Button>
+                </div>
             </div>
 
             {error && <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl p-3">{error}</p>}
@@ -392,6 +402,16 @@ const UserAccountsPanel = () => {
                     </div>
                 )}
             </Modal>
+
+            {/* IMPORT OYNASI. `onDone` - ro'yxatni yangilaydi: import ichida
+                baza allaqachon bir marta sinxronlangan, bu yerda faqat
+                komponentni qayta chizish kerak. */}
+            <UserImportModal
+                isOpen={isImportOpen}
+                onClose={() => setIsImportOpen(false)}
+                actingUsername={user?.username || null}
+                onDone={bump}
+            />
         </Card>
     );
 };
