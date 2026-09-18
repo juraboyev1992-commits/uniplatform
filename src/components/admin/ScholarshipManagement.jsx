@@ -605,6 +605,29 @@ const ScholarshipManagement = ({ embedded = false, tab: tabProp, onTabChange }) 
     // manbai degani bo'lardi.
     const [recomputeStatus, setRecomputeStatus] = useState('');
 
+    // KESH QANCHA ESKI. `getOpportunityMatchStats` allaqachon yozilgan edi va
+    // izohida "admin panelida ko'rsatish uchun" deb turardi - lekin u hech
+    // qayerda ishlatilmasdi.
+    //
+    // Nega bu muhim: pg_cron ishi (`opportunity-deadline-reminders`, har kuni
+    // 06:00) muddat eslatmalarini SHU KESHDAN o'qiydi, keshni esa faqat
+    // pastdagi tugma to'ldiradi. Ya'ni avtomatik ish qo'lda bosiladigan
+    // tugmaga bog'langan. Tugma bosilmasa, eslatma eskirgan ma'lumot bo'yicha
+    // ketadi yoki umuman ketmaydi - va buni hech narsa aytmasdi.
+    const [matchStats, setMatchStats] = useState(null);
+    useEffect(() => {
+        let alive = true;
+        db.getOpportunityMatchStats()
+            .then(r => { if (alive) setMatchStats(r); })
+            .catch(() => { if (alive) setMatchStats(null); });
+        return () => { alive = false; };
+    }, [version]);
+
+    const matchAgeDays = matchStats?.lastComputed
+        ? Math.floor((Date.now() - new Date(matchStats.lastComputed).getTime()) / 86400000)
+        : null;
+    const matchStale = matchAgeDays === null || matchAgeDays > 7;
+
     const recomputeMatches = () => {
         if (!window.confirm(
             "Barcha talabalar uchun mosliklar qayta hisoblanadi. Bu bir necha daqiqa "
@@ -658,10 +681,22 @@ const ScholarshipManagement = ({ embedded = false, tab: tabProp, onTabChange }) 
                 </div>
                 <div className="flex gap-3">
                     {activeTab === 'grants' && (
-                        <Button variant="outline" icon={busy ? Loader2 : Target}
-                            onClick={recomputeMatches} disabled={busy} className="font-bold">
-                            {recomputeStatus || 'Mosliklarni yangilash'}
-                        </Button>
+                        <div className="flex flex-col items-start gap-1">
+                            <Button variant="outline" icon={busy ? Loader2 : Target}
+                                onClick={recomputeMatches} disabled={busy} className="font-bold">
+                                {recomputeStatus || 'Mosliklarni yangilash'}
+                            </Button>
+                            {/* Holat tugma OSTIDA: u tugmani bosish-bosmaslik
+                                qarorini beradigan yagona ma'lumot. */}
+                            {matchStats && (
+                                <span className={`text-[11px] font-semibold ${matchStale ? 'text-amber-700' : 'text-gray-400'}`}>
+                                    {matchAgeDays === null
+                                        ? 'Hech qachon hisoblanmagan — muddat eslatmalari yuborilmaydi'
+                                        : `Oxirgi hisob: ${matchAgeDays === 0 ? 'bugun' : `${matchAgeDays} kun oldin`} · ${matchStats.students} talaba`}
+                                    {matchStale && matchAgeDays !== null && ' — eskirgan'}
+                                </span>
+                            )}
+                        </div>
                     )}
                     {activeTab === 'applications' && (
                         <Button variant="outline" icon={Download} onClick={exportCsv} className="font-bold">CSV</Button>
