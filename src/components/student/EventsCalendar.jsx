@@ -75,6 +75,27 @@ const FILTER_TABS = {
 };
 const FILTER_IDS = ['all', 'mine', 'archive'];
 
+// TASDIQ HOLATI - faqat mas'ul uchun.
+//
+// Ilgari kalendar va ro'yxat FAQAT tasdiqlangan tadbirni ko'rsatardi
+// (`moderationStatus === 'approved'` degan qat'iy filtr). Natijada
+// koordinator yaratgan, tasdiq kutayotgan tadbir hech qayerda - hatto uni
+// TASDIQLASHI KERAK bo'lgan adminning o'z kalendarida ham - ko'rinmasdi.
+// Kalendar "bu kun bo'sh" deb turardi, aslida o'sha kunga tadbir
+// so'ralgan va xona ham band bo'lishi mumkin edi.
+//
+// Talabaga hech narsa o'zgarmadi: unga baribir faqat tasdiqlangani
+// ko'rinadi (pastdagi `visibleModeration`).
+//
+// "Rad etilgan" sukut bo'yicha O'CHIQ: u na bajariladigan ish, na kuntartib
+// - kerak bo'lganda yoqiladi.
+const MODERATION_CHIPS = [
+    { id: 'approved', label: 'Tasdiqlangan', on: 'bg-emerald-50 text-emerald-800 border-emerald-300', dot: 'bg-emerald-500' },
+    { id: 'pending', label: 'Kutilmoqda', on: 'bg-amber-50 text-amber-900 border-amber-300', dot: 'bg-amber-500' },
+    { id: 'rejected', label: 'Rad etilgan', on: 'bg-rose-50 text-rose-800 border-rose-300', dot: 'bg-rose-500' },
+];
+const DEFAULT_MODERATION = ['approved', 'pending'];
+
 const VIEW_IDS = ['calendar', 'list'];
 
 const WEEKDAYS = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sha', 'Ya']; // Dushanba..Yakshanba
@@ -193,6 +214,7 @@ const EventsCalendar = ({
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [sortDir, setSortDir] = useState('asc'); // 'asc' = Eng yaqin, 'desc' = Eng yangi
+    const [moderationFilter, setModerationFilter] = useState(DEFAULT_MODERATION);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
 
@@ -259,10 +281,11 @@ const EventsCalendar = ({
     // Musobaqaning tadbir nusxasi tashlanadi - musobaqaning O'ZI alohida qatorda
     // qo'shiladi, aks holda bitta turnir ikki marta chiqardi.
     const eventRows = useMemo(() => events
-        .filter(e => !e.linkedCompetitionId && e.date && (e.moderationStatus || 'approved') === 'approved')
+        .filter(e => !e.linkedCompetitionId && e.date)
         .map(e => ({
             key: `event-${e.id}`, kind: 'event', id: e.id, title: e.title,
             date: new Date(e.date), location: e.location || null,
+            moderation: e.moderationStatus || 'approved',
             clubId: e.clubId, clubName: clubNameById.get(e.clubId) || null,
             statusBucket: classifyEvent(e), format: null,
             participantCount: (e.registrations || e.participants || []).length,
@@ -281,11 +304,11 @@ const EventsCalendar = ({
         })), [events, clubNameById, myIds, user?.username]);
 
     const competitionRows = useMemo(() => competitions
-        .filter(c => (c.moderationStatus || 'approved') === 'approved')
         .map(c => ({
             key: `competition-${c.id}`, kind: 'competition', id: c.id, title: c.name,
             date: c.startDate ? new Date(db.combineDateTime(c.startDate, c.startTime)) : null,
             location: c.location || null,
+            moderation: c.moderationStatus || 'approved',
             clubId: c.contextType === 'club' ? c.contextId : null,
             clubName: c.contextType === 'club' ? (clubNameById.get(c.contextId) || null) : null,
             statusBucket: classifyCompetition(c), format: c.format || null,
@@ -300,9 +323,17 @@ const EventsCalendar = ({
             createdByMe: !!user?.username && c.ownerUsername === user.username,
         })), [competitions, clubNameById, myIds, user?.username]);
 
-    const allRows = kind === 'events' ? eventRows : competitionRows;
+    // ROL DARVOZASI eng yuqorida turadi. Uni pastroqqa (filtr quvuriga)
+    // qo'ysak, `yearOptions` va `clubOptions` baribir hamma qatordan
+    // sanalardi: talaba "2026 (8)" ni ko'rib, ichida 7 ta topardi - farqi
+    // tasdiqlanmagan tadbir bo'lardi. Mas'ulga esa uchala holat ham
+    // yetkaziladi, qaysi biri ko'rinishini chiplar hal qiladi.
+    const allRows = useMemo(() => {
+        const rows = kind === 'events' ? eventRows : competitionRows;
+        return isAdmin ? rows : rows.filter(r => r.moderation === 'approved');
+    }, [kind, eventRows, competitionRows, isAdmin]);
 
-    useEffect(() => { setPage(1); }, [kind, filterTab, search, formatFilter, yearFilter, clubFilter, dateFrom, dateTo]);
+    useEffect(() => { setPage(1); }, [kind, filterTab, search, formatFilter, yearFilter, clubFilter, dateFrom, dateTo, moderationFilter]);
 
     const yearOptions = useMemo(() => {
         const counts = new Map();
@@ -320,8 +351,10 @@ const EventsCalendar = ({
     }, [allRows, clubs]);
 
     // Barcha filtrlar (qidiruv/format/yil/klub/sana) - filterTab (Barchasi/
-    // Mening/Arxiv) DAN mustaqil, tab tugmalaridagi sonlar shu asosda chiqadi.
-    const preFilterTabRows = useMemo(() => {
+    // Mening/Arxiv) DAN ham, tasdiq holatidan ham mustaqil. Holat chiplaridagi
+    // sonlar AYNAN shu ro'yxatdan sanaladi: aks holda "Kutilmoqda (2)" deb
+    // turib, boshqa filtr uni allaqachon chiqarib tashlagan bo'lardi.
+    const preModerationRows = useMemo(() => {
         const q = search.trim().toLowerCase();
         return allRows.filter(r => {
             const matchesSearch = !q || r.title.toLowerCase().includes(q) || (r.clubName || '').toLowerCase().includes(q);
@@ -334,6 +367,18 @@ const EventsCalendar = ({
             return true;
         });
     }, [allRows, search, formatFilter, yearFilter, clubFilter, dateFrom, dateTo]);
+
+    const moderationCounts = useMemo(() => ({
+        approved: preModerationRows.filter(r => r.moderation === 'approved').length,
+        pending: preModerationRows.filter(r => r.moderation === 'pending').length,
+        rejected: preModerationRows.filter(r => r.moderation === 'rejected').length,
+    }), [preModerationRows]);
+
+    // Talabaga tasdiqlanmagan qator `allRows` dayoq kelmaydi, shuning uchun
+    // bu yerda faqat mas'ulning chiplari qo'llanadi.
+    const preFilterTabRows = useMemo(() => (
+        isAdmin ? preModerationRows.filter(r => moderationFilter.includes(r.moderation)) : preModerationRows
+    ), [preModerationRows, isAdmin, moderationFilter]);
 
     const filterTabCounts = useMemo(() => ({
         all: preFilterTabRows.filter(r => r.statusBucket !== 'closed').length,
@@ -361,11 +406,20 @@ const EventsCalendar = ({
     const currentPage = Math.min(page, totalPages);
     const paginatedRows = pageSize === 'all' ? filteredRows : filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-    const hasActiveFilters = !!(search || formatFilter.length || yearFilter || clubFilter || dateFrom || dateTo);
+    // Holat chiplari ham "faol filtr" hisoblanadi: "Tasdiqlangan"ni o'chirib
+    // qo'yib unutgan odam bo'sh ekranni ko'radi va sababini topolmaydi -
+    // Tozalash tugmasi o'shanda ham yonib turishi kerak.
+    const moderationIsDefault = moderationFilter.length === DEFAULT_MODERATION.length
+        && DEFAULT_MODERATION.every(x => moderationFilter.includes(x));
+    const hasActiveFilters = !!(search || formatFilter.length || yearFilter || clubFilter || dateFrom || dateTo)
+        || (isAdmin && !moderationIsDefault);
     const clearFilters = () => {
         setSearch(''); setFormatFilter([]); setYearFilter('');
         setClubFilter(''); setDateFrom(''); setDateTo('');
+        setModerationFilter(DEFAULT_MODERATION);
     };
+    const toggleModeration = (id) => setModerationFilter(prev =>
+        prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     const toggleFormat = (fmt) => setFormatFilter(prev => prev.includes(fmt) ? prev.filter(f => f !== fmt) : [...prev, fmt]);
 
     // Koordinator/bosh koordinator boshqaruv ish maydoniga o'tadi, boshqalar
@@ -588,6 +642,32 @@ const EventsCalendar = ({
                                     {t.label} ({filterTabCounts[t.id]})
                                 </button>
                             ))}
+                            {/* TASDIQ HOLATI - mas'ul uchun. Tab emas, CHIP:
+                                tablardan faqat bittasi tanlanadi, holatlar esa
+                                bir vaqtda bir nechtasi yoqiq bo'lishi kerak. */}
+                            {isAdmin && (
+                                <>
+                                    <span className="mx-1 h-5 w-px bg-gray-200 shrink-0" aria-hidden="true" />
+                                    {MODERATION_CHIPS.map(c => {
+                                        const on = moderationFilter.includes(c.id);
+                                        return (
+                                            <button
+                                                key={c.id}
+                                                type="button"
+                                                onClick={() => toggleModeration(c.id)}
+                                                aria-pressed={on}
+                                                title={on ? `${c.label} ko'rsatilyapti - bosib yashirasiz` : `${c.label} yashirilgan - bosib ko'rsatasiz`}
+                                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                                                    on ? c.on : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${on ? c.dot : 'bg-gray-300'}`} aria-hidden="true" />
+                                                {c.label} ({moderationCounts[c.id]})
+                                            </button>
+                                        );
+                                    })}
+                                </>
+                            )}
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
                             {view === 'list' && (
@@ -663,15 +743,25 @@ const EventsCalendar = ({
                                                                 key={r.key}
                                                                 title={[
                                                                     r.collection ? `${r.title} - ${r.collection.name}` : r.title,
+                                                                    r.moderation === 'pending' && 'Tasdiq kutilmoqda',
+                                                                    r.moderation === 'rejected' && 'Rad etilgan',
                                                                     openReg && "Ro'yxatdan o'tish ochiq",
                                                                     alert && (alert.role === 'captain'
                                                                         ? `Jamoangiz to'lmagan: ${alert.accepted}/${alert.need}`
                                                                         : 'Jamoa taklifiga javob bermagansiz'),
                                                                 ].filter(Boolean).join(' — ')}
-                                                                className={`mt-1 p-1 text-[10px] text-white rounded truncate cursor-pointer flex items-center gap-1 ${
-                                                                    urgent ? 'bg-red-600'
-                                                                        : alert ? 'bg-amber-500 ring-1 ring-amber-700'
-                                                                        : r.kind === 'competition' ? 'bg-amber-500' : 'bg-indigo-600'
+                                                                /* Tasdiqlanmagan tadbir UZUQ RAMKA bilan va to'ldirilmagan
+                                                                   holda chiziladi - tasdiqlangani bilan bir qarashda
+                                                                   adashmasin. Rang yolg'iz tashuvchi emas: ma'nosi
+                                                                   `title` da ham yozilgan. */
+                                                                className={`mt-1 p-1 text-[10px] rounded truncate cursor-pointer flex items-center gap-1 ${
+                                                                    r.moderation === 'pending'
+                                                                        ? 'bg-amber-50 text-amber-900 border border-dashed border-amber-500'
+                                                                        : r.moderation === 'rejected'
+                                                                        ? 'bg-white text-gray-400 border border-dashed border-gray-300 line-through'
+                                                                        : urgent ? 'bg-red-600 text-white'
+                                                                        : alert ? 'bg-amber-500 text-white ring-1 ring-amber-700'
+                                                                        : r.kind === 'competition' ? 'bg-amber-500 text-white' : 'bg-indigo-600 text-white'
                                                                 }`}
                                                                 onClick={() => handleEventClick(r)}
                                                             >
@@ -732,6 +822,11 @@ const EventsCalendar = ({
                                                 )}
                                             </div>
                                             <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                                {row.moderation !== 'approved' && (
+                                                    <Badge variant={row.moderation === 'pending' ? 'warning' : 'danger'} size="sm">
+                                                        {row.moderation === 'pending' ? 'Tasdiq kutilmoqda' : 'Rad etilgan'}
+                                                    </Badge>
+                                                )}
                                                 {row.clubName && <Badge variant="default" size="sm">{row.clubName}</Badge>}
                                                 {row.format && <Badge variant="primary" size="sm">{FORMAT_LABELS[row.format]}</Badge>}
                                                 {row.isMine && <Badge variant="success" size="sm">Men qatnashaman</Badge>}
