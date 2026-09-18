@@ -14,6 +14,9 @@ const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
 const MyActivityAndScoringPage = lazy(() => import('./pages/student/MyActivityAndScoringPage'));
 const EventsCalendar = lazy(() => import('./components/student/EventsCalendar'));
 const AttendanceModule = lazy(() => import('./components/student/AttendanceModule'));
+// VAQTINCHALIK YOPILGAN (2026-09-18): marshruti bosh sahifaga yo'naltirilgan,
+// shuning uchun hozir hech qayerda chizilmaydi. Import ATAYLAB qoldirildi -
+// bo'limni qayta ochish bitta qatorni almashtirish bilan bo'lsin.
 const WardrobeModule = lazy(() => import('./components/student/WardrobeModule'));
 const CertificatesPage = lazy(() => import('./pages/student/CertificatesPage'));
 const AchievementsHubPage = lazy(() => import('./pages/student/AchievementsHubPage'));
@@ -258,7 +261,13 @@ const AppRouter = () => {
                                 {/* Yotoqxona mudiri - rol emas, biriktiruv bo'yicha ochiladi. */}
                                 <Route path="my-dormitory" element={<MyDormitoryPage />} />
                                 <Route path="attendance" element={<AttendanceModule />} />
-                                <Route path="wardrobe" element={<WardrobeModule />} />
+                                {/* VAQTINCHALIK YOPILGAN - GARDEROB (2026-09-18).
+                                    Menyudan olib qo'yishning o'zi yetmaydi: to'g'ridan-to'g'ri
+                                    manzil, brauzer tarixi va saqlangan havola baribir ishlardi.
+                                    Shuning uchun marshrutning O'ZI bosh sahifaga yo'naltiriladi.
+                                    Qayta ochish: bu qatorni <WardrobeModule /> ga qaytaring va
+                                    Sidebar.jsx dagi menyu bandini tiklang. */}
+                                <Route path="wardrobe" element={<Navigate to="/student/dashboard" replace />} />
                                 <Route path="competitions/:id" element={<CompetitionWorkspacePage />} />
                                 <Route path="event-collections" element={<EventCollectionsListPage />} />
                                 <Route path="event-collections/:id" element={<EventCollectionDetailStudentPage />} />

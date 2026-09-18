@@ -74,7 +74,12 @@ const Sidebar = ({ isOpen, onClose }) => {
         // "Davomat" emas, "Ishtirokim": bu sahifa dars davomatini ko'rsatmaydi (u
         // HEMIS tomonida), tadbir va musobaqalardagi qatnashuvni ko'rsatadi.
         { icon: CheckSquare, label: 'Ishtirokim', path: '/student/attendance' },
-        { icon: Shirt, label: 'Garderob', path: '/student/wardrobe' },
+        // VAQTINCHALIK YOPILGAN - GARDEROB (2026-09-18).
+        // Bo'lim faqat ADMINGA qoldirildi (adminMenuItems dagi "Do'kon",
+        // /admin/wardrobe). Qayta ochish uchun shu qatorni tiklang VA
+        // App.jsx dagi /student/wardrobe marshrutini Navigate dan
+        // WardrobeModule ga qaytaring - ikkalasi birga.
+        // { icon: Shirt, label: 'Garderob', path: '/student/wardrobe' },
     ];
 
     const adminMenuItems = [
