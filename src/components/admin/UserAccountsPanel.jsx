@@ -110,6 +110,23 @@ const UserAccountsPanel = () => {
         finally { setBusy(false); }
     };
 
+    // TARIX IKKI DARAJALI: rasmiy yozuv o'chirishni to'sadi, shaxsiy
+    // ma'lumot esa faqat ogohlantiradi (u bazada YETIM qoladi).
+    //
+    // `blocking` maydoni ESKI funksiyada yo'q. Shunda hamma narsa to'suvchi
+    // deb qaraladi - ya'ni supabase/admin_user_history_full.sql ishga
+    // tushirilmaguncha avvalgi, QAT'IYROQ xatti-harakat saqlanadi. Teskarisi
+    // xavfli bo'lardi: maydon yo'qligidan "to'smaydi" degan xulosa chiqsa,
+    // tarixi bor akkaunt ham o'chiriladigan bo'lib ko'rinardi.
+    const blockingHistory = useMemo(
+        () => (deleteTarget?.history || []).filter(h => h.blocking !== false),
+        [deleteTarget]
+    );
+    const orphanHistory = useMemo(
+        () => (deleteTarget?.history || []).filter(h => h.blocking === false),
+        [deleteTarget]
+    );
+
     const handleDelete = async () => {
         setError(''); setBusy(true);
         try {
@@ -333,30 +350,74 @@ const UserAccountsPanel = () => {
                             {deleteTarget.account.fullName ? ` — ${deleteTarget.account.fullName}` : ''}
                         </p>
 
-                        {deleteTarget.history.length > 0 ? (
+                        {blockingHistory.length > 0 ? (
                             <>
                                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
                                     <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
                                         <AlertTriangle size={13} /> Bu akkauntni o'chirib bo'lmaydi
                                     </p>
                                     <p className="text-[11px] text-amber-700 mt-1">
-                                        Unga bog'langan yozuvlar bor. O'chirilsa, berilgan hujjatlar
+                                        Unga bog'langan RASMIY yozuvlar bor. O'chirilsa, berilgan hujjatlar
                                         egasiz qoladi va tekshiruv sahifasida tasdiqlanmay qoladi.
                                     </p>
                                     <ul className="mt-2 space-y-0.5">
-                                        {deleteTarget.history.map(h => (
-                                            <li key={h.source} className="text-[11px] text-amber-800">
+                                        {blockingHistory.map((h, i) => (
+                                            <li key={`b-${i}-${h.source}`} className="text-[11px] text-amber-800">
                                                 • {h.source}: <b>{h.cnt}</b>
                                             </li>
                                         ))}
                                     </ul>
                                 </div>
+                                {orphanHistory.length > 0 && (
+                                    <p className="text-[11px] text-gray-500">
+                                        Bundan tashqari yetim qoladigan yozuvlar:{' '}
+                                        {orphanHistory.map(h => `${h.source} (${h.cnt})`).join(', ')}.
+                                    </p>
+                                )}
                                 <p className="text-xs text-gray-500">
                                     O'chirish o'rniga <b>bloklang</b> — shunda odam kira olmaydi,
                                     lekin hujjatlari tekshirilaveradi.
                                 </p>
                                 <Button variant="outline" className="w-full" onClick={() => setDeleteTarget(null)}>
                                     Yopish
+                                </Button>
+                            </>
+                        ) : orphanHistory.length > 0 ? (
+                            <>
+                                {/* RASMIY yozuv yo'q, lekin shaxsiy ma'lumot bor.
+                                    O'chirishga yo'l qo'yiladi - aks holda sinov uchun
+                                    yaratilgan akkauntni ham o'chirib bo'lmasdi - lekin
+                                    NIMA QOLISHI aniq aytiladi. Eng muhim ogohlantirish
+                                    loginni qayta ishlatish haqida: jadvallarning hech
+                                    birida tashqi kalit yo'q va bog'lanish LOGIN orqali,
+                                    ya'ni bu login keyin boshqa odamga berilsa, u shu
+                                    yozuvlarni meros qilib oladi. */}
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                                    <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+                                        <AlertTriangle size={13} /> O'chirish mumkin, lekin ma'lumot qoladi
+                                    </p>
+                                    <p className="text-[11px] text-amber-700 mt-1">
+                                        Rasmiy yozuv yo'q, shuning uchun o'chirishga to'sqinlik yo'q.
+                                        Quyidagilar esa bazada <b>yetim</b> qoladi:
+                                    </p>
+                                    <ul className="mt-2 space-y-0.5">
+                                        {orphanHistory.map((h, i) => (
+                                            <li key={`o-${i}-${h.source}`} className="text-[11px] text-amber-800">
+                                                • {h.source}: <b>{h.cnt}</b>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <p className="text-[11px] text-amber-800 mt-2 font-semibold">
+                                        Shu <span className="font-mono">{deleteTarget.account.username}</span> loginini
+                                        boshqa odamga BERMANG: yozuvlar login orqali bog'langan va yangi egasi
+                                        ularni meros qilib oladi.
+                                    </p>
+                                </div>
+                                <Button variant="danger" className="w-full" disabled={busy} onClick={handleDelete}>
+                                    {busy ? "O'chirilmoqda..." : "Baribir o'chirish"}
+                                </Button>
+                                <Button variant="outline" className="w-full" onClick={() => setDeleteTarget(null)}>
+                                    Bekor qilish
                                 </Button>
                             </>
                         ) : (
