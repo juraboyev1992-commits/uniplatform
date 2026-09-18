@@ -12,6 +12,9 @@ import MyActivityPanel from '../../components/student/MyActivityPanel';
 import { db } from '../../services/db';
 import { INDEX_TOTAL_MAX } from '../../config/socialActivityIndex';
 import { formatTimeLeft } from '../../utils/timeLeft';
+import { matchOpportunitiesForStudent, suggestNextSteps } from '../../utils/opportunityMatching';
+import { buildStudentEligibilityProfile } from '../../utils/scholarshipEligibility';
+import NextStepsCard from '../../components/student/NextStepsCard';
 
 // TALABANING BOSH SAHIFASI.
 //
@@ -39,6 +42,28 @@ const StudentDashboard = () => {
         () => db.getSocialActivityIndex(user.username),
         [user.username]
     );
+
+    // KEYINGI QADAMLAR. Hisob allaqachon bor edi (`suggestNextSteps`), lekin
+    // u faqat "Yutuq va imkoniyatlar" bo'limining tab ostida chizilardi -
+    // ya'ni platformadagi eng aniq "nima qilsam foydali" javobini ko'rish
+    // uchun talaba uni o'zi qidirib topishi kerak edi.
+    //
+    // Xato butun bosh sahifani yiqitmasligi kerak: bu hisob ko'p qatlamga
+    // (stipendiya mezonlari, talent profili, imkoniyatlar) tayanadi va
+    // ularning birortasida ma'lumot bo'lmasa ham sahifa ochilaverishi shart.
+    const nextSteps = useMemo(() => {
+        try {
+            const eligibilityProfile = buildStudentEligibilityProfile(db, user.username);
+            const talentProfile = db.getTalentProfile?.(user.username);
+            const matched = matchOpportunitiesForStudent(db, user.username, {
+                eligibilityProfile,
+                declared: talentProfile?.declared || {},
+            });
+            return suggestNextSteps(matched, 3);
+        } catch {
+            return [];
+        }
+    }, [user.username]);
 
     const participation = useMemo(
         () => db.getStudentActivityParticipation(user.username) || [],
@@ -213,6 +238,11 @@ const StudentDashboard = () => {
                     <ProgressBar value={percent} max={100} color="auto" size="lg" />
                 </div>
             </Card>
+
+            {/* Indeksdan KEYIN, statistikadan OLDIN: yuqoridagi karta "qayerdasiz"
+                degan savolga javob beradi, bu esa "endi nima qilsam" degan
+                savolga. Ikkalasi ketma-ket turgani mantiqiy. */}
+            <NextStepsCard steps={nextSteps} compact />
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {stats.map((s, i) => (

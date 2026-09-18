@@ -21,6 +21,7 @@ import { CRITERIA_OPS, formatAmount } from '../../config/scholarships';
 import ScholarshipApplyForm from '../../components/student/ScholarshipApplyForm';
 import TimeLeft from '../../components/common/TimeLeft';
 import { formatTimeLeft } from '../../utils/timeLeft';
+import NextStepsCard from '../../components/student/NextStepsCard';
 
 // Talaba kabinetidagi "Imkoniyatlar".
 //
@@ -149,40 +150,9 @@ const OpportunitiesPage = ({ embedded = false }) => {
                 </Card>
             )}
 
-            {/* Eng foydali qadamlar */}
-            {steps.length > 0 && (
-                <Card className="border-l-4 border-l-teal-600">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">
-                        Siz uchun eng foydali qadamlar
-                    </p>
-                    <p className="text-xs text-gray-500 mb-3">
-                        Bitta harakat bir nechta imkoniyatni ochadi.
-                    </p>
-                    <ol className="space-y-2.5">
-                        {steps.map((s, i) => (
-                            <li key={s.key} className="flex items-start gap-3">
-                                <span className="w-6 h-6 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center text-xs font-black flex-shrink-0">
-                                    {i + 1}
-                                </span>
-                                <div className="min-w-0">
-                                    <p className="text-sm font-bold text-gray-900">
-                                        {s.label}
-                                        {s.maxRemaining > 0 && (
-                                            <span className="text-gray-500 font-medium">
-                                                {' '}— yana {Math.ceil(s.maxRemaining)} {s.unit}
-                                            </span>
-                                        )}
-                                    </p>
-                                    <p className="text-[11px] text-gray-500">
-                                        {s.unlocks} ta imkoniyatga ta'sir qiladi
-                                        {s.avgGain > 0 && ` · o'rtacha +${s.avgGain}%`}
-                                    </p>
-                                </div>
-                            </li>
-                        ))}
-                    </ol>
-                </Card>
-            )}
+            {/* Eng foydali qadamlar - endi umumiy komponent (u bosh sahifada
+                ham chiziladi, shuning uchun JSX ikki joyda takrorlanmaydi). */}
+            <NextStepsCard steps={steps} />
 
             {/* Filtr */}
             <div className="-mx-1 px-1 overflow-x-auto">
