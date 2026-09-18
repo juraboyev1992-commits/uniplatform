@@ -26,11 +26,53 @@ import { timeLeftParts, urgencyOf, subscribeTick } from '../../utils/timeLeft';
 // `live=false` - ro'yxatlar uchun: 50 qatorli jadvalda har soniyada qayta
 // chizish keraksiz. U holda soniya butunlay ko'rsatilmaydi (pastga qarang).
 
-const TONES = {
-    critical: { wrap: 'text-rose-800 bg-rose-50 border-rose-200', unit: 'text-rose-500', dot: 'bg-rose-500' },
-    soon: { wrap: 'text-amber-900 bg-amber-50 border-amber-200', unit: 'text-amber-600', dot: 'bg-amber-500' },
-    normal: { wrap: 'text-gray-700 bg-gray-50 border-gray-200', unit: 'text-gray-400', dot: 'bg-emerald-500' },
-    passed: { wrap: 'text-gray-400 bg-gray-50 border-gray-200', unit: 'text-gray-300', dot: 'bg-gray-300' },
+// IKKI XIL KUCH, IKKI XIL VAZIFA.
+//
+// Inline yorliq ro'yxatlar va matn oqimi ichida turadi - u yerda to'q fon
+// shovqin bo'lardi, shuning uchun ochiq qoladi.
+//
+// Blokli ko'rinish esa kartaning butun mazmuni bo'lgan joylarda ishlatiladi
+// va u YERDA ko'zga tashlanishi SHART. Ilgari u ham ochiq (`bg-*-50`) edi:
+// oq kartada deyarli ko'rinmasdi, admin kartasi esa o'zi `bg-indigo-50`
+// bo'lgani uchun bloklar fonga qo'shilib ketardi. Endi to'ldirilgan va to'q.
+//
+// Shoshilinchlik farqi ikkalasida ham saqlanadi - hammasini bir xil baland
+// qilib bo'lmaydi: shunda haqiqatan shoshilinch muddat ajralib turmaydi.
+const BADGE_TONES = {
+    critical: 'text-rose-800 bg-rose-50 border-rose-200',
+    soon: 'text-amber-900 bg-amber-50 border-amber-200',
+    normal: 'text-gray-700 bg-gray-50 border-gray-200',
+    passed: 'text-gray-400 bg-gray-50 border-gray-200',
+};
+
+const BADGE_UNIT = {
+    critical: 'text-rose-500',
+    soon: 'text-amber-600',
+    normal: 'text-gray-400',
+    passed: 'text-gray-300',
+};
+
+const BLOCK_TONES = {
+    critical: 'bg-rose-600 border-rose-700 text-white shadow-sm',
+    soon: 'bg-amber-500 border-amber-600 text-white shadow-sm',
+    normal: 'bg-slate-800 border-slate-900 text-white shadow-sm',
+    passed: 'bg-gray-200 border-gray-300 text-gray-500',
+};
+
+const BLOCK_UNIT = {
+    critical: 'text-rose-100',
+    soon: 'text-amber-50',
+    normal: 'text-slate-400',
+    passed: 'text-gray-400',
+};
+
+// Nuqta bloklardan TASHQARIDA, oq fonda turadi - shuning uchun uning rangi
+// ikkala ko'rinishda ham bir xil va to'q.
+const DOT_TONES = {
+    critical: 'bg-rose-600',
+    soon: 'bg-amber-500',
+    normal: 'bg-emerald-500',
+    passed: 'bg-gray-300',
 };
 
 const TimeLeft = ({
@@ -59,7 +101,6 @@ const TimeLeft = ({
     if (parts === null) return null;
 
     const state = urgencyOf(target, now);
-    const tone = TONES[state] || TONES.normal;
     const title = target ? new Date(target).toLocaleString('uz-UZ') : undefined;
     const ticking = live && state !== 'passed';
 
@@ -68,7 +109,7 @@ const TimeLeft = ({
         return (
             <span
                 title={title}
-                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[11px] font-bold whitespace-nowrap ${TONES.passed.wrap} ${className}`}
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[11px] font-bold whitespace-nowrap ${BADGE_TONES.passed} ${className}`}
             >
                 <AlertTriangle size={11} className="shrink-0" />
                 Muddat tugagan
@@ -77,7 +118,7 @@ const TimeLeft = ({
     }
 
     const Dot = () => (ticking
-        ? <span className={`tl-dot shrink-0 h-1.5 w-1.5 rounded-full ${tone.dot}`} aria-hidden="true" />
+        ? <span className={`tl-dot shrink-0 h-2 w-2 rounded-full ${DOT_TONES[state] || DOT_TONES.normal}`} aria-hidden="true" />
         : <AlertTriangle size={11} className="shrink-0" />);
 
     // BLOKLI ko'rinish - muddat sahifadagi asosiy ma'lumot bo'lgan joylar
@@ -90,12 +131,12 @@ const TimeLeft = ({
                 {parts.map(p => (
                     <span
                         key={p.key}
-                        className={`inline-flex flex-col items-center justify-center rounded-lg border px-1.5 py-1 min-w-[2.5rem] ${tone.wrap}`}
+                        className={`inline-flex flex-col items-center justify-center rounded-lg border px-2 py-1.5 min-w-[2.75rem] ${BLOCK_TONES[state] || BLOCK_TONES.normal}`}
                     >
-                        <span className="text-sm font-black leading-none tabular-nums">
+                        <span className="text-base font-black leading-none tabular-nums">
                             {p.key === 'day' || p.key === 'year' ? p.value : String(p.value).padStart(2, '0')}
                         </span>
-                        <span className={`mt-0.5 text-[9px] font-bold uppercase tracking-wide leading-none ${tone.unit}`}>
+                        <span className={`mt-1 text-[9px] font-bold uppercase tracking-wide leading-none ${BLOCK_UNIT[state] || BLOCK_UNIT.normal}`}>
                             {p.label}
                         </span>
                     </span>
@@ -107,18 +148,18 @@ const TimeLeft = ({
     return (
         <span
             title={title}
-            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[11px] font-bold whitespace-nowrap ${tone.wrap} ${className}`}
+            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[11px] font-bold whitespace-nowrap ${BADGE_TONES[state] || BADGE_TONES.normal} ${className}`}
         >
             {withIcon && <Dot />}
             <span className="inline-flex items-baseline gap-1">
                 {parts.map(p => (
                     <span key={p.key} className="inline-flex items-baseline gap-0.5">
                         <span className="tabular-nums">{p.value}</span>
-                        <span className={`font-semibold ${tone.unit}`}>{p.label}</span>
+                        <span className={`font-semibold ${BADGE_UNIT[state] || BADGE_UNIT.normal}`}>{p.label}</span>
                     </span>
                 ))}
             </span>
-            <span className={`font-semibold ${tone.unit}`}>qoldi</span>
+            <span className={`font-semibold ${BADGE_UNIT[state] || BADGE_UNIT.normal}`}>qoldi</span>
         </span>
     );
 };
