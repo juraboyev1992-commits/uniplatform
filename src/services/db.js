@@ -7250,12 +7250,39 @@ export const db = {
         const nowConfirmed = reg.minTeamSize && acceptedCount >= reg.minTeamSize;
         const shouldMaterialize = nowConfirmed && !wasAlreadyConfirmed && reg.status === 'registered';
 
-        await updateRegistrationInSupabase(reg.id, {
-            teamMembers: updatedTeamMembers,
-            ...(shouldMaterialize ? { teamConfirmedAt: new Date().toISOString() } : {})
+        // BIRINCHI QO'SHILISH - RPC orqali, chunki oddiy UPDATE ni RLS to'sadi.
+        //
+        // `registrations` ni yangilash qoidasi uch shartdan birini talab qiladi:
+        // kapitan bo'lish, tashkilotchi bo'lish yoki `team_members` ICHIDA
+        // bo'lish. Kod bilan qo'shilayotgan odam uchalasiga ham tushmaydi - u
+        // aynan o'zini o'sha ro'yxatga qo'shmoqchi. Tovuq va tuxum: qoidaga
+        // tushish uchun ro'yxatda bo'lish kerak. Yechimi -
+        // supabase/join_team_by_code.sql (serverda o'zini qo'shadi, boshqani
+        // emas).
+        //
+        // Shundan KEYIN odam `team_members` ichida bo'ladi, ya'ni qoidaning
+        // uchinchi sharti unga ishlaydi va pastdagi yangilanishlar oddiy
+        // yo'l bilan o'tadi.
+        const { error: joinError } = await supabase.rpc('join_team_by_code', {
+            p_code: code,
+            // Aynan yuqorida qurilgan obyekt - ikki joyda ikki xil yozilsa,
+            // vaqt o'tib bir-biridan chetga chiqib ketardi.
+            p_member: updatedTeamMembers[updatedTeamMembers.length - 1],
         });
-
+        if (joinError) {
+            if (/function .*join_team_by_code.* does not exist/i.test(joinError.message || '')) {
+                throw new Error(
+                    "Jamoaga qo'shilish sozlanmagan: administrator "
+                    + "supabase/join_team_by_code.sql ni ishga tushirishi kerak."
+                );
+            }
+            throw joinError;
+        }
         if (shouldMaterialize) {
+            // Avval jamoa tasdiqlangan deb belgilanadi. Bu ALOHIDA yangilanish,
+            // chunki yuqoridagi RPC faqat a'zo qo'shadi - endi esa chaqiruvchi
+            // `team_members` ichida va oddiy yangilanish o'tadi.
+            await updateRegistrationInSupabase(reg.id, { teamConfirmedAt: new Date().toISOString() });
             const teamParticipant = await db._materializeTeamFromRegistration({ ...reg, teamMembers: updatedTeamMembers }, acceptedCount);
             if (reg.activityType === 'competition') await db.registerParticipant(reg.activityId, teamParticipant, reg.userId);
             else await db.registerForEvent(reg.activityId, teamParticipant, reg.userId);
