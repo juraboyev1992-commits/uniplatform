@@ -75,6 +75,19 @@ const MarifatLessonsPage = () => {
         });
     }, [lessons, lessonFaculty, lessonCourse, lessonSearch]);
 
+    // BUGUNGI DARSLAR. Davomat qilmoqchi bo'lgan odam deyarli har doim
+    // BUGUNGI darsni qidiradi - lekin ro'yxat butun yil bo'yicha va u
+    // o'zinikini qo'lda topishi kerak edi. Filtrsiz, saralashsiz.
+    //
+    // Sana STRING bo'yicha solishtiriladi ('YYYY-MM-DD'): `new Date(...)`
+    // bilan solishtirish vaqt mintaqasi tufayli kechqurun bir kun
+    // surilib ketardi.
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayLessons = useMemo(
+        () => lessons.filter(l => String(l.date || '').slice(0, 10) === todayKey),
+        [lessons, todayKey]
+    );
+
     const run = async (fn, ok = '') => {
         setBusy(true); setError(''); setMessage('');
         try { await fn(); setVersion(v => v + 1); if (ok) setMessage(ok); }
@@ -93,8 +106,18 @@ const MarifatLessonsPage = () => {
     };
 
     const saveLesson = () => run(async () => {
-        await db.saveMarifatLesson({ ...form, by: user?.username, academicYear });
+        const isNew = !form.id;
+        const saved = await db.saveMarifatLesson({ ...form, by: user?.username, academicYear });
         setShowForm(false);
+        // YANGI dars saqlangach TO'G'RIDAN-TO'G'RI davomatga o'tiladi.
+        // Ilgari ro'yxatga qaytarardi va odam endigina yaratgan darsini
+        // o'sha ro'yxatdan qayta qidirishi kerak edi - holbuki dars
+        // yaratishning sababi deyarli har doim davomat qilish.
+        // Tahrirlashda esa bunday qilinmaydi: u yerda maqsad boshqa.
+        if (isNew && saved?.id) {
+            setOpenLessonId(saved.id);
+            setMarks({});
+        }
     }, 'Dars saqlandi.');
 
     // --- Davomat ---
@@ -381,6 +404,44 @@ const MarifatLessonsPage = () => {
                             </button>
                         )}
                     </div>
+
+                    {/* BUGUNGI DARSLAR - eng tepada, bir bosishda davomatga.
+                        Davomat qilmoqchi bo'lgan odam deyarli har doim bugungi
+                        darsni qidiradi, ro'yxat esa butun yil bo'yicha. Hech
+                        qanday yangi ma'lumot emas - faqat o'sha darslarning
+                        qisqa yo'li. Bugun dars bo'lmasa, blok umuman
+                        chizilmaydi: bo'sh blok joy egallab, hech narsa
+                        aytmagan bo'lardi. */}
+                    {todayLessons.length > 0 && (
+                        <Card className="border-l-4 border-l-indigo-600">
+                            <div className="p-4">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                                    Bugungi darslar ({todayLessons.length})
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {todayLessons.map(l => {
+                                        const marked = db.getMarifatAttendance(l.id).length > 0;
+                                        return (
+                                            <button
+                                                key={l.id}
+                                                type="button"
+                                                onClick={() => { setOpenLessonId(l.id); setMarks({}); }}
+                                                className="text-left px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                                            >
+                                                <span className="block text-sm font-bold text-indigo-900">{l.title}</span>
+                                                <span className="block text-[11px] text-indigo-700">
+                                                    {l.faculty}, {l.course}-kurs
+                                                    {/* Davomat belgilangan-belgilanmagani - shu tugmani
+                                                        bosish-bosmaslik qarorini beradigan yagona ma'lumot. */}
+                                                    {marked ? " · davomat bor" : " · davomat belgilanmagan"}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </Card>
+                    )}
 
                     {lessons.length === 0 ? (
                         <Card>
