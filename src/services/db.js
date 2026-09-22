@@ -10651,6 +10651,129 @@ export const db = {
         return { sent: fresh.length };
     },
 
+    // =====================================================================
+    // DO'KON VA TANGA
+    //
+    // Bu blok `syncCoreDataFromSupabase` ga QO'SHILMAGAN: u ~75 ta so'rov
+    // yuboradi va har yozuvdan keyin chaqiriladi. Do'kon esa kamdan-kam
+    // ochiladi, ya'ni uning ma'lumotini har safar tortib yurish bekor ish
+    // bo'lardi. Shuning uchun to'g'ridan-to'g'ri, ochilganda o'qiladi -
+    // `getOpportunityMatchStats` bilan bir xil naqsh.
+    //
+    // Tanga qoidalari va reyestri: supabase/coins_phase1.sql
+    // Mahsulotlar: supabase/coins_phase2_shop.sql
+    // =====================================================================
+
+    getCoinBalance: async (username) => {
+        if (!username) return 0;
+        const { data, error } = await supabase.rpc('coin_balance', { p_student: username });
+        if (error) throw error;
+        return Number(data) || 0;
+    },
+
+    // Talabaning tanga tarixi - "bu tanga qayerdan keldi" degan savolga javob.
+    // Ishonch uchun shart: sababsiz raqam hech kimni ishontirmaydi.
+    getCoinLedger: async (username, limit = 50) => {
+        if (!username) return [];
+        const { data, error } = await supabase
+            .from('coin_ledger')
+            .select('*')
+            .eq('student_id', username)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+        if (error) throw error;
+        return (data || []).map(r => ({
+            id: r.id, studentId: r.student_id, delta: r.delta, reason: r.reason,
+            refType: r.ref_type, refId: r.ref_id, createdAt: r.created_at,
+        }));
+    },
+
+    getCoinRules: async () => {
+        const { data, error } = await supabase.from('coin_rules').select('*').order('code');
+        if (error) throw error;
+        return (data || []).map(r => ({ code: r.code, label: r.label, amount: r.amount, enabled: r.enabled }));
+    },
+
+    saveCoinRule: async (code, amount) => {
+        const { error } = await supabase.from('coin_rules')
+            .update({ amount: Number(amount) || 0, updated_at: new Date().toISOString() })
+            .eq('code', code);
+        if (error) throw error;
+    },
+
+    // Bir haftalik faollik necha tanga beradi - narxni "N hafta" ga
+    // aylantirish uchun. Narxning o'zi hech narsa anglatmaydi.
+    getCoinWeeklyRate: async () => {
+        const { data, error } = await supabase.rpc('coin_weekly_rate');
+        if (error) throw error;
+        return Number(data) || 1;
+    },
+
+    // Do'kon statistikasi. FAQAT haqiqatan hisoblanadigan narsa: tarqatilgan
+    // tanga va tangasi bor talabalar soni. "Oylik o'sish" kabi ko'rsatkich
+    // ATAYLAB yo'q - buyurtma hali yozilmaydi (3-bosqich), ya'ni sotuvni
+    // hisoblab bo'lmaydi va o'ylab topilgan raqam qo'yish mumkin emas.
+    getCoinStats: async () => {
+        const { data, error } = await supabase
+            .from('coin_ledger')
+            .select('student_id, delta')
+            .gt('delta', 0)
+            .limit(10000);
+        if (error) throw error;
+        const rows = data || [];
+        return {
+            distributed: rows.reduce((sum, r) => sum + (r.delta || 0), 0),
+            students: new Set(rows.map(r => r.student_id)).size,
+            sampled: rows.length >= 10000,
+        };
+    },
+
+    getShopItems: async ({ activeOnly = false } = {}) => {
+        let q = supabase.from('shop_items').select('*').order('created_at', { ascending: false });
+        if (activeOnly) q = q.eq('active', true);
+        const { data, error } = await q;
+        if (error) throw error;
+        return (data || []).map(r => ({
+            id: r.id, name: r.name, category: r.category, price: r.price, stock: r.stock,
+            description: r.description, imageUrl: r.image_url, active: r.active,
+            createdAt: r.created_at,
+        }));
+    },
+
+    saveShopItem: async (item, by = null) => {
+        if (!String(item?.name || '').trim()) throw new Error('Mahsulot nomini kiriting');
+        const price = Number(item.price);
+        if (!Number.isFinite(price) || price < 0) throw new Error("Narx noto'g'ri");
+        const stock = Number(item.stock);
+        if (!Number.isFinite(stock) || stock < 0) throw new Error("Zaxira noto'g'ri");
+
+        const row = {
+            id: item.id || 'shop_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            name: String(item.name).trim(),
+            category: String(item.category || '').trim() || null,
+            price: Math.round(price),
+            stock: Math.round(stock),
+            description: String(item.description || '').trim() || null,
+            image_url: String(item.imageUrl || '').trim() || null,
+            active: item.active !== false,
+            updated_at: new Date().toISOString(),
+            ...(item.id ? {} : { created_by: by }),
+        };
+        const { error } = await supabase.from('shop_items').upsert(row);
+        if (error) throw error;
+        return row.id;
+    },
+
+    // O'CHIRISH EMAS, O'CHIRIB QO'YISH: sotilgan mahsulotni butunlay
+    // o'chirsak, eski buyurtmalar egasiz qolib "nima olgandim" degan savol
+    // javobsiz qolardi.
+    setShopItemActive: async (id, active) => {
+        const { error } = await supabase.from('shop_items')
+            .update({ active: !!active, updated_at: new Date().toISOString() })
+            .eq('id', id);
+        if (error) throw error;
+    },
+
     // Oxirgi hisoblash qachon bo'lgani - admin panelida ko'rsatish uchun.
     getOpportunityMatchStats: async () => {
         const { data, error } = await supabase

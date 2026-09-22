@@ -1,270 +1,371 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    Shirt,
-    Plus,
-    Edit,
-    Trash2,
-    Database,
-    Tag,
-    ShoppingBag,
-    TrendingUp,
-    Search,
-    Filter,
-    BarChart3,
-    Package,
-    Coins,
-    Image as ImageIcon,
-    CheckCircle
+    Plus, Edit, Search, Package, Coins, ShoppingBag, Users,
+    EyeOff, Eye, AlertTriangle, Save,
 } from 'lucide-react';
-import Card from '../../components/common/Card';
-import Button from '../../components/common/Button';
-import Badge from '../../components/common/Badge';
-import Modal from '../../components/common/Modal';
+import Card from '../common/Card';
+import Button from '../common/Button';
+import Badge from '../common/Badge';
+import Modal from '../common/Modal';
+import { db } from '../../services/db';
+import { useAuth } from '../../contexts/AuthContext';
+
+// ===========================================================================
+// DO'KON BOSHQARUVI
+//
+// Ilgari bu ekran butunlay MAKET edi: uchta mahsulot `useState` ichida
+// qattiq yozilgan, statistika esa qattiq matn ('536', '185,400', '+24%').
+// Mahsulot o'chirsangiz sahifa yangilanishi bilan qaytib kelardi.
+//
+// Endi hammasi bazadan: mahsulotlar `shop_items`, tanga esa `coin_ledger`
+// (supabase/coins_phase1.sql, coins_phase2_shop.sql).
+//
+// IKKI QOIDA:
+//
+//   1. O'YLAB TOPILGAN RAQAM YO'Q. "Oylik o'sish" kabi ko'rsatkich ataylab
+//      olib tashlandi: buyurtma hali yozilmaydi (3-bosqich), ya'ni sotuvni
+//      hisoblab bo'lmaydi. Yo'q narsani ko'rsatgandan ko'ra ko'rsatmagan
+//      yaxshi. Ma'lumot o'qilmasa - "Ma'lumot yo'q", nol emas.
+//
+//   2. NARX YONIDA UNING MA'NOSI. "500 tanga" o'z-o'zidan hech narsa
+//      anglatmaydi. Yonida "≈ 4 hafta" yozilsa, admin narxni belgilashda
+//      nima qilayotganini ko'radi. Miqyos qoidalardan hisoblanadi
+//      (`coin_weekly_rate`), ya'ni qoida o'zgarsa baho ham o'zgaradi.
+// ===========================================================================
+
+const EMPTY_ITEM = {
+    id: null, name: '', category: '', price: 100, stock: 0,
+    description: '', imageUrl: '', active: true,
+};
+
+const StatCard = ({ icon: Icon, label, value, hint, tone = 'text-indigo-600', bg = 'bg-indigo-50' }) => (
+    <Card className="h-full">
+        <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-2xl ${bg}`}>
+                <Icon className={`w-5 h-5 ${tone}`} />
+            </div>
+            <div className="min-w-0">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{label}</p>
+                <p className="text-2xl font-black text-gray-900 leading-none mt-1 tabular-nums">{value}</p>
+                {hint && <p className="text-[11px] text-gray-400 mt-1">{hint}</p>}
+            </div>
+        </div>
+    </Card>
+);
 
 const WardrobeManagement = () => {
-    const [searchTerm, setSearchTerm] = useState('');
-    const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState(null);
+    const { user } = useAuth();
+    const [items, setItems] = useState(null);      // null = hali o'qilmadi
+    const [stats, setStats] = useState(null);
+    const [weeklyRate, setWeeklyRate] = useState(null);
+    const [rules, setRules] = useState([]);
+    const [ruleDraft, setRuleDraft] = useState({});
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [search, setSearch] = useState('');
+    const [category, setCategory] = useState('');
+    const [form, setForm] = useState(null);        // null = oyna yopiq
 
-    // Mock store items
-    const [storeItems, setStoreItems] = useState([
-        {
-            id: 1,
-            name: "Oq-ko'k Hoodie (Logo bilan)",
-            category: 'Kiyim-kechak',
-            price: 500,
-            stock: 25,
-            sold: 142,
-            image: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&q=80&w=200',
-            description: 'Universitet logotipi tushirilgan, yuqori sifatli paxtadan tayyorlangan hoodie.'
-        },
-        {
-            id: 2,
-            name: 'Akademik Bloknot (Charm)',
-            category: 'Kanselyariya',
-            price: 150,
-            stock: 120,
-            sold: 310,
-            image: 'https://images.unsplash.com/photo-1531346878377-a5be20888e57?auto=format&fit=crop&q=80&w=200',
-            description: 'Eslatmalar va rejalar uchun qulay charm jildli bloknot.'
-        },
-        {
-            id: 3,
-            name: 'Sport futbolkasi (Besh tashabbus)',
-            category: 'Kiyim-kechak',
-            price: 300,
-            stock: 15,
-            sold: 84,
-            image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=200',
-            description: 'Besh tashabbus loyihasi ranglaridagi sport futbolkasi.'
+    const load = useCallback(async () => {
+        setError('');
+        try {
+            const [it, st, wr, rl] = await Promise.all([
+                db.getShopItems(),
+                db.getCoinStats(),
+                db.getCoinWeeklyRate(),
+                db.getCoinRules(),
+            ]);
+            setItems(it); setStats(st); setWeeklyRate(wr); setRules(rl);
+            setRuleDraft(Object.fromEntries(rl.map(r => [r.code, String(r.amount)])));
+        } catch (e) {
+            // Jadval yo'q bo'lsa - aniq ayt. "Xatolik yuz berdi" degan xabar
+            // adminni Supabase konsoliga haydaydi, u yerda esa sabab
+            // yozilmagan.
+            const msg = String(e?.message || '');
+            setError(/relation .*(shop_items|coin_ledger|coin_rules)/i.test(msg)
+                ? "Do'kon jadvallari yaratilmagan: supabase/coins_phase1.sql va coins_phase2_shop.sql ni ishga tushiring."
+                : (msg || 'Xatolik yuz berdi'));
+            setItems([]);
         }
-    ]);
+    }, []);
 
-    const stats = [
-        { label: 'Umumiy Sotuvlar', value: '536', icon: ShoppingBag, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-        { label: 'Jami Tangalar', value: '185,400', icon: Coins, color: 'text-yellow-600', bg: 'bg-yellow-50' },
-        { label: "Kamyob tovarlar", value: '12', icon: Package, color: 'text-orange-600', bg: 'bg-orange-50' },
-        { label: "Oylik o'sish", value: '+24%', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' }
-    ];
+    useEffect(() => { load(); }, [load]);
 
-    const handleDelete = (id) => {
-        if (window.confirm('Ushbu mahsulotni do\'kondan olib tashlamoqchimisiz?')) {
-            setStoreItems(storeItems.filter(item => item.id !== id));
-        }
+    const run = async (fn) => {
+        setBusy(true); setError('');
+        try { await fn(); await load(); }
+        catch (e) { setError(e?.message || 'Xatolik yuz berdi'); }
+        finally { setBusy(false); }
     };
+
+    const categories = useMemo(
+        () => Array.from(new Set((items || []).map(i => i.category).filter(Boolean))).sort(),
+        [items]
+    );
+
+    const visible = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return (items || []).filter(i =>
+            (!q || i.name.toLowerCase().includes(q))
+            && (!category || i.category === category)
+        );
+    }, [items, search, category]);
+
+    // Narx necha haftalik faollikka teng. Qoidalar o'zgarsa - baho o'zgaradi.
+    const weeksFor = (price) => {
+        if (!weeklyRate || weeklyRate <= 0) return null;
+        return Math.max(1, Math.round(price / weeklyRate));
+    };
+
+    const totalStock = (items || []).reduce((s, i) => s + (i.stock || 0), 0);
+    const nothing = "Ma'lumot yo'q";
+
+    const saveItem = () => run(async () => {
+        await db.saveShopItem(form, user?.username);
+        setForm(null);
+    });
+
+    const saveRule = (code) => run(async () => {
+        await db.saveCoinRule(code, ruleDraft[code]);
+    });
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tighter flex items-center gap-3 italic">
-                        <ShoppingBag className="w-8 h-8 text-indigo-600" />
-                        Garderob & Do'kon Boshqaruvi
+                    <h1 className="text-2xl font-black text-gray-900 flex items-center gap-3">
+                        <ShoppingBag className="w-7 h-7 text-indigo-600" />
+                        Do'kon boshqaruvi
                     </h1>
-                    <p className="text-gray-500 font-medium italic">Tangalar (coins) evaziga beriladigan mahsulotlar nazorati</p>
+                    <p className="text-gray-500 text-sm mt-0.5">
+                        Tanga evaziga beriladigan mahsulotlar. Tanga faqat davomatdan yig'iladi.
+                    </p>
                 </div>
-                <Button
-                    variant="primary"
-                    icon={Plus}
-                    onClick={() => {
-                        setEditingItem(null);
-                        setIsStoreModalOpen(true);
-                    }}
-                    className="font-black bg-indigo-600 shadow-lg shadow-indigo-100 italic"
-                >
-                    Yangi Mahsulot Qo'shish
+                <Button variant="primary" icon={Plus} onClick={() => setForm({ ...EMPTY_ITEM })}>
+                    Mahsulot qo'shish
                 </Button>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {stats.map((stat, idx) => (
-                    <Card key={idx} className="border-none shadow-sm h-full overflow-hidden relative">
-                        <div className="flex items-center gap-4 z-10 relative">
-                            <div className={`p-4 rounded-2xl ${stat.bg}`}>
-                                <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-gray-400 border-b border-gray-100 pb-1 mb-1.5 uppercase tracking-widest">{stat.label}</p>
-                                <p className="text-2xl font-black text-gray-900 leading-none">{stat.value}</p>
-                            </div>
-                        </div>
-                    </Card>
-                ))}
+            {error && (
+                <p className="text-sm font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 flex items-start gap-2">
+                    <AlertTriangle size={15} className="shrink-0 mt-0.5" /> {error}
+                </p>
+            )}
+
+            {/* STATISTIKA - faqat haqiqatan hisoblanadigani */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard icon={Package} label="Mahsulotlar" value={items ? items.length : nothing}
+                          hint={items ? `${items.filter(i => i.active).length} tasi faol` : null} />
+                <StatCard icon={ShoppingBag} label="Zaxirada" value={items ? totalStock : nothing}
+                          hint="jami dona" tone="text-emerald-600" bg="bg-emerald-50" />
+                <StatCard icon={Coins} label="Tarqatilgan tanga"
+                          value={stats ? stats.distributed.toLocaleString('uz-UZ') : nothing}
+                          hint={stats?.sampled ? 'oxirgi 10 000 yozuv' : 'boshidan beri'}
+                          tone="text-amber-600" bg="bg-amber-50" />
+                <StatCard icon={Users} label="Tangasi bor talabalar"
+                          value={stats ? stats.students : nothing}
+                          tone="text-sky-600" bg="bg-sky-50" />
             </div>
 
-            {/* Filter */}
-            <div className="flex flex-col md:flex-row gap-4">
+            {/* QOIDALAR - tanga qayerdan keladi */}
+            <Card>
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                        <h3 className="font-bold text-gray-900">Tanga qoidalari</h3>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            Davomat belgilanganda avtomatik yoziladi. Qoidani o'zgartirsangiz,
+                            u faqat KEYINGI davomatga ta'sir qiladi — yig'ilgan tanga qayta
+                            hisoblanmaydi.
+                        </p>
+                    </div>
+                    {weeklyRate != null && (
+                        <Badge variant="default" size="sm">
+                            Muntazam talaba haftasiga ≈ {weeklyRate} tanga
+                        </Badge>
+                    )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                    {rules.map(r => (
+                        <div key={r.code} className="border border-gray-200 rounded-xl p-3">
+                            <p className="text-xs font-semibold text-gray-700">{r.label}</p>
+                            <div className="flex gap-2 mt-2">
+                                <input
+                                    type="number" min="0"
+                                    value={ruleDraft[r.code] ?? ''}
+                                    onChange={e => setRuleDraft(d => ({ ...d, [r.code]: e.target.value }))}
+                                    className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm tabular-nums"
+                                />
+                                <Button variant="outline" size="sm" icon={Save} disabled={busy}
+                                        onClick={() => saveRule(r.code)}>
+                                    Saqlash
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                    {rules.length === 0 && (
+                        <p className="text-xs text-gray-400 sm:col-span-3">{nothing}</p>
+                    )}
+                </div>
+            </Card>
+
+            {/* FILTR */}
+            <div className="flex flex-col md:flex-row gap-3">
                 <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
-                        type="text"
+                        value={search} onChange={e => setSearch(e.target.value)}
                         placeholder="Mahsulot nomi bo'yicha qidirish..."
-                        className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 transition-all font-bold italic"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm"
                     />
                 </div>
-                <div className="flex items-center gap-2 bg-white px-4 py-2 border border-gray-100 rounded-2xl shadow-sm">
-                    <Filter className="w-4 h-4 text-gray-400" />
-                    <select className="bg-transparent font-bold text-sm text-gray-600 focus:outline-none">
-                        <option>Barcha turdagi</option>
-                        <option>Kiyimlar</option>
-                        <option>Aksessuarlar</option>
-                        <option>Kanselyariya</option>
-                    </select>
+                <select
+                    value={category} onChange={e => setCategory(e.target.value)}
+                    className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white"
+                >
+                    <option value="">Barcha turlar</option>
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+            </div>
+
+            {/* MAHSULOTLAR */}
+            {items === null ? (
+                <Card><p className="p-8 text-center text-sm text-gray-400">O'qilmoqda...</p></Card>
+            ) : visible.length === 0 ? (
+                <Card>
+                    <p className="p-8 text-center text-sm text-gray-400">
+                        {items.length === 0
+                            ? "Hali mahsulot qo'shilmagan. Birinchi mahsulotni qo'shing — talabalar tangani allaqachon yig'yapti."
+                            : 'Bu filtrga mos mahsulot yo’q.'}
+                    </p>
+                </Card>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {visible.map(item => {
+                        const weeks = weeksFor(item.price);
+                        return (
+                            <Card key={item.id} className={item.active ? '' : 'opacity-60'}>
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <h3 className="font-bold text-gray-900 truncate">{item.name}</h3>
+                                        {item.category && (
+                                            <Badge variant="default" size="sm" className="mt-1">{item.category}</Badge>
+                                        )}
+                                    </div>
+                                    {!item.active && <Badge variant="default" size="sm">Yashirilgan</Badge>}
+                                </div>
+
+                                {item.description && (
+                                    <p className="text-xs text-gray-500 mt-2 line-clamp-2">{item.description}</p>
+                                )}
+
+                                <div className="flex items-baseline gap-2 mt-3">
+                                    <span className="text-2xl font-black text-amber-600 tabular-nums">{item.price}</span>
+                                    <span className="text-xs font-bold text-amber-600">tanga</span>
+                                    {/* NARXNING MA'NOSI - shusiz raqam hech narsa aytmaydi. */}
+                                    {weeks && (
+                                        <span className="text-[11px] text-gray-400">≈ {weeks} hafta faollik</span>
+                                    )}
+                                </div>
+
+                                <p className={`text-xs mt-2 font-semibold ${item.stock === 0 ? 'text-rose-600' : 'text-gray-500'}`}>
+                                    {item.stock === 0 ? 'Zaxira tugagan' : `Zaxirada: ${item.stock} dona`}
+                                </p>
+
+                                <div className="flex gap-2 mt-3">
+                                    <Button variant="outline" size="sm" icon={Edit}
+                                            onClick={() => setForm({ ...item })}>
+                                        Tahrirlash
+                                    </Button>
+                                    <Button
+                                        variant="ghost" size="sm" disabled={busy}
+                                        icon={item.active ? EyeOff : Eye}
+                                        onClick={() => run(() => db.setShopItemActive(item.id, !item.active))}
+                                    >
+                                        {item.active ? 'Yashirish' : "Ko'rsatish"}
+                                    </Button>
+                                </div>
+                            </Card>
+                        );
+                    })}
                 </div>
-            </div>
+            )}
 
-            {/* Products Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {storeItems.map(item => (
-                    <Card key={item.id} className="group overflow-hidden border-none shadow-sm hover:shadow-xl transition-all duration-300">
-                        <div className="relative h-48 -mx-6 -mt-6 mb-4 overflow-hidden">
-                            <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                            <div className="absolute top-4 left-4">
-                                <Badge variant="primary" className="font-black italic shadow-lg">{item.category}</Badge>
-                            </div>
-                            <div className="absolute top-4 right-4 flex gap-2">
-                                <button
-                                    onClick={() => {
-                                        setEditingItem(item);
-                                        setIsStoreModalOpen(true);
-                                    }}
-                                    className="p-2 bg-white/90 backdrop-blur-sm text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-                                >
-                                    <Edit size={16} />
-                                </button>
-                                <button
-                                    onClick={() => handleDelete(item.id)}
-                                    className="p-2 bg-white/90 backdrop-blur-sm text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-between items-start mb-2">
-                            <h3 className="text-lg font-black text-gray-900 leading-tight tracking-tighter">{item.name}</h3>
-                            <div className="flex items-center gap-1 text-yellow-600 bg-yellow-50 px-2 py-1 rounded-lg">
-                                <Coins size={14} className="fill-current" />
-                                <span className="text-sm font-black">{item.price}</span>
-                            </div>
-                        </div>
-
-                        <p className="text-xs text-gray-500 italic mb-4 line-clamp-2">"{item.description}"</p>
-
-                        <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-50">
-                            <div className="bg-gray-50 p-2 rounded-xl text-center">
-                                <p className="text-[10px] font-black text-gray-400 uppercase">Qoldiq</p>
-                                <p className={`text-sm font-black ${item.stock < 20 ? 'text-red-600' : 'text-gray-900'}`}>{item.stock} ta</p>
-                            </div>
-                            <div className="bg-indigo-50 p-2 rounded-xl text-center">
-                                <p className="text-[10px] font-black text-indigo-400 uppercase">Sotildi</p>
-                                <p className="text-sm font-black text-indigo-900">{item.sold} ta</p>
-                            </div>
-                        </div>
-                    </Card>
-                ))}
-            </div>
-
-            {/* Store Item Modal */}
+            {/* MAHSULOT OYNASI */}
             <Modal
-                isOpen={isStoreModalOpen}
-                onClose={() => setIsStoreModalOpen(false)}
-                title={editingItem ? "Mahsulotni tahrirlash" : "Yangi mahsulot qo'shish"}
-                headerClassName="bg-indigo-600 text-white italic"
-                size="xl"
+                isOpen={!!form}
+                onClose={() => setForm(null)}
+                title={form?.id ? 'Mahsulotni tahrirlash' : "Yangi mahsulot"}
             >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-1">
-                    <div className="space-y-4">
+                {form && (
+                    <div className="p-2 space-y-3">
                         <div>
-                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">Mahsulot nomi</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase">Nomi</label>
                             <input
-                                type="text"
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 font-bold"
-                                placeholder="Masalan: Hoodie Gold Edition"
-                                defaultValue={editingItem?.name}
+                                value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                                placeholder="Masalan: Universitet logotipli hoodie"
                             />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">Narxi (Coins)</label>
-                                <div className="relative">
-                                    <Coins className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-yellow-500" />
-                                    <input
-                                        type="number"
-                                        className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 font-bold"
-                                        defaultValue={editingItem?.price}
-                                    />
-                                </div>
+                                <label className="text-xs font-bold text-gray-500 uppercase">Turi</label>
+                                <input
+                                    value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                                    placeholder="Kiyim, Kanselyariya..."
+                                />
                             </div>
                             <div>
-                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">Ombor (Soni)</label>
-                                <div className="relative">
-                                    <Package className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500" />
-                                    <input
-                                        type="number"
-                                        className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 font-bold"
-                                        defaultValue={editingItem?.stock}
-                                    />
-                                </div>
+                                <label className="text-xs font-bold text-gray-500 uppercase">Zaxira (dona)</label>
+                                <input
+                                    type="number" min="0" value={form.stock}
+                                    onChange={e => setForm(f => ({ ...f, stock: e.target.value }))}
+                                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-xl text-sm tabular-nums"
+                                />
                             </div>
                         </div>
                         <div>
-                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">Kategoriya</label>
-                            <select className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 font-bold appearance-none">
-                                <option>Kiyim-kechak</option>
-                                <option>Aksessuarlar</option>
-                                <option>Kanselyariya</option>
-                            </select>
+                            <label className="text-xs font-bold text-gray-500 uppercase">Narxi (tanga)</label>
+                            <input
+                                type="number" min="0" value={form.price}
+                                onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-xl text-sm tabular-nums"
+                            />
+                            {/* Narx yozilayotgan paytda uning ma'nosi ko'rinib tursin -
+                                keyin emas, aynan qaror qabul qilinayotganda. */}
+                            {weeksFor(Number(form.price) || 0) && (
+                                <p className="text-[11px] text-gray-500 mt-1">
+                                    Bu ≈ {weeksFor(Number(form.price) || 0)} haftalik muntazam faollik.
+                                </p>
+                            )}
                         </div>
                         <div>
-                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">Tavsif</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase">Tavsif</label>
                             <textarea
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 font-bold h-24 resize-none italic"
-                                placeholder="Mahsulot haqida batafsil..."
-                                defaultValue={editingItem?.description}
-                            ></textarea>
+                                rows={2} value={form.description}
+                                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                            />
                         </div>
-                    </div>
-
-                    <div className="space-y-6">
-                        <div className="aspect-square border-4 border-dashed border-gray-100 rounded-3xl flex flex-col items-center justify-center text-center p-8 group hover:border-indigo-500 hover:bg-indigo-50/50 transition-all cursor-pointer">
-                            <div className="w-20 h-20 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-soft">
-                                <ImageIcon className="w-10 h-10 text-gray-300 group-hover:text-indigo-600" />
-                            </div>
-                            <p className="text-sm font-black text-gray-900 mb-1 italic">Rasm yuklang</p>
-                            <p className="text-[10px] text-gray-400 uppercase font-black">PNG, JPG formatlar (Max 5MB)</p>
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase">Rasm havolasi</label>
+                            <input
+                                value={form.imageUrl} onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
+                                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                                placeholder="https://..."
+                            />
                         </div>
 
-                        <div className="flex gap-3 pt-2">
-                            <Button variant="outline" className="flex-1 font-black h-12" onClick={() => setIsStoreModalOpen(false)}>BEKOR QILISH</Button>
-                            <Button variant="primary" className="flex-1 font-black h-12 bg-indigo-600 shadow-xl shadow-indigo-100">SAQLASH</Button>
+                        <div className="flex gap-3 pt-1">
+                            <Button variant="outline" className="flex-1" onClick={() => setForm(null)}>
+                                Bekor qilish
+                            </Button>
+                            <Button variant="primary" className="flex-1" disabled={busy} onClick={saveItem}>
+                                {busy ? 'Saqlanmoqda...' : 'Saqlash'}
+                            </Button>
                         </div>
                     </div>
-                </div>
+                )}
             </Modal>
         </div>
     );
