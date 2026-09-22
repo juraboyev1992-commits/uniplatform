@@ -146,6 +146,17 @@ const WardrobeManagement = () => {
         ? orders.find(o => o.pickupCode === typed) || null
         : null;
 
+    // Tasdiqlash BITTA joyda: tugma ham, Enter ham shuni chaqiradi. Ikki
+    // nusxa bo'lsa, biri o'zgarib ikkinchisi eskirib qolardi.
+    const confirmPickup = () => {
+        if (!matched || busy) return;
+        run(async () => {
+            const o = await db.fulfilShopOrder(typed);
+            setFulfilled(o);
+            setPickupCode('');
+        });
+    };
+
     const saveRule = (code) => run(async () => {
         await db.saveCoinRule(code, ruleDraft[code]);
     });
@@ -243,20 +254,19 @@ const WardrobeManagement = () => {
                     <input
                         value={pickupCode}
                         onChange={e => { setPickupCode(e.target.value.toUpperCase()); setFulfilled(null); }}
+                        // ENTER = tasdiqlash. Xodim klaviaturadan qo'lini
+                        // uzmaydi: kodni yozdi, mahsulot chiqdi, topshirdi,
+                        // Enter. Sichqonchaga borish shu oqimdagi eng sekin
+                        // harakat edi.
+                        onKeyDown={e => { if (e.key === 'Enter') confirmPickup(); }}
                         placeholder="Masalan: A3F9C1"
                         className="px-4 py-2.5 border border-gray-200 rounded-xl text-lg font-black tracking-widest uppercase w-48"
                     />
                     {/* Tasdiqlash tugmasi buyurtma TOPILMAGUNCHA chiqmaydi:
                         ko'rmasdan bosish imkoniyatining o'zi bo'lmasin. */}
                     {matched && (
-                        <Button
-                            variant="primary" disabled={busy}
-                            onClick={() => run(async () => {
-                                const o = await db.fulfilShopOrder(typed);
-                                setFulfilled(o); setPickupCode('');
-                            })}
-                        >
-                            Topshirdim — tasdiqlash
+                        <Button variant="primary" disabled={busy} onClick={confirmPickup}>
+                            Topshirdim (Enter)
                         </Button>
                     )}
                 </div>
