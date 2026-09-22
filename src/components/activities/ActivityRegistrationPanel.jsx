@@ -121,6 +121,25 @@ const ActivityRegistrationPanel = ({ activity, activityType, clubId, startDateTi
     // Lazy waitlist-promotion evaluation — same on-read idea as isRegistrationOpen, just triggered once
     // whenever this panel mounts (e.g. the activity's detail modal opens), not on a real timer.
     useEffect(() => {
+        // FAQAT TASHKILOTCHI QO'ZG'ATADI.
+        //
+        // Bu ikki amal BOSHQA odamlarning ro'yxat qatorlarini o'zgartiradi:
+        // navbatdagiga taklif yozadi, to'lmagan jamoani bekor qiladi. RLS esa
+        // buni faqat qatorning egasiga va tashkilotchiga ruxsat beradi.
+        //
+        // Ilgari bu yerda shart yo'q edi va tadbirni ochgan HAR QANDAY talaba
+        // ularni qo'zg'atardi. Natija: UPDATE nol qator o'zgartirardi,
+        // `.single()` yiqilardi va xato pastdagi `.catch` ichida `console.warn`
+        // bo'lib yo'qolardi. Ya'ni amal bajarilmaydi, lekin hech kim buni
+        // bilmaydi - navbat esa hech qachon siljimaydi.
+        //
+        // Yo'qotilgan narsa yo'q: talaba uchun bu amallar baribir bajarilmasdi.
+        // Endi ular urinilmaydi ham.
+        const canSettle = !!user && (
+            isAdmin || isManagement || (clubId && hasClubRole?.(clubId, ['coordinator', 'head_coordinator']))
+        );
+        if (!canSettle) return;
+
         // Tartib muhim: avval to'lmagan jamoalar hal qilinadi (ro'yxat yopilgan
         // bo'lsa), keyin navbat ko'tariladi - aks holda bekor qilingan jamoadan
         // bo'shagan joy shu yurishda ishlatilmay qolardi. `settleStalledTeams`
