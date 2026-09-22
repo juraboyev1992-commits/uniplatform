@@ -2394,6 +2394,30 @@ const persistMembershipRole = async (dbData, { studentId, clubId, role, joinedAt
 // gender/professionalism) - a real profile is a drop-in for anywhere `studentById.get(someId)` is used,
 // see getSyncedProfiles below, WITHOUT touching getMockStudents()/generateSyntheticStudents() itself
 // (a huge number of not-yet-migrated features depend on that function's exact current output).
+// Do'kon buyurtmasi: baza ustunlari -> ilova maydonlari.
+const mapShopOrder = (row) => (row ? {
+    id: row.id, studentId: row.student_id, itemId: row.item_id,
+    itemName: row.item_name, pricePaid: row.price_paid, status: row.status,
+    pickupCode: row.pickup_code, createdAt: row.created_at,
+    fulfilledAt: row.fulfilled_at, fulfilledBy: row.fulfilled_by,
+    cancelledAt: row.cancelled_at,
+} : null);
+
+// Jadval yoki funksiya yaratilmagan bo'lsa - "Xatolik yuz berdi" emas, ANIQ
+// sabab. Umumiy xabar adminni Supabase konsoliga haydaydi, u yerda esa
+// nima qilish kerakligi yozilmagan.
+const shopError = (error) => {
+    const msg = String(error?.message || '');
+    if (/relation .*(shop_items|shop_orders|coin_ledger)/i.test(msg)
+        || /function .*shop_order/i.test(msg)) {
+        return new Error(
+            "Do'kon sozlanmagan: administrator supabase/coins_phase1.sql, "
+            + "coins_phase2_shop.sql va coins_phase3_orders.sql ni ishga tushirishi kerak."
+        );
+    }
+    return error;
+};
+
 const mapProfileFromSupabase = (row) => ({
     id: row.id, fullName: row.full_name, faculty: row.faculty, course: row.course,
     group: row.student_group, studentId: row.student_id, gender: row.gender,
@@ -10772,6 +10796,44 @@ export const db = {
             .update({ active: !!active, updated_at: new Date().toISOString() })
             .eq('id', id);
         if (error) throw error;
+    },
+
+    // --- BUYURTMA ---------------------------------------------------------
+    //
+    // Xarid MIJOZDA hisoblanmaydi. `shop_order_create` serverda bitta
+    // tranzaksiyada: balansni tekshiradi, zaxirani qulflaydi, tangani
+    // yechadi, buyurtma yozadi. Mijoz faqat mahsulot raqamini yuboradi -
+    // narxni ham server O'ZI o'qiydi, chunki mijozdan kelgan narxga
+    // ishonib bo'lmaydi.
+    createShopOrder: async (itemId) => {
+        const { data, error } = await supabase.rpc('shop_order_create', { p_item_id: itemId });
+        if (error) throw shopError(error);
+        const row = Array.isArray(data) ? data[0] : data;
+        return mapShopOrder(row);
+    },
+
+    // Kod bilan berish - faqat xodim (tekshiruv serverda ham bor).
+    fulfilShopOrder: async (code) => {
+        const { data, error } = await supabase.rpc('shop_order_fulfil', { p_code: code });
+        if (error) throw shopError(error);
+        const row = Array.isArray(data) ? data[0] : data;
+        return mapShopOrder(row);
+    },
+
+    cancelShopOrder: async (orderId) => {
+        const { data, error } = await supabase.rpc('shop_order_cancel', { p_order_id: orderId });
+        if (error) throw shopError(error);
+        const row = Array.isArray(data) ? data[0] : data;
+        return mapShopOrder(row);
+    },
+
+    getShopOrders: async ({ studentId = null, status = null, limit = 200 } = {}) => {
+        let q = supabase.from('shop_orders').select('*').order('created_at', { ascending: false }).limit(limit);
+        if (studentId) q = q.eq('student_id', studentId);
+        if (status) q = q.eq('status', status);
+        const { data, error } = await q;
+        if (error) throw shopError(error);
+        return (data || []).map(mapShopOrder);
     },
 
     // Oxirgi hisoblash qachon bo'lgani - admin panelida ko'rsatish uchun.

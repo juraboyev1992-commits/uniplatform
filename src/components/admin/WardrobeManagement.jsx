@@ -65,17 +65,24 @@ const WardrobeManagement = () => {
     const [search, setSearch] = useState('');
     const [category, setCategory] = useState('');
     const [form, setForm] = useState(null);        // null = oyna yopiq
+    const [orders, setOrders] = useState([]);
+    // `pickupCode` - ATAYLAB shunday nomlangan: `code` degan nom qoida
+    // kodi (coin_rules.code) bilan chalkashardi va `saveRule(code)`
+    // ichida qaysi biri ekanini o'qib bilib bo'lmasdi.
+    const [pickupCode, setPickupCode] = useState('');
+    const [fulfilled, setFulfilled] = useState(null);
 
     const load = useCallback(async () => {
         setError('');
         try {
-            const [it, st, wr, rl] = await Promise.all([
+            const [it, st, wr, rl, ord] = await Promise.all([
                 db.getShopItems(),
                 db.getCoinStats(),
                 db.getCoinWeeklyRate(),
                 db.getCoinRules(),
+                db.getShopOrders({ status: 'pending' }),
             ]);
-            setItems(it); setStats(st); setWeeklyRate(wr); setRules(rl);
+            setItems(it); setStats(st); setWeeklyRate(wr); setRules(rl); setOrders(ord);
             setRuleDraft(Object.fromEntries(rl.map(r => [r.code, String(r.amount)])));
         } catch (e) {
             // Jadval yo'q bo'lsa - aniq ayt. "Xatolik yuz berdi" degan xabar
@@ -206,6 +213,59 @@ const WardrobeManagement = () => {
                         <p className="text-xs text-gray-400 sm:col-span-3">{nothing}</p>
                     )}
                 </div>
+            </Card>
+
+            {/* BERISH - kod bilan.
+                Bu ekranning eng ko'p ishlatiladigan qismi: talaba keladi,
+                kodni aytadi, xodim kiritadi. Shuning uchun u mahsulotlar
+                ro'yxatidan YUQORIDA turadi. */}
+            <Card className="border-l-4 border-l-emerald-600">
+                <h3 className="font-bold text-gray-900">Mahsulotni berish</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                    Talaba aytgan kodni kiriting. Kod bir marta ishlaydi — berilgan
+                    buyurtma ikkinchi marta berilmaydi.
+                </p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                    <input
+                        value={pickupCode}
+                        onChange={e => { setPickupCode(e.target.value.toUpperCase()); setFulfilled(null); }}
+                        placeholder="Masalan: A3F9C1"
+                        className="px-4 py-2.5 border border-gray-200 rounded-xl text-lg font-black tracking-widest uppercase w-48"
+                    />
+                    <Button
+                        variant="primary" disabled={busy || !pickupCode.trim()}
+                        onClick={() => run(async () => {
+                            const o = await db.fulfilShopOrder(pickupCode.trim());
+                            setFulfilled(o); setPickupCode('');
+                        })}
+                    >
+                        Berildi deb belgilash
+                    </Button>
+                </div>
+                {fulfilled && (
+                    <p className="mt-3 text-sm font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                        Berildi: {fulfilled.itemName} — {fulfilled.studentId}
+                    </p>
+                )}
+
+                {orders.length > 0 && (
+                    <div className="mt-4 border-t border-gray-100 pt-3">
+                        <p className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                            Kutilayotgan buyurtmalar ({orders.length})
+                        </p>
+                        <div className="max-h-56 overflow-y-auto divide-y divide-gray-50">
+                            {orders.map(o => (
+                                <div key={o.id} className="flex items-center justify-between gap-3 py-2 text-xs">
+                                    <span className="min-w-0 truncate">
+                                        <b className="text-gray-900">{o.studentId}</b>
+                                        <span className="text-gray-500"> · {o.itemName} · {o.pricePaid} tanga</span>
+                                    </span>
+                                    <span className="font-black tracking-widest text-indigo-700 shrink-0">{o.pickupCode}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </Card>
 
             {/* FILTR */}

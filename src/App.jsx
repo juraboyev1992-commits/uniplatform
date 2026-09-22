@@ -18,6 +18,7 @@ const AttendanceModule = lazy(() => import('./components/student/AttendanceModul
 // shuning uchun hozir hech qayerda chizilmaydi. Import ATAYLAB qoldirildi -
 // bo'limni qayta ochish bitta qatorni almashtirish bilan bo'lsin.
 const WardrobeModule = lazy(() => import('./components/student/WardrobeModule'));
+const ShopPage = lazy(() => import('./pages/student/ShopPage'));
 const CertificatesPage = lazy(() => import('./pages/student/CertificatesPage'));
 const AchievementsHubPage = lazy(() => import('./pages/student/AchievementsHubPage'));
 const CvPortfolioPage = lazy(() => import('./pages/student/CvPortfolioPage'));
@@ -268,6 +269,10 @@ const AppRouter = () => {
                                     Qayta ochish: bu qatorni <WardrobeModule /> ga qaytaring va
                                     Sidebar.jsx dagi menyu bandini tiklang. */}
                                 <Route path="wardrobe" element={<Navigate to="/student/dashboard" replace />} />
+                                {/* DO'KON - tanga evaziga sovg'a. Garderob o'rniga EMAS,
+                                    ALOHIDA manzil: Garderob shaxsiy kiyim ro'yxati edi va
+                                    ikkisining aralashib ketishi chalkashlik bo'lardi. */}
+                                <Route path="shop" element={<ShopPage />} />
                                 <Route path="competitions/:id" element={<CompetitionWorkspacePage />} />
                                 <Route path="event-collections" element={<EventCollectionsListPage />} />
                                 <Route path="event-collections/:id" element={<EventCollectionDetailStudentPage />} />

@@ -16,6 +16,7 @@ import {
     Trophy,
     Heart,
     Shirt,
+    ShoppingBag,
     CheckSquare,
     Scale,
     Sparkles,
@@ -80,6 +81,9 @@ const Sidebar = ({ isOpen, onClose }) => {
         // App.jsx dagi /student/wardrobe marshrutini Navigate dan
         // WardrobeModule ga qaytaring - ikkalasi birga.
         // { icon: Shirt, label: 'Garderob', path: '/student/wardrobe' },
+        // DO'KON - yig'ilgan tanga sarflanadigan joy. Garderobning o'rnini
+        // egalladi, lekin u BOSHQA narsa: Garderob shaxsiy kiyim ro'yxati edi.
+        { icon: ShoppingBag, label: "Do'kon", path: '/student/shop' },
     ];
 
     const adminMenuItems = [
