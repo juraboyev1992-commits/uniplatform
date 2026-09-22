@@ -2398,6 +2398,7 @@ const persistMembershipRole = async (dbData, { studentId, clubId, role, joinedAt
 const mapShopOrder = (row) => (row ? {
     id: row.id, studentId: row.student_id, itemId: row.item_id,
     itemName: row.item_name, pricePaid: row.price_paid, status: row.status,
+    variantLabel: row.variant_label || null,
     pickupCode: row.pickup_code, createdAt: row.created_at,
     fulfilledAt: row.fulfilled_at, fulfilledBy: row.fulfilled_by,
     cancelledAt: row.cancelled_at,
@@ -10760,6 +10761,9 @@ export const db = {
         return (data || []).map(r => ({
             id: r.id, name: r.name, category: r.category, price: r.price, stock: r.stock,
             description: r.description, imageUrl: r.image_url, active: r.active,
+            // [{label, stock}] yoki bo'sh. Variantsiz mahsulot avvalgidek
+            // `stock` ustunidan ishlaydi.
+            variants: Array.isArray(r.variants) ? r.variants : [],
             createdAt: r.created_at,
         }));
     },
@@ -10768,7 +10772,12 @@ export const db = {
         if (!String(item?.name || '').trim()) throw new Error('Mahsulot nomini kiriting');
         const price = Number(item.price);
         if (!Number.isFinite(price) || price < 0) throw new Error("Narx noto'g'ri");
-        const stock = Number(item.stock);
+        // Variant bo'lsa, umumiy zaxira YIG'INDI bo'ladi: admin uni qo'lda
+        // yozmaydi, aks holda ikki raqam bir-biridan chetga chiqib ketardi.
+        const variantList = (item.variants || []).filter(v => String(v.label || '').trim());
+        const stock = variantList.length
+            ? variantList.reduce((sum, v) => sum + Math.max(0, Math.round(Number(v.stock) || 0)), 0)
+            : Number(item.stock);
         if (!Number.isFinite(stock) || stock < 0) throw new Error("Zaxira noto'g'ri");
 
         const row = {
@@ -10780,6 +10789,15 @@ export const db = {
             description: String(item.description || '').trim() || null,
             image_url: String(item.imageUrl || '').trim() || null,
             active: item.active !== false,
+            // Variantlar tozalanadi: yorliqsiz qator saqlanmaydi, zaxira
+            // esa butun songa keltiriladi. Bo'sh ro'yxat null bo'lib
+            // yoziladi - "varianti yo'q" degani.
+            variants: (() => {
+                const v = (item.variants || [])
+                    .map(x => ({ label: String(x.label || '').trim(), stock: Math.max(0, Math.round(Number(x.stock) || 0)) }))
+                    .filter(x => x.label);
+                return v.length ? v : null;
+            })(),
             updated_at: new Date().toISOString(),
             ...(item.id ? {} : { created_by: by }),
         };
@@ -10805,8 +10823,11 @@ export const db = {
     // yechadi, buyurtma yozadi. Mijoz faqat mahsulot raqamini yuboradi -
     // narxni ham server O'ZI o'qiydi, chunki mijozdan kelgan narxga
     // ishonib bo'lmaydi.
-    createShopOrder: async (itemId) => {
-        const { data, error } = await supabase.rpc('shop_order_create', { p_item_id: itemId });
+    createShopOrder: async (itemId, variant = null) => {
+        const { data, error } = await supabase.rpc('shop_order_create', {
+            p_item_id: itemId,
+            p_variant: variant || null,
+        });
         if (error) throw shopError(error);
         const row = Array.isArray(data) ? data[0] : data;
         return mapShopOrder(row);

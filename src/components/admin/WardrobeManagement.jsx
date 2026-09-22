@@ -35,7 +35,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const EMPTY_ITEM = {
     id: null, name: '', category: '', price: 100, stock: 0,
-    description: '', imageUrl: '', active: true,
+    description: '', imageUrl: '', active: true, variants: [],
 };
 
 const StatCard = ({ icon: Icon, label, value, hint, tone = 'text-indigo-600', bg = 'bg-indigo-50' }) => (
@@ -267,7 +267,15 @@ const WardrobeManagement = () => {
                         <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
                             Berilishi kerak
                         </p>
-                        <p className="text-xl font-black text-emerald-900 mt-1">{matched.itemName}</p>
+                        <p className="text-xl font-black text-emerald-900 mt-1">
+                            {matched.itemName}
+                            {/* VARIANT - mahsulot nomi bilan BIR QATORDA va bir xil
+                                kattalikda: nomini o'qib, o'lchamini o'qimay qolish
+                                aynan shu yerda sodir bo'ladi. */}
+                            {matched.variantLabel && (
+                                <span className="text-emerald-700"> &mdash; {matched.variantLabel}</span>
+                            )}
+                        </p>
                         <p className="text-xs text-emerald-800 mt-0.5">
                             Talaba: <b>{matched.studentId}</b> · {matched.pricePaid} tanga ·
                             {' '}buyurtma {new Date(matched.createdAt).toLocaleDateString('uz-UZ')}
@@ -300,7 +308,11 @@ const WardrobeManagement = () => {
                                 <div key={o.id} className="flex items-center justify-between gap-3 py-2 text-xs">
                                     <span className="min-w-0 truncate">
                                         <b className="text-gray-900">{o.studentId}</b>
-                                        <span className="text-gray-500"> · {o.itemName} · {o.pricePaid} tanga</span>
+                                        <span className="text-gray-500">
+                                            {' · '}{o.itemName}
+                                            {o.variantLabel ? ` (${o.variantLabel})` : ''}
+                                            {' · '}{o.pricePaid} tanga
+                                        </span>
                                     </span>
                                     <span className="font-black tracking-widest text-indigo-700 shrink-0">{o.pickupCode}</span>
                                 </div>
@@ -372,6 +384,26 @@ const WardrobeManagement = () => {
                                 <p className={`text-xs mt-2 font-semibold ${item.stock === 0 ? 'text-rose-600' : 'text-gray-500'}`}>
                                     {item.stock === 0 ? 'Zaxira tugagan' : `Zaxirada: ${item.stock} dona`}
                                 </p>
+                                {/* Variantlar - har biri o'z zaxirasi bilan. Tugagani
+                                    ustiga chiziq bilan ko'rsatiladi, yashirilmaydi:
+                                    "bunday variant umuman yo'q" degan xulosa
+                                    chiqmasligi kerak. */}
+                                {item.variants?.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                        {item.variants.map(v => (
+                                            <span
+                                                key={v.label}
+                                                className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border ${
+                                                    v.stock > 0
+                                                        ? 'bg-gray-50 text-gray-700 border-gray-200'
+                                                        : 'bg-rose-50 text-rose-400 border-rose-100 line-through'
+                                                }`}
+                                            >
+                                                {v.label} · {v.stock}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
 
                                 <div className="flex gap-2 mt-3">
                                     <Button variant="outline" size="sm" icon={Edit}
@@ -419,10 +451,18 @@ const WardrobeManagement = () => {
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase">Zaxira (dona)</label>
+                                {/* Variant bo'lsa umumiy zaxira YIG'INDI bo'ladi va
+                                    qo'lda yozilmaydi: ikki raqam bir-biridan chetga
+                                    chiqib ketsa, qaysi biri to'g'riligi noma'lum
+                                    bo'lardi. */}
                                 <input
-                                    type="number" min="0" value={form.stock}
+                                    type="number" min="0"
+                                    value={form.variants?.length
+                                        ? form.variants.reduce((acc, v) => acc + (Number(v.stock) || 0), 0)
+                                        : form.stock}
+                                    disabled={form.variants?.length > 0}
                                     onChange={e => setForm(f => ({ ...f, stock: e.target.value }))}
-                                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-xl text-sm tabular-nums"
+                                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-xl text-sm tabular-nums disabled:bg-gray-50 disabled:text-gray-400"
                                 />
                             </div>
                         </div>
@@ -441,6 +481,61 @@ const WardrobeManagement = () => {
                                 </p>
                             )}
                         </div>
+                        {/* VARIANTLAR - o'lcham, rang va boshqa parametrlar.
+                            Ikki o'lchov uchun alohida tizim yo'q: yorliqda birga
+                            yoziladi (M / Qora). Kombinatsiyalar jadvali bu
+                            hajmdagi do'kon uchun ortiqcha va to'ldirish azob. */}
+                        <div>
+                            <div className="flex items-center justify-between gap-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase">
+                                    Variantlar
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => setForm(f => ({ ...f, variants: [...(f.variants || []), { label: '', stock: 0 }] }))}
+                                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
+                                >
+                                    + Variant
+                                </button>
+                            </div>
+                            <p className="text-[11px] text-gray-400 mt-0.5">
+                                Bo&rsquo;sh qoldirsangiz mahsulot variantsiz bo&rsquo;ladi. Har
+                                variantning zaxirasi alohida &mdash; biri tugasa, boshqasi
+                                sotilaveradi.
+                            </p>
+                            <div className="space-y-2 mt-2">
+                                {(form.variants || []).map((v, idx) => (
+                                    <div key={idx} className="flex gap-2">
+                                        <input
+                                            value={v.label}
+                                            onChange={e => setForm(f => ({
+                                                ...f,
+                                                variants: f.variants.map((x, i) => i === idx ? { ...x, label: e.target.value } : x),
+                                            }))}
+                                            placeholder="M / Qora"
+                                            className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                                        />
+                                        <input
+                                            type="number" min="0" value={v.stock}
+                                            onChange={e => setForm(f => ({
+                                                ...f,
+                                                variants: f.variants.map((x, i) => i === idx ? { ...x, stock: e.target.value } : x),
+                                            }))}
+                                            className="w-24 px-3 py-2 border border-gray-200 rounded-xl text-sm tabular-nums"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setForm(f => ({ ...f, variants: f.variants.filter((_, i) => i !== idx) }))}
+                                            className="px-2 text-gray-400 hover:text-rose-600"
+                                            title="Olib tashlash"
+                                        >
+                                            &times;
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Tavsif</label>
                             <textarea

@@ -36,6 +36,8 @@ const ShopPage = () => {
     const [notice, setNotice] = useState(null);
     const [busy, setBusy] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
+    // Har mahsulot uchun tanlangan variant: { [itemId]: 'M' }.
+    const [chosen, setChosen] = useState({});
 
     const load = useCallback(async () => {
         if (!username) return;
@@ -57,9 +59,9 @@ const ShopPage = () => {
 
     useEffect(() => { load(); }, [load]);
 
-    const order = (item) => {
+    const order = (item, variant) => {
         setBusy(true); setError(''); setNotice(null);
-        db.createShopOrder(item.id)
+        db.createShopOrder(item.id, variant)
             .then(async (o) => {
                 setNotice(o);
                 await load();
@@ -131,6 +133,7 @@ const ShopPage = () => {
                 <Card className="border-2 border-emerald-200 bg-emerald-50">
                     <p className="text-sm font-bold text-emerald-900 flex items-center gap-2">
                         <Check size={16} /> Buyurtma qabul qilindi — {notice.itemName}
+                        {notice.variantLabel ? ` (${notice.variantLabel})` : ''}
                     </p>
                     <p className="text-xs text-emerald-800 mt-1">
                         Mahsulotni olish uchun shu kodni ko'rsating:
@@ -150,7 +153,12 @@ const ShopPage = () => {
                         {pending.map(o => (
                             <div key={o.id} className="flex flex-wrap items-center justify-between gap-3 border border-gray-200 rounded-xl px-3 py-2.5">
                                 <div className="min-w-0">
-                                    <p className="text-sm font-bold text-gray-900 truncate">{o.itemName}</p>
+                                    <p className="text-sm font-bold text-gray-900 truncate">
+                                        {o.itemName}
+                                        {o.variantLabel && (
+                                            <span className="text-gray-500"> &mdash; {o.variantLabel}</span>
+                                        )}
+                                    </p>
                                     <p className="text-[11px] text-gray-500">{o.pricePaid} tanga</p>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -189,7 +197,20 @@ const ShopPage = () => {
                         {items.map(item => {
                             const weeks = weeksFor(item.price);
                             const short = balance === null ? null : item.price - balance;
-                            const canBuy = balance !== null && short <= 0 && item.stock > 0;
+                            const variants = item.variants || [];
+                            const pick = chosen[item.id] || null;
+                            const pickStock = pick
+                                ? (variants.find(v => v.label === pick)?.stock ?? 0)
+                                : null;
+                            // Variantli mahsulotda TANLANMAGUNCHA sotib bo'lmaydi:
+                            // o'lchamsiz buyurtma xodimga "nima berishim kerak"
+                            // degan javobsiz savol qoldiradi.
+                            const needsPick = variants.length > 0 && !pick;
+                            const canBuy = balance !== null
+                                && short <= 0
+                                && item.stock > 0
+                                && !needsPick
+                                && (variants.length === 0 || pickStock > 0);
                             return (
                                 <Card key={item.id}>
                                     <div className="flex items-start justify-between gap-2">
@@ -219,13 +240,53 @@ const ShopPage = () => {
                                         </p>
                                     )}
 
+                                    {/* VARIANT TANLASH. Tugagan variant YASHIRILMAYDI,
+                                        o'chirilgan holda turadi: "bunday o'lcham
+                                        umuman yo'q" degan xulosa chiqmasligi kerak. */}
+                                    {variants.length > 0 && item.stock > 0 && (
+                                        <div className="mt-3">
+                                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                                                Variantni tanlang
+                                            </p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {variants.map(v => {
+                                                    const out = !(v.stock > 0);
+                                                    const on = pick === v.label;
+                                                    return (
+                                                        <button
+                                                            key={v.label}
+                                                            type="button"
+                                                            disabled={out}
+                                                            onClick={() => setChosen(c => ({ ...c, [item.id]: v.label }))}
+                                                            className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                                                                out
+                                                                    ? 'bg-gray-50 text-gray-300 border-gray-100 line-through cursor-not-allowed'
+                                                                    : on
+                                                                        ? 'bg-indigo-600 text-white border-indigo-600'
+                                                                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                                            }`}
+                                                        >
+                                                            {v.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <Button
                                         variant={canBuy ? 'primary' : 'outline'}
                                         className="w-full mt-3"
                                         disabled={!canBuy || busy}
-                                        onClick={() => order(item)}
+                                        onClick={() => order(item, pick)}
                                     >
-                                        {item.stock === 0 ? 'Zaxira yo’q' : short > 0 ? 'Tanga yetmaydi' : 'Buyurtma berish'}
+                                        {item.stock === 0
+                                            ? 'Zaxira yo’q'
+                                            : short > 0
+                                                ? 'Tanga yetmaydi'
+                                                : needsPick
+                                                    ? 'Variantni tanlang'
+                                                    : 'Buyurtma berish'}
                                     </Button>
                                 </Card>
                             );
