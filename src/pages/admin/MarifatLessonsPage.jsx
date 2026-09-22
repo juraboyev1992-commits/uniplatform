@@ -144,6 +144,17 @@ const MarifatLessonsPage = () => {
             .sort((a, b) => String(a.fullName).localeCompare(String(b.fullName)));
     }, [students, openLesson]);
 
+    // TARTIB RAQAMI - TO'LIQ ro'yxatdagi o'rin, ko'rinib turgan ro'yxatdagi
+    // emas. Sababi: qidiruv yoki filtr (masalan "Belgilanmagan") yoqilganda
+    // raqamlar 1 dan qayta boshlansa, ular qog'ozdagi jurnal bilan mos
+    // kelmay qoladi va tekshirishga yaramaydi. Bu yerda raqam talabaning
+    // alifbo bo'yicha o'rni - u filtrdan qat'i nazar o'zgarmaydi.
+    const rosterNumber = useMemo(() => {
+        const map = new Map();
+        fullRoster.forEach((s, i) => map.set(s.id, i + 1));
+        return map;
+    }, [fullRoster]);
+
     const saved = useMemo(
         () => (openLesson ? new Map(db.getMarifatAttendance(openLesson.id).map(a => [a.studentId, a])) : new Map()),
         [openLesson, version]
@@ -654,6 +665,12 @@ const MarifatLessonsPage = () => {
                                             className={`flex-1 min-w-0 flex items-center gap-3 text-left py-2.5 rounded-lg
                                                 ${openLesson.locked ? 'cursor-default' : 'hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500'}`}
                                         >
+                                            {/* Raqam ism bilan raqobatlashmasligi kerak: kichik,
+                                                och rangda va o'ngga tekislangan. `tabular-nums` -
+                                                9 dan 10 ga o'tganda ustun qimirlamasin. */}
+                                            <span className="w-7 shrink-0 text-right text-xs font-semibold text-gray-400 tabular-nums">
+                                                {rosterNumber.get(s.id)}
+                                            </span>
                                             <input
                                                 type="checkbox" className="rounded accent-indigo-600 pointer-events-none shrink-0"
                                                 readOnly
