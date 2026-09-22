@@ -132,6 +132,20 @@ const WardrobeManagement = () => {
         setForm(null);
     });
 
+    // KOD BO'YICHA OLDINDAN TOPISH.
+    //
+    // Xodim kodni kiritganda NIMA BERISHINI oldin ko'rishi kerak, keyin
+    // emas. Ilgari tugma bosilishi bilan buyurtma "berildi" bo'lib,
+    // mahsulot nomi FAQAT SHUNDAN KEYIN chiqardi - ya'ni xodim nimani
+    // berayotganini bilmasdan tasdiqlardi.
+    //
+    // Yangi so'rov kerak emas: kutilayotgan buyurtmalar allaqachon
+    // yuklangan, shu ro'yxatdan topiladi.
+    const typed = pickupCode.trim().toUpperCase();
+    const matched = typed.length >= 4
+        ? orders.find(o => o.pickupCode === typed) || null
+        : null;
+
     const saveRule = (code) => run(async () => {
         await db.saveCoinRule(code, ruleDraft[code]);
     });
@@ -222,8 +236,8 @@ const WardrobeManagement = () => {
             <Card className="border-l-4 border-l-emerald-600">
                 <h3 className="font-bold text-gray-900">Mahsulotni berish</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                    Talaba aytgan kodni kiriting. Kod bir marta ishlaydi — berilgan
-                    buyurtma ikkinchi marta berilmaydi.
+                    Kodni kiriting — nima berish kerakligi ko'rinadi. Tasdiqlashni
+                    mahsulotni topshirgandan KEYIN bosing: kod bir marta ishlaydi.
                 </p>
                 <div className="flex flex-wrap gap-2 mt-3">
                     <input
@@ -232,16 +246,44 @@ const WardrobeManagement = () => {
                         placeholder="Masalan: A3F9C1"
                         className="px-4 py-2.5 border border-gray-200 rounded-xl text-lg font-black tracking-widest uppercase w-48"
                     />
-                    <Button
-                        variant="primary" disabled={busy || !pickupCode.trim()}
-                        onClick={() => run(async () => {
-                            const o = await db.fulfilShopOrder(pickupCode.trim());
-                            setFulfilled(o); setPickupCode('');
-                        })}
-                    >
-                        Berildi deb belgilash
-                    </Button>
+                    {/* Tasdiqlash tugmasi buyurtma TOPILMAGUNCHA chiqmaydi:
+                        ko'rmasdan bosish imkoniyatining o'zi bo'lmasin. */}
+                    {matched && (
+                        <Button
+                            variant="primary" disabled={busy}
+                            onClick={() => run(async () => {
+                                const o = await db.fulfilShopOrder(typed);
+                                setFulfilled(o); setPickupCode('');
+                            })}
+                        >
+                            Topshirdim — tasdiqlash
+                        </Button>
+                    )}
                 </div>
+
+                {/* TOPILGAN BUYURTMA - kattaroq, chunki xodim aynan shuni o'qiydi. */}
+                {matched && (
+                    <div className="mt-3 rounded-xl border-2 border-emerald-300 bg-emerald-50 px-4 py-3">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                            Berilishi kerak
+                        </p>
+                        <p className="text-xl font-black text-emerald-900 mt-1">{matched.itemName}</p>
+                        <p className="text-xs text-emerald-800 mt-0.5">
+                            Talaba: <b>{matched.studentId}</b> · {matched.pricePaid} tanga ·
+                            {' '}buyurtma {new Date(matched.createdAt).toLocaleDateString('uz-UZ')}
+                        </p>
+                    </div>
+                )}
+
+                {/* Topilmadi - lekin sabab har xil bo'lishi mumkin, shuning uchun
+                    "yo'q" deyilmaydi: allaqachon berilgan yoki bekor qilingan
+                    buyurtma ham kutilayotganlar ro'yxatida bo'lmaydi. */}
+                {typed.length >= 4 && !matched && !fulfilled && (
+                    <p className="mt-3 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                        Bu kod kutilayotgan buyurtmalar orasida yo'q. Ehtimol u allaqachon
+                        berilgan, bekor qilingan yoki kod xato kiritilgan.
+                    </p>
+                )}
                 {fulfilled && (
                     <p className="mt-3 text-sm font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
                         Berildi: {fulfilled.itemName} — {fulfilled.studentId}
