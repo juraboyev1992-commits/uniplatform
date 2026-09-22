@@ -47,6 +47,13 @@ export const NOTIFICATION_TYPES = {
         reason: "Ariza qaytarilganini bilmasangiz, u muddatsiz osilib qoladi",
         audience: 'student',
     },
+    weekly_digest: {
+        id: 'weekly_digest',
+        label: 'Haftalik xulosa',
+        description: 'Haftada bir marta: shu hafta nima qilganingiz',
+        optional: true,
+        audience: 'student',
+    },
     approval_queue: {
         id: 'approval_queue',
         label: 'Tasdiqlash navbati',
@@ -59,7 +66,7 @@ export const NOTIFICATION_TYPES = {
 
 export const NOTIFICATION_TYPE_ORDER = [
     'new_activity', 'registration_deadline', 'activity_reminder',
-    'club_news', 'application_status', 'approval_queue',
+    'club_news', 'weekly_digest', 'application_status', 'approval_queue',
 ];
 
 // Sukut: hammasi yoqilgan. Odam o'zi kerakmasini o'chiradi — teskarisi emas,
@@ -104,6 +111,16 @@ export const notificationLink = (notif, role) => {
             return isStaff ? '/admin/talent?tab=applications' : '/student/achievements';
         case 'recognition':
             return isStaff ? '/admin/awards?bolim=jarayon' : '/student/incentive-awards';
+        // IMKONIYAT. `opportunity-deadline-reminders` (pg_cron, har kuni 06:00)
+        // aynan shu `refType` bilan xabar yuboradi, lekin bu yerda holat yo'q
+        // edi - ya'ni har kuni yuborilayotgan eslatma BOSILGANDA hech qayerga
+        // olib bormasdi. Talaba "muddat yaqinlashmoqda" deganni o'qiydi va
+        // qayerga borishni o'zi qidiradi.
+        case 'opportunity':
+            return isStaff ? '/admin/talent?tab=grants' : '/student/achievements';
+        // HAFTALIK XULOSA - o'z faolligi sahifasiga.
+        case 'digest':
+            return isStaff ? null : '/student/social-activity';
         default:
             return null;
     }
