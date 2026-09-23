@@ -66,6 +66,20 @@ const CulturalVisitCapture = () => {
 
     const selectedPlace = places.find(p => p.id === placeId) || null;
 
+    // Tashrifning HAQIQIY turi/hududi - katalogdagi joy tanlansa uniki,
+    // aks holda talaba tanlagani. Qoida tekshiruvi shularga qaraydi.
+    const effType = selectedPlace ? selectedPlace.type : placeType;
+    const effRegion = selectedPlace ? (selectedPlace.region || region) : region;
+    const effDistrict = selectedPlace ? (selectedPlace.district || district) : district;
+
+    // Ro'yxat TUR bo'yicha, hudud tanlangan bo'lsa hudud bo'yicha ham
+    // suziladi. TUMAN bo'yicha suzilmaydi ATAYLAB: katalogdagi joyda tuman
+    // ko'rsatilmagan bo'lishi mumkin va u holda ro'yxat bo'shab qolardi.
+    const placeChoices = places.filter(p => (
+        (!placeType || p.type === placeType)
+        && (!region || !p.region || p.region === region)
+    ));
+
     // Oyna ochilganda joylashuv so'raladi - talaba tugma qidirmasin.
     useEffect(() => {
         if (!open) return;
@@ -107,9 +121,9 @@ const CulturalVisitCapture = () => {
                 studentId: user.username,
                 placeId: placeId || null,
                 placeName: selectedPlace ? selectedPlace.name : placeName,
-                placeType: selectedPlace ? selectedPlace.type : placeType,
-                region: selectedPlace ? (selectedPlace.region || null) : (region || null),
-                district: selectedPlace ? (selectedPlace.district || null) : (district.trim() || null),
+                placeType: effType,
+                region: effRegion || null,
+                district: (effDistrict || '').trim() || null,
                 latitude: coords?.latitude ?? null,
                 longitude: coords?.longitude ?? null,
                 accuracy: coords?.accuracy ?? null,
@@ -127,8 +141,9 @@ const CulturalVisitCapture = () => {
         }
     };
 
-    const canSubmit = !busy && photo
-        && (selectedPlace || (placeName.trim() && placeType));
+    // Tur endi HAR DOIM shart: ro'yxat aynan shunga qarab suziladi.
+    const canSubmit = !busy && photo && placeType
+        && (selectedPlace || placeName.trim());
 
     const monthLabel = (key) => {
         const [y, m] = key.split('-');
@@ -266,68 +281,86 @@ const CulturalVisitCapture = () => {
                         )}
                     </div>
 
-                    {/* Katalog bo'sh bo'lsa ro'yxat KO'RSATILMAYDI: ichida
-                        bitta ham variant bo'lmagan ro'yxat, ostida esa "Joy
-                        nomi" maydoni - talabaga ikkita joy maydoni bordek
-                        tuyuladi. Bo'sh katalogda to'g'ridan-to'g'ri yozadi. */}
-                    {places.length > 0 && (
+                    {/* TARTIB: tur -> hudud/tuman -> joy.
+                        Avval nima turdagi joyga borgani, keyin qayerdaligi,
+                        oxirida joyning o'zi - shunda ro'yxat allaqachon
+                        suzilgan bo'ladi va talaba yuzlab joy ichidan
+                        qidirmaydi. Ilgari teskari edi: birinchi butun
+                        katalog chiqardi, tur esa pastda so'ralardi. */}
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Joy</label>
+                        <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">
+                            1. Joy turi
+                        </label>
                         <select
-                            value={placeId}
-                            onChange={e => { setPlaceId(e.target.value); setPlaceName(''); setPlaceType(''); }}
+                            value={placeType}
+                            onChange={e => {
+                                setPlaceType(e.target.value);
+                                // Tur o'zgarsa avvalgi tanlov mos kelmay
+                                // qolishi mumkin - tozalaymiz.
+                                setPlaceId(''); setPlaceName('');
+                            }}
                             className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white"
                         >
-                            <option value="">&mdash; Ro&rsquo;yxatda yo&rsquo;q, o&rsquo;zim yozaman &mdash;</option>
-                            {CULTURAL_PLACE_TYPE_ORDER.map(t => {
-                                const group = places.filter(p => p.type === t);
-                                if (group.length === 0) return null;
-                                return (
-                                    <optgroup key={t} label={CULTURAL_PLACE_TYPES[t].label}>
-                                        {group.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                    </optgroup>
-                                );
-                            })}
+                            <option value="">Tanlang...</option>
+                            {CULTURAL_PLACE_TYPE_ORDER.map(t => (
+                                <option key={t} value={t}>{CULTURAL_PLACE_TYPES[t].label}</option>
+                            ))}
                         </select>
                     </div>
+
+                    {placeType && (
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">
+                                2. Hudud
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <RegionPicker
+                                    region={region} district={district}
+                                    onChange={({ region: r, district: d }) => {
+                                        setRegion(r); setDistrict(d);
+                                        setPlaceId(''); setPlaceName('');
+                                    }}
+                                />
+                            </div>
+                        </div>
                     )}
 
-                    {!placeId && (
-                        <div className="space-y-3">
-                        {/* Sarlavha faqat ro'yxat bor paytda kerak - ikkovini
-                            ajratib turish uchun. Katalog bo'sh bo'lsa
-                            ajratadigan narsa yo'q. */}
-                        {places.length > 0 && (
-                            <label className="block text-xs font-bold text-gray-500 uppercase">
-                                Yangi joy ma&rsquo;lumotlari
+                    {placeType && (
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">
+                                3. Joy
                             </label>
-                        )}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <input
-                                type="text" value={placeName} onChange={e => setPlaceName(e.target.value)}
-                                placeholder="Joy nomi"
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm"
-                            />
-                            <select
-                                value={placeType} onChange={e => setPlaceType(e.target.value)}
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white"
-                            >
-                                <option value="">Turi...</option>
-                                {CULTURAL_PLACE_TYPE_ORDER.map(t => (
-                                    <option key={t} value={t}>{CULTURAL_PLACE_TYPES[t].label}</option>
-                                ))}
-                            </select>
+                            {placeChoices.length > 0 ? (
+                                <select
+                                    value={placeId}
+                                    onChange={e => { setPlaceId(e.target.value); setPlaceName(''); }}
+                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white"
+                                >
+                                    <option value="">&mdash; Ro&rsquo;yxatda yo&rsquo;q, o&rsquo;zim yozaman &mdash;</option>
+                                    {placeChoices.map(p => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.name}{p.district ? ` — ${p.district}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                // Suzilgandan keyin hech narsa qolmasa ro'yxat
+                                // ko'rsatilmaydi - bo'sh ro'yxat chalkashtiradi.
+                                <p className="text-[11px] text-gray-400 mb-1.5">
+                                    {region
+                                        ? 'Bu hududda bunday joy katalogda yo\u2018q \u2014 nomini o\u2018zingiz yozing.'
+                                        : 'Katalog bo\u2018sh \u2014 joy nomini o\u2018zingiz yozing.'}
+                                </p>
+                            )}
 
-                            {/* HUDUD VA TUMAN. Administrator joy qo'shganda
-                                aynan shu komponentdan foydalanadi - ikki joyda
-                                bir xil yozuv chiqishi uchun. */}
-                            <RegionPicker
-                                region={region} district={district}
-                                onChange={({ region: r, district: d }) => {
-                                    setRegion(r); setDistrict(d);
-                                }}
-                            />
-                        </div>
+                            {!placeId && (
+                                <input
+                                    type="text" value={placeName}
+                                    onChange={e => setPlaceName(e.target.value)}
+                                    placeholder="Joy nomi"
+                                    className={`w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm${placeChoices.length > 0 ? ' mt-2' : ''}`}
+                                />
+                            )}
                         </div>
                     )}
 
@@ -335,7 +368,7 @@ const CulturalVisitCapture = () => {
                         bo'lgandan keyin "hisobga olinmadi" deb eshitgandan
                         ko'ra, hozir bilgani yaxshi. To'sib qo'yilmaydi:
                         qaror baribir tasdiqlovchida. */}
-                    {!placeId && regionAllowsCredit(placeType, region) === false && (
+                    {regionAllowsCredit(effType, effRegion) === false && (
                         <p className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
                             Metodika bo&rsquo;yicha qadamjo va turizm maskanlari universitet
                             joylashgan hududdan tashqarida bo&rsquo;lishi kerak — bu tashrif
@@ -346,9 +379,9 @@ const CulturalVisitCapture = () => {
 
                     {/* Aksincha holat: metodikada nomma-nom turgan shahar.
                         Talaba qayd to'g'ri ketayotganini KO'RIB tursin. */}
-                    {!placeId && placeType === 'heritage'
-                        && regionAllowsCredit(placeType, region) === true
-                        && isNamedHeritageCity(region, district) && (
+                    {effType === 'heritage'
+                        && regionAllowsCredit(effType, effRegion) === true
+                        && isNamedHeritageCity(effRegion, effDistrict) && (
                         <p className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
                             Bu shahar metodikada nomma-nom sanab o&rsquo;tilgan.
                         </p>
