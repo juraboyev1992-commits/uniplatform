@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Camera, MapPin, AlertTriangle, CheckCircle2, Clock, XCircle, Loader2 } from 'lucide-react';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
@@ -6,10 +6,12 @@ import Button from '../common/Button';
 import Modal from '../common/Modal';
 import RegionPicker from '../common/RegionPicker';
 import CulturalPlacePicker from './CulturalPlacePicker';
+import LiveCameraCapture from '../common/LiveCameraCapture';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import {
     INDEX_CRITERIA, CULTURAL_PLACE_TYPES, CULTURAL_PLACE_TYPE_ORDER,
+    CULTURAL_PHOTO_COUNT,
     regionAllowsCredit, isNamedHeritageCity,
 } from '../../config/socialActivityIndex';
 
@@ -59,11 +61,12 @@ const CulturalVisitCapture = () => {
     const [district, setDistrict] = useState('');
     const [placeType, setPlaceType] = useState('');
     const [note, setNote] = useState('');
-    const [photo, setPhoto] = useState(null);
-    const [preview, setPreview] = useState(null);
+    // Uchta surat. `captureMode` - ular JONLI kameradan olindimi yoki
+    // fayldan tanlandimi. Tasdiqlovchi buni ko'rishi kerak.
+    const [photos, setPhotos] = useState([]);
+    const [captureMode, setCaptureMode] = useState('live');
     const [coords, setCoords] = useState(null);
     const [geoState, setGeoState] = useState('idle'); // idle | asking | ok | denied
-    const fileRef = useRef(null);
 
     const selectedPlace = places.find(p => p.id === placeId) || null;
 
@@ -100,19 +103,11 @@ const CulturalVisitCapture = () => {
         );
     }, [open]);
 
-    // Ko'rinish uchun havola - xotirada qolib ketmasin.
-    useEffect(() => {
-        if (!photo) { setPreview(null); return; }
-        const url = URL.createObjectURL(photo);
-        setPreview(url);
-        return () => URL.revokeObjectURL(url);
-    }, [photo]);
-
     const reset = () => {
         setPlaceId(''); setPlaceName(''); setPlaceType(''); setNote('');
         setRegion(''); setDistrict('');
-        setPhoto(null); setCoords(null); setGeoState('idle');
-        if (fileRef.current) fileRef.current.value = '';
+        setPhotos([]); setCaptureMode('live');
+        setCoords(null); setGeoState('idle');
     };
 
     const submit = async () => {
@@ -128,7 +123,8 @@ const CulturalVisitCapture = () => {
                 latitude: coords?.latitude ?? null,
                 longitude: coords?.longitude ?? null,
                 accuracy: coords?.accuracy ?? null,
-                photoFile: photo,
+                photoFiles: photos,
+                captureMode,
                 note,
             });
             reset();
@@ -143,7 +139,8 @@ const CulturalVisitCapture = () => {
     };
 
     // Tur endi HAR DOIM shart: ro'yxat aynan shunga qarab suziladi.
-    const canSubmit = !busy && photo && placeType
+    const canSubmit = !busy && placeType
+        && photos.length >= CULTURAL_PHOTO_COUNT
         && (selectedPlace || placeName.trim());
 
     const monthLabel = (key) => {
@@ -364,39 +361,32 @@ const CulturalVisitCapture = () => {
                         </p>
                     )}
 
-                    {/* FOTOSURAT - majburiy. Telefonda kamera ochiladi. */}
+                    {/* FOTOSURAT - majburiy, JONLI kameradan.
+                        `<input capture>` yetarli emas edi: u brauzerga
+                        maslahat xolos va ko'p qurilmada oddiy fayl tanlash
+                        oynasini ochardi, ya'ni gallereyadagi eski surat ham
+                        o'tib ketaverardi. */}
                     <div>
                         <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">
-                            Fotosurat *
+                            4. Fotosurat ({CULTURAL_PHOTO_COUNT} ta)
                         </label>
-                        {preview ? (
-                            <div className="relative">
-                                <img src={preview} alt="" className="w-full h-48 object-cover rounded-xl border border-gray-200" />
-                                <button
-                                    type="button"
-                                    onClick={() => { setPhoto(null); if (fileRef.current) fileRef.current.value = ''; }}
-                                    className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-white/90 text-[11px] font-bold text-gray-700"
-                                >
-                                    Qayta olish
-                                </button>
-                            </div>
+                        {/* Kamera FAQAT joy tanlangach ochiladi. Aks holda
+                            oyna ochilishi bilan ruxsat so'ralardi - talaba
+                            hali nima qilayotganini bilmay turib. */}
+                        {placeType && (selectedPlace || placeName) ? (
+                            <LiveCameraCapture
+                                count={CULTURAL_PHOTO_COUNT}
+                                photos={photos}
+                                onChange={(next, mode) => {
+                                    setPhotos(next);
+                                    if (mode) setCaptureMode(mode);
+                                }}
+                            />
                         ) : (
-                            <label className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-teal-500 transition-colors cursor-pointer block">
-                                <Camera className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                                <p className="text-sm text-gray-600">Joyda turib suratga oling</p>
-                                <input
-                                    ref={fileRef}
-                                    type="file" accept="image/*" capture="environment"
-                                    className="hidden"
-                                    onChange={e => setPhoto(e.target.files?.[0] || null)}
-                                />
-                            </label>
+                            <p className="text-[11px] text-gray-400 border border-dashed border-gray-200 rounded-xl px-3 py-4 text-center">
+                                Avval joyni tanlang &mdash; keyin kamera ochiladi.
+                            </p>
                         )}
-                        {/* Cheklovni ochiq aytamiz. */}
-                        <p className="text-[11px] text-gray-400 mt-1.5">
-                            Telefonda kamera ochiladi. Fotosurat va joylashuv birga saqlanadi —
-                            hisobot yozish shart emas, ma'lumotnoma o'zi shakllanadi.
-                        </p>
                     </div>
 
                     <div>

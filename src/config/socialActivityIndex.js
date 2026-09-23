@@ -978,6 +978,11 @@ export const CULTURAL_PLACE_TYPE_ORDER = ['theatre', 'museum', 'park', 'cinema',
 // va talabani texnika xatosi uchun jazolash noto'g'ri. Qaror mas'ulda.
 export const CULTURAL_PROXIMITY_METERS = 300;
 
+// Bitta tashrif uchun nechta surat. Bitta surat dalil sifatida zaif: uni
+// oldindan olib qo'yish yoki boshqa manbadan olish oson. Uchta surat ayni
+// joyda, ayni paytda turishni talab qiladi.
+export const CULTURAL_PHOTO_COUNT = 3;
+
 // Ikki koordinata orasidagi masofa (metr) - Gaverzin formulasi.
 export const distanceMeters = (lat1, lon1, lat2, lon2) => {
     if ([lat1, lon1, lat2, lon2].some(v => v == null || Number.isNaN(Number(v)))) return null;

@@ -33,7 +33,8 @@ import {
     APPEAL, PLACEMENT_LEVEL_ORDER, PLACEMENT_PLACES, placementToPoints,
     VOLUNTEERING_SCALE, VOLUNTEERING_CATEGORIES, volunteeringCategoryOf,
     SPORT_POLICY, SPORT_CLAIM_LEVELS, sportClaimPoints,
-    CULTURAL_PLACE_TYPES, distanceMeters, culturalFrequency, ACADEMIC_MONTHS,
+    CULTURAL_PLACE_TYPES, CULTURAL_PHOTO_COUNT,
+    distanceMeters, culturalFrequency, ACADEMIC_MONTHS,
 } from '../config/socialActivityIndex.js';
 import {
     PASSPORT_SECTIONS, PASSPORT_FIELD_INDEX, VIEWER_KINDS,
@@ -2709,7 +2710,17 @@ const mapCulturalVisitFromSupabase = (row) => ({
     // ya'ni "ko'rsatilmagan", "mos emas" EMAS.
     region: row.region || null,
     district: row.district || null,
-    photoPath: row.photo_path, note: row.note, status: row.status,
+    photoPath: row.photo_path,
+    // Uchta surat. Eski qaydlarda faqat `photo_path` bor - ularni ham
+    // bitta elementli ro'yxatdek ko'rsatamiz, tasdiqlovchi ikki xil
+    // ko'rinish bilan ishlamasin.
+    photoPaths: Array.isArray(row.photo_paths) && row.photo_paths.length
+        ? row.photo_paths
+        : (row.photo_path ? [row.photo_path] : []),
+    // 'live' - kameradan, 'upload' - fayldan. Eski qaydlarda null:
+    // "bilinmaydi", "fayldan" EMAS.
+    captureMode: row.capture_mode || null,
+    note: row.note, status: row.status,
     reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at,
     reviewComment: row.review_comment, createdAt: row.created_at,
 });
@@ -13030,14 +13041,22 @@ export const db = {
     recordCulturalVisit: async ({
         studentId, placeId = null, placeName, placeType, region = null, district = null,
         visitedAt = null, latitude = null, longitude = null, accuracy = null,
-        photoFile = null, note = '', academicYear = null,
+        photoFile = null, photoFiles = null, captureMode = null,
+        note = '', academicYear = null,
     }) => {
         await assertAuthenticated();
         if (!String(placeName || '').trim()) throw new Error('Joy nomini kiriting');
         if (!CULTURAL_PLACE_TYPES[placeType]) throw new Error('Joy turini tanlang');
         // Fotosuratsiz tashrif dalil emas - metodika aynan fotosuratni talab
         // qiladi, shuning uchun bu tekshiruv yumshatilmaydi.
-        if (!photoFile) throw new Error('Fotosurat majburiy — joyda turib suratga oling');
+        // Eski chaqiruv `photoFile` (bitta) bilan kelishi mumkin.
+        const files = (photoFiles && photoFiles.length ? photoFiles
+            : (photoFile ? [photoFile] : [])).filter(Boolean);
+        if (files.length < CULTURAL_PHOTO_COUNT) {
+            throw new Error(
+                `Fotosurat majburiy — joyda turib ${CULTURAL_PHOTO_COUNT} ta surat oling`
+            );
+        }
 
         const dbData = getDB();
         const year = academicYear || getCurrentAcademicYear();
@@ -13050,12 +13069,24 @@ export const db = {
             ? distanceMeters(latitude, longitude, place.latitude, place.longitude)
             : null;
 
-        const ext = (photoFile.name?.split('.').pop() || 'jpg').toLowerCase();
-        const path = `${year}/${studentId}/${id}.${ext}`;
-        const { error: upErr } = await supabase.storage
-            .from('cultural-visits')
-            .upload(path, photoFile, { contentType: photoFile.type || 'image/jpeg', upsert: false });
-        if (upErr) throw new Error('Fotosurat yuklanmadi: ' + upErr.message);
+        // Suratlar KETMA-KET yuklanadi. Parallel yuklash mobil internetda
+        // tezroq emas, lekin xato bo'lganda qaysi biri tushmaganini aytish
+        // qiyinlashadi.
+        const paths = [];
+        for (let i = 0; i < files.length; i += 1) {
+            const f = files[i];
+            const ext = (f.name?.split('.').pop() || 'jpg').toLowerCase();
+            const p = `${year}/${studentId}/${id}-${i + 1}.${ext}`;
+            // eslint-disable-next-line no-await-in-loop
+            const { error: upErr } = await supabase.storage
+                .from('cultural-visits')
+                .upload(p, f, { contentType: f.type || 'image/jpeg', upsert: false });
+            if (upErr) {
+                throw new Error(`${i + 1}-fotosurat yuklanmadi: ` + upErr.message);
+            }
+            paths.push(p);
+        }
+        const path = paths[0];
 
         // HUDUD. Katalogdagi joy tanlansa - uning hududi, qo'lda yozilsa -
         // talaba ko'rsatgani. Metodikada qadamjo/turizm maskani OTM joylashgan
@@ -13073,7 +13104,8 @@ export const db = {
             latitude: latitude == null ? null : Number(latitude),
             longitude: longitude == null ? null : Number(longitude),
             accuracy: accuracy == null ? null : Number(accuracy),
-            distance, photoPath: path,
+            distance, photoPath: path, photoPaths: paths,
+            captureMode: captureMode === 'upload' ? 'upload' : 'live',
             note: String(note || '').trim(),
             status: 'pending',
             reviewedBy: null, reviewedAt: null, reviewComment: '',
@@ -13086,7 +13118,9 @@ export const db = {
             visited_at: when, latitude: record.latitude, longitude: record.longitude,
             accuracy_m: record.accuracy, distance_m: distance,
             region: record.region, district: record.district,
-            photo_path: path, note: record.note, status: 'pending',
+            photo_path: path, photo_paths: paths,
+            capture_mode: record.captureMode,
+            note: record.note, status: 'pending',
             created_at: record.createdAt,
         });
         if (error) throw error;
@@ -13128,6 +13162,18 @@ export const db = {
             .createSignedUrl(photoPath, 3600);
         if (error) return null;
         return data?.signedUrl || null;
+    },
+
+    // Bir nechta surat uchun imzolangan havolalar. Yakka `getCulturalPhotoUrl`
+    // saqlanib qoldi - u boshqa joyda ham ishlatilishi mumkin.
+    getCulturalPhotoUrls: async (photoPaths = []) => {
+        const list = (photoPaths || []).filter(Boolean);
+        if (list.length === 0) return [];
+        const { data, error } = await supabase.storage
+            .from('cultural-visits')
+            .createSignedUrls(list, 3600);
+        if (error) return [];
+        return (data || []).map(d => d?.signedUrl || null).filter(Boolean);
     },
 
     reviewCulturalVisit: async ({ visitId, action, comment = '', reviewedBy }) => {

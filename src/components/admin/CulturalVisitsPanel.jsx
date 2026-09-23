@@ -36,7 +36,7 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
     const [message, setMessage] = useState('');
     const [showPlaceForm, setShowPlaceForm] = useState(false);
     const [photoOf, setPhotoOf] = useState(null);
-    const [photoUrl, setPhotoUrl] = useState(null);
+    const [photoUrls, setPhotoUrls] = useState(null);
 
     const pending = useMemo(() => {
         const rows = db.getCulturalVisits({ status: 'pending' });
@@ -61,10 +61,13 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
 
     // Fotosurat havolasi vaqtinchalik - ombor yopiq, ochiq havola yo'q.
     useEffect(() => {
-        if (!photoOf?.photoPath) { setPhotoUrl(null); return; }
+        const paths = photoOf?.photoPaths?.length
+            ? photoOf.photoPaths
+            : (photoOf?.photoPath ? [photoOf.photoPath] : []);
+        if (paths.length === 0) { setPhotoUrls(null); return undefined; }
         let alive = true;
-        setPhotoUrl(null);
-        db.getCulturalPhotoUrl(photoOf.photoPath).then(url => { if (alive) setPhotoUrl(url); });
+        setPhotoUrls(null);
+        db.getCulturalPhotoUrls(paths).then(urls => { if (alive) setPhotoUrls(urls); });
         return () => { alive = false; };
     }, [photoOf]);
 
@@ -368,14 +371,34 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
             )}
 
             {/* Fotosurat oynasi */}
-            <Modal isOpen={!!photoOf} onClose={() => setPhotoOf(null)} title="Tashrif fotosurati">
+            <Modal isOpen={!!photoOf} onClose={() => setPhotoOf(null)} title="Tashrif fotosuratlari">
                 {photoOf && (
                     <div className="space-y-3">
                         <p className="text-xs text-gray-500">
                             {photoOf.placeName} · {new Date(photoOf.visitedAt).toLocaleString('uz-UZ')}
                         </p>
-                        {photoUrl ? (
-                            <img src={photoUrl} alt="" className="w-full rounded-xl border border-gray-200" />
+                        {/* JONLI EMAS - tasdiqlovchi buni ko'rishi SHART.
+                            `null` - eski qayd, ya'ni "bilinmaydi", "fayldan"
+                            EMAS: o'shanda bu farq umuman yozilmasdi. */}
+                        {photoOf.captureMode === 'upload' && (
+                            <p className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                                Bu suratlar kameradan emas, fayldan tanlangan &mdash;
+                                qurilmada kamera ochilmagan. Ularning joyda olinganini
+                                tizim kafolatlay olmaydi.
+                            </p>
+                        )}
+                        {photoUrls ? (
+                            <div className="space-y-2">
+                                {photoUrls.map((u, i) => (
+                                    <img
+                                        key={u} src={u} alt={`${i + 1}-surat`}
+                                        className="w-full rounded-xl border border-gray-200"
+                                    />
+                                ))}
+                                {photoUrls.length === 0 && (
+                                    <p className="text-xs text-gray-400">Surat ochilmadi.</p>
+                                )}
+                            </div>
                         ) : (
                             <div className="h-48 flex items-center justify-center text-gray-400">
                                 <Loader2 size={20} className="animate-spin" />
