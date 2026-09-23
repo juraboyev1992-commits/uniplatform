@@ -89,9 +89,13 @@ const SocialActivityIndex = () => {
     //
     // `CRITERION_ACTIONS` (config/socialActivityIndex.js) har mezon uchun
     // talabadan nima kutilishini belgilaydi: hujjat yuklash, havolaga o'tish,
-    // tasdiq so'rash yoki HECH NARSA. Bu sozlama yozilgan edi, lekin hech
-    // qayerga ULANMAGAN edi - natijada yuklash tugmasi hamma 11 mezonda
-    // ochiq turardi.
+    // tasdiq so'rash yoki HECH NARSA.
+    //
+    // Mezonlar RO'YXATIDA u allaqachon hisobga olinardi (`getCriterionAction`
+    // orqali), lekin IKKI joyda e'tiborga olinmasdi: mezon tafsiloti
+    // oynasidagi "Hujjat yuklash" tugmasi hamma mezonda chizilardi va
+    // yuklash oynasidagi ro'yxatda hamma 11 mezon turardi. Ya'ni ro'yxat
+    // to'g'ri aytardi-yu, ikki qadam narida taqiq yo'q edi.
     //
     // Nega bu muhim: ball GPA dan, davomatdan yoki test natijasidan
     // hisoblanadigan mezonga hujjat yuklash foydasiz. Talaba yuklaydi,
