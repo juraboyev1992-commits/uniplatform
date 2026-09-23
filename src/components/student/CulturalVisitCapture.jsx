@@ -4,12 +4,12 @@ import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
+import RegionPicker from '../common/RegionPicker';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import {
     INDEX_CRITERIA, CULTURAL_PLACE_TYPES, CULTURAL_PLACE_TYPE_ORDER,
-    HERITAGE_CITIES,
-    regionAllowsCredit,
+    regionAllowsCredit, isNamedHeritageCity,
 } from '../../config/socialActivityIndex';
 
 // MADANIY TASHRIF QAYD ETISH (9-mezon).
@@ -53,6 +53,9 @@ const CulturalVisitCapture = () => {
     // joylashgan hududdan BOSHQA joyda bo'lishini talab qiladi; teatr,
     // muzey, kino va xiyobon uchun bunday cheklov yo'q.
     const [region, setRegion] = useState('');
+    // Tuman ro'yxatdan tanlanadi, lekin ro'yxat eskirishi mumkin - shuning
+    // uchun "Boshqa" varianti erkin matn maydonini ochadi.
+    const [district, setDistrict] = useState('');
     const [placeType, setPlaceType] = useState('');
     const [note, setNote] = useState('');
     const [photo, setPhoto] = useState(null);
@@ -92,6 +95,7 @@ const CulturalVisitCapture = () => {
 
     const reset = () => {
         setPlaceId(''); setPlaceName(''); setPlaceType(''); setNote('');
+        setRegion(''); setDistrict('');
         setPhoto(null); setCoords(null); setGeoState('idle');
         if (fileRef.current) fileRef.current.value = '';
     };
@@ -104,7 +108,8 @@ const CulturalVisitCapture = () => {
                 placeId: placeId || null,
                 placeName: selectedPlace ? selectedPlace.name : placeName,
                 placeType: selectedPlace ? selectedPlace.type : placeType,
-                region: selectedPlace ? (selectedPlace.region || null) : (region.trim() || null),
+                region: selectedPlace ? (selectedPlace.region || null) : (region || null),
+                district: selectedPlace ? (selectedPlace.district || null) : (district.trim() || null),
                 latitude: coords?.latitude ?? null,
                 longitude: coords?.longitude ?? null,
                 accuracy: coords?.accuracy ?? null,
@@ -298,20 +303,15 @@ const CulturalVisitCapture = () => {
                                 ))}
                             </select>
 
-                            {/* HUDUD. Ro'yxat metodikada sanab o'tilgan shaharlar,
-                                lekin u YOPIQ emas ("va boshqa shu kabi qadimiy
-                                shaharlar") - shuning uchun o'z shahrini ham yoza
-                                oladi. `datalist` aynan shuni beradi: taklif bor,
-                                majburlash yo'q. */}
-                            <input
-                                type="text" list="cultural-regions"
-                                value={region} onChange={e => setRegion(e.target.value)}
-                                placeholder="Shahar / viloyat"
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm"
+                            {/* HUDUD VA TUMAN. Administrator joy qo'shganda
+                                aynan shu komponentdan foydalanadi - ikki joyda
+                                bir xil yozuv chiqishi uchun. */}
+                            <RegionPicker
+                                region={region} district={district}
+                                onChange={({ region: r, district: d }) => {
+                                    setRegion(r); setDistrict(d);
+                                }}
                             />
-                            <datalist id="cultural-regions">
-                                {HERITAGE_CITIES.map(c => <option key={c} value={c} />)}
-                            </datalist>
                         </div>
                     )}
 
@@ -325,6 +325,16 @@ const CulturalVisitCapture = () => {
                             joylashgan hududdan tashqarida bo&rsquo;lishi kerak — bu tashrif
                             hisobga olinmasligi mumkin. Teatr, muzey va kinoga bu cheklov
                             tegishli emas.
+                        </p>
+                    )}
+
+                    {/* Aksincha holat: metodikada nomma-nom turgan shahar.
+                        Talaba qayd to'g'ri ketayotganini KO'RIB tursin. */}
+                    {!placeId && placeType === 'heritage'
+                        && regionAllowsCredit(placeType, region) === true
+                        && isNamedHeritageCity(region, district) && (
+                        <p className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                            Bu shahar metodikada nomma-nom sanab o&rsquo;tilgan.
                         </p>
                     )}
 

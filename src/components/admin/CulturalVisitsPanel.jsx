@@ -6,6 +6,7 @@ import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
+import RegionPicker from '../common/RegionPicker';
 import StatStrip from '../common/StatStrip';
 import { getCulturalStats } from '../../utils/moduleStats';
 import { db } from '../../services/db';
@@ -65,7 +66,7 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
         finally { setBusy(false); }
     };
 
-    const [form, setForm] = useState({ name: '', type: '', address: '', latitude: '', longitude: '' });
+    const [form, setForm] = useState({ name: '', type: '', address: '', region: '', district: '', latitude: '', longitude: '' });
 
 
     // Umumiy ko'rsatkichlar - faqat ADMINISTRATOR ko'rinishida. Tyutorda
@@ -218,7 +219,7 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
                                                 TEKSHIRIB BO'LMADI; "mos emas" emas. */}
                                             {v.region && (
                                                 <span className="px-2 py-1 rounded-lg bg-gray-50 border border-gray-200 text-gray-600">
-                                                    {v.region}
+                                                    {v.region}{v.district ? `, ${v.district}` : ''}
                                                 </span>
                                             )}
                                             {regionAllowsCredit(v.placeType, v.region) === false && (
@@ -278,7 +279,7 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
                             Joylar katalogi ({places.length})
                         </h4>
                         <Button variant="outline" size="sm" icon={Plus} onClick={() => {
-                            setForm({ name: '', type: '', address: '', latitude: '', longitude: '' });
+                            setForm({ name: '', type: '', address: '', region: '', district: '', latitude: '', longitude: '' });
                             setShowPlaceForm(true);
                         }}>
                             Joy qo'shish
@@ -298,6 +299,7 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
                                         <p className="text-xs font-semibold text-gray-800 truncate">{p.name}</p>
                                         <p className="text-[11px] text-gray-400">
                                             {CULTURAL_PLACE_TYPES[p.type]?.label}
+                                            {p.region ? ` · ${p.region}${p.district ? ', ' + p.district : ''}` : ''}
                                             {p.address ? ` · ${p.address}` : ''}
                                         </p>
                                     </div>
@@ -354,6 +356,24 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
                         placeholder="Manzil"
                         className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm"
                     />
+                    {/* HUDUD. Katalogdagi joyni talaba tanlaganda tashrif
+                        hududi SHU YERDAN olinadi - ya'ni bu maydon bo'sh
+                        qolsa, qadamjo uchun metodika qoidasini tekshirib
+                        bo'lmaydi va qayd "hudud ko'rsatilmagan" bo'lib
+                        turaveradi. */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <RegionPicker
+                            region={form.region} district={form.district}
+                            onChange={({ region, district }) => setForm(f => ({ ...f, region, district }))}
+                        />
+                    </div>
+                    {form.type === 'heritage' && !form.region && (
+                        <p className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                            Qadamjo uchun hududni ko&rsquo;rsating &mdash; 9-mezon qoidasi
+                            (&laquo;OTM joylashgan hududdan boshqa joyda&raquo;) shunga qarab
+                            tekshiriladi.
+                        </p>
+                    )}
                     <div className="grid grid-cols-2 gap-3">
                         <input
                             type="number" step="any" value={form.latitude}

@@ -2695,6 +2695,7 @@ const mapCulturalPlaceFromSupabase = (row) => ({
     longitude: row.longitude == null ? null : Number(row.longitude),
     isActive: !!row.is_active, createdBy: row.created_by, createdAt: row.created_at,
     region: row.region || null,
+    district: row.district || null,
 });
 const mapCulturalVisitFromSupabase = (row) => ({
     ...row.data, id: row.id, studentId: row.student_id, academicYear: row.academic_year,
@@ -2704,9 +2705,10 @@ const mapCulturalVisitFromSupabase = (row) => ({
     longitude: row.longitude == null ? null : Number(row.longitude),
     accuracy: row.accuracy_m == null ? null : Number(row.accuracy_m),
     distance: row.distance_m == null ? null : Number(row.distance_m),
-    // Tashrif hududi (shahar/viloyat). Bo'sh bo'lsa `null` - ya'ni
-    // "ko'rsatilmagan", "mos emas" EMAS.
+    // Tashrif hududi (viloyat/shahar) va tumani. Bo'sh bo'lsa `null` -
+    // ya'ni "ko'rsatilmagan", "mos emas" EMAS.
     region: row.region || null,
+    district: row.district || null,
     photoPath: row.photo_path, note: row.note, status: row.status,
     reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at,
     reviewComment: row.review_comment, createdAt: row.created_at,
@@ -12979,7 +12981,7 @@ export const db = {
             .filter(p => includeInactive || p.isActive)
             .sort((a, b) => String(a.name).localeCompare(String(b.name))),
 
-    saveCulturalPlace: async ({ id = null, name, type, address = '', latitude = null, longitude = null, isActive = true, by = null }) => {
+    saveCulturalPlace: async ({ id = null, name, type, address = '', region = null, district = null, latitude = null, longitude = null, isActive = true, by = null }) => {
         await assertAuthenticated();
         if (!String(name || '').trim()) throw new Error('Joy nomini kiriting');
         if (!CULTURAL_PLACE_TYPES[type]) throw new Error('Joy turini tanlang');
@@ -12991,6 +12993,8 @@ export const db = {
             id: existing?.id || 'cplace_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
             name: String(name).trim(), type,
             address: String(address || '').trim(),
+            region: String(region || '').trim() || null,
+            district: String(district || '').trim() || null,
             latitude: latitude === '' || latitude == null ? null : Number(latitude),
             longitude: longitude === '' || longitude == null ? null : Number(longitude),
             isActive: !!isActive,
@@ -13000,6 +13004,7 @@ export const db = {
 
         const { error } = await supabase.from('cultural_places').upsert({
             id: record.id, name: record.name, type: record.type, address: record.address,
+            region: record.region, district: record.district,
             latitude: record.latitude, longitude: record.longitude,
             is_active: record.isActive, created_by: record.createdBy, created_at: record.createdAt,
         });
@@ -13023,7 +13028,7 @@ export const db = {
     // Tashrif qayd etish. Fotosurat Supabase Storage ga yuklanadi -
     // fayl NOMI emas, faylning O'ZI saqlanadi, aks holda dalil tekshirilmasdi.
     recordCulturalVisit: async ({
-        studentId, placeId = null, placeName, placeType, region = null,
+        studentId, placeId = null, placeName, placeType, region = null, district = null,
         visitedAt = null, latitude = null, longitude = null, accuracy = null,
         photoFile = null, note = '', academicYear = null,
     }) => {
@@ -13057,10 +13062,12 @@ export const db = {
         // hududdan BOSHQA joyda bo'lishi talab qilinadi (teatr, muzey, kino va
         // xiyobon uchun bunday cheklov yo'q).
         const resolvedRegion = String((place?.region || region || '')).trim() || null;
+        const resolvedDistrict = String((place?.district || district || '')).trim() || null;
 
         const record = {
             id, studentId, academicYear: year,
             region: resolvedRegion,
+            district: resolvedDistrict,
             placeId, placeName: String(placeName).trim(), placeType,
             visitedAt: when,
             latitude: latitude == null ? null : Number(latitude),
@@ -13078,7 +13085,7 @@ export const db = {
             place_id: placeId, place_name: record.placeName, place_type: placeType,
             visited_at: when, latitude: record.latitude, longitude: record.longitude,
             accuracy_m: record.accuracy, distance_m: distance,
-            region: record.region,
+            region: record.region, district: record.district,
             photo_path: path, note: record.note, status: 'pending',
             created_at: record.createdAt,
         });

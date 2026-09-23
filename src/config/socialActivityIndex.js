@@ -730,26 +730,238 @@ export const sportClaimPoints = (level) =>
 //
 // O'zgarsa - shu bitta qatorni o'zgartiring.
 // ---------------------------------------------------------------------------
-export const UNIVERSITY_REGION = 'Toshkent';
-
-// Metodikada aynan sanab o'tilgan shaharlar. Ro'yxat YOPIQ emas ("va boshqa
-// shu kabi qadimiy shaharlar"), shuning uchun talaba o'zi ham yoza oladi.
+// Metodikada aynan nomma-nom sanab o'tilgan qadimiy shaharlar. Ro'yxat
+// YOPIQ emas ("va boshqa shu kabi qadimiy shaharlar") - shuning uchun u
+// hech narsani TAQIQLAMAYDI, faqat "metodikada nomi bor" belgisini beradi.
 export const HERITAGE_CITIES = [
     'Samarqand', 'Buxoro', 'Toshkent', 'Xiva', "Qo'qon", 'Shahrisabz',
 ];
+
+// ---------------------------------------------------------------------------
+// O'ZBEKISTON MA'MURIY HUDUDLARI - 14 ta
+// (12 viloyat + Qoraqalpog'iston Respublikasi + Toshkent shahri).
+//
+// NEGA SHU YERDA: 9-mezon qoidasi hududga tayanadi, ya'ni hudud nomi
+// erkin matn bo'lib qolsa qoida ishlamaydi - "Toshkent", "toshkent sh.",
+// "Тошкент" uchtasi uch xil qiymat bo'lardi. Shuning uchun HUDUD ro'yxatdan
+// TANLANADI.
+//
+// TUMAN esa taklif xolos: yangi tuman tuzilishi yoki nomi o'zgarishi mumkin
+// va ro'yxat eskiradi. Interfeysda "Boshqa - qo'lda yozish" varianti bor,
+// chunki eskirgan ro'yxat tufayli talabani qayd eta olmay qoldirish
+// ro'yxatdagi kamchilikdan ko'ra yomonroq.
+//
+// Tartib: avval viloyat bo'ysunuvidagi shaharlar, keyin tumanlar.
+// ---------------------------------------------------------------------------
+export const UZ_REGIONS = [
+    {
+        code: 'qoraqalpogiston',
+        name: "Qoraqalpog'iston Respublikasi",
+        aliases: ["qoraqalpog'iston", 'qoraqalpogiston', 'nukus'],
+        districts: [
+            'Nukus shahri', 'Amudaryo', 'Beruniy', "Bo'zatov", 'Chimboy',
+            "Ellikqal'a", 'Kegeyli', "Mo'ynoq", 'Nukus', "Qanliko'l",
+            "Qorao'zak", "Qo'ng'irot", 'Shumanay', 'Taxiatosh',
+            "Taxtako'pir", "To'rtko'l", "Xo'jayli",
+        ],
+    },
+    {
+        code: 'andijon',
+        name: 'Andijon viloyati',
+        districts: [
+            'Andijon shahri', 'Xonobod shahri', 'Andijon', 'Asaka',
+            'Baliqchi', "Bo'z", 'Buloqboshi', 'Izboskan', 'Jalaquduq',
+            'Marhamat', "Oltinko'l", 'Paxtaobod', "Qo'rg'ontepa",
+            'Shahrixon', "Ulug'nor", "Xo'jaobod",
+        ],
+    },
+    {
+        code: 'buxoro',
+        name: 'Buxoro viloyati',
+        districts: [
+            'Buxoro shahri', 'Kogon shahri', 'Buxoro', "G'ijduvon",
+            'Jondor', 'Kogon', 'Olot', 'Peshku', "Qorako'l", 'Qorovulbozor',
+            'Romitan', 'Shofirkon', 'Vobkent',
+        ],
+    },
+    {
+        code: 'fargona',
+        name: "Farg'ona viloyati",
+        districts: [
+            "Farg'ona shahri", "Marg'ilon shahri", "Qo'qon shahri",
+            'Quvasoy shahri', "Bag'dod", 'Beshariq', 'Buvayda', "Dang'ara",
+            "Farg'ona", 'Furqat', 'Oltiariq', "O'zbekiston", "Qo'shtepa",
+            'Quva', 'Rishton', "So'x", 'Toshloq', "Uchko'prik", 'Yozyovon',
+        ],
+    },
+    {
+        code: 'jizzax',
+        name: 'Jizzax viloyati',
+        districts: [
+            'Jizzax shahri', 'Arnasoy', 'Baxmal', "Do'stlik", 'Forish',
+            "G'allaorol", "Mirzacho'l", 'Paxtakor', 'Sharof Rashidov',
+            'Yangiobod', 'Zafarobod', 'Zarbdor', 'Zomin',
+        ],
+    },
+    {
+        code: 'namangan',
+        name: 'Namangan viloyati',
+        districts: [
+            'Namangan shahri', 'Chortoq', 'Chust', 'Davlatobod', 'Kosonsoy',
+            'Mingbuloq', 'Namangan', 'Norin', 'Pop', "To'raqo'rg'on",
+            "Uchqo'rg'on", 'Uychi', "Yangiqo'rg'on",
+        ],
+    },
+    {
+        code: 'navoiy',
+        name: 'Navoiy viloyati',
+        districts: [
+            'Navoiy shahri', 'Zarafshon shahri', 'Karmana', 'Konimex',
+            'Navbahor', 'Nurota', 'Qiziltepa', 'Tomdi', 'Uchquduq',
+            'Xatirchi',
+        ],
+    },
+    {
+        code: 'qashqadaryo',
+        name: 'Qashqadaryo viloyati',
+        districts: [
+            'Qarshi shahri', 'Shahrisabz shahri', 'Chiroqchi', 'Dehqonobod',
+            "G'uzor", 'Kasbi', 'Kitob', 'Koson', "Ko'kdala", 'Mirishkor',
+            'Muborak', 'Nishon', 'Qamashi', 'Qarshi', 'Shahrisabz',
+            "Yakkabog'",
+        ],
+    },
+    {
+        code: 'samarqand',
+        name: 'Samarqand viloyati',
+        districts: [
+            'Samarqand shahri', "Kattaqo'rg'on shahri", "Bulung'ur",
+            'Ishtixon', 'Jomboy', "Kattaqo'rg'on", 'Narpay', 'Nurobod',
+            'Oqdaryo', "Pastdarg'om", 'Paxtachi', 'Payariq', "Qo'shrabot",
+            'Samarqand', 'Toyloq', 'Urgut',
+        ],
+    },
+    {
+        code: 'sirdaryo',
+        name: 'Sirdaryo viloyati',
+        districts: [
+            'Guliston shahri', 'Shirin shahri', 'Yangiyer shahri',
+            'Boyovut', 'Guliston', 'Mirzaobod', 'Oqoltin', 'Sardoba',
+            'Sayxunobod', 'Sirdaryo', 'Xovos',
+        ],
+    },
+    {
+        code: 'surxondaryo',
+        name: 'Surxondaryo viloyati',
+        districts: [
+            'Termiz shahri', 'Angor', 'Bandixon', 'Boysun', 'Denov',
+            "Jarqo'rg'on", 'Muzrabot', 'Oltinsoy', 'Qiziriq', "Qumqo'rg'on",
+            'Sariosiyo', 'Sherobod', "Sho'rchi", 'Termiz', 'Uzun',
+        ],
+    },
+    {
+        code: 'toshkent_viloyati',
+        name: 'Toshkent viloyati',
+        districts: [
+            'Nurafshon shahri', 'Angren shahri', 'Bekobod shahri',
+            'Chirchiq shahri', 'Ohangaron shahri', 'Olmaliq shahri',
+            "Yangiyo'l shahri", 'Bekobod', "Bo'ka", "Bo'stonliq", 'Chinoz',
+            'Ohangaron', "Oqqo'rg'on", "O'rtachirchiq", 'Parkent',
+            'Piskent', 'Qibray', 'Quyichirchiq', "Yangiyo'l",
+            'Yuqorichirchiq', 'Zangiota',
+        ],
+    },
+    {
+        code: 'xorazm',
+        name: 'Xorazm viloyati',
+        districts: [
+            'Urganch shahri', 'Xiva shahri', "Bog'ot", 'Gurlan',
+            "Qo'shko'pir", 'Shovot', "Tuproqqal'a", 'Urganch', 'Xazorasp',
+            'Xiva', 'Xonqa', 'Yangiariq', 'Yangibozor',
+        ],
+    },
+    {
+        code: 'toshkent_shahri',
+        name: 'Toshkent shahri',
+        aliases: ['toshkent'],
+        districts: [
+            'Bektemir', 'Chilonzor', 'Mirobod', "Mirzo Ulug'bek", 'Olmazor',
+            'Sergeli', 'Shayxontohur', 'Uchtepa', 'Yakkasaroy',
+            'Yangihayot', 'Yashnobod', 'Yunusobod',
+        ],
+    },
+];
+
+// Xorijdagi sayohat. Ro'yxatda 15-hudud sifatida turadi, lekin UZ_REGIONS
+// ichida EMAS - u 14 ta bo'lib qolishi kerak.
+export const ABROAD_REGION = {
+    code: 'xorij',
+    name: 'Xorij (boshqa davlat)',
+    districts: [],
+};
+
+export const REGION_OPTIONS = [...UZ_REGIONS, ABROAD_REGION];
+
+// Nomni solishtirishga tayyorlash: apostrof shakllari bir xillashtiriladi
+// (o'zbek matnida ', ' va ' aralash uchraydi) va ma'muriy qo'shimcha
+// olib tashlanadi, ya'ni "Samarqand viloyati" ~ "Samarqand".
+const normRegionText = (v) => String(v || '')
+    .replace(/[\u2018\u2019\u02bb\u02bc`]/g, "'")
+    .trim().toLowerCase()
+    .replace(/\s+(viloyati|shahri|tumani|respublikasi)$/, '')
+    .trim();
+
+// Saqlangan qiymatni hududga bog'lash. Qiymat kod, to'liq nom yoki eski
+// qisqa nom bo'lishi mumkin - uchalasi ham tanilishi kerak, chunki bazada
+// eski yozuvlar bor.
+export const findRegion = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    const low = raw.toLowerCase();
+    const exact = REGION_OPTIONS.find(
+        r => r.code === low || r.name.toLowerCase() === low
+    );
+    if (exact) return exact;
+    const short = normRegionText(raw);
+    const byAlias = REGION_OPTIONS.find(r => (r.aliases || []).includes(short));
+    if (byAlias) return byAlias;
+    return REGION_OPTIONS.find(r => normRegionText(r.name) === short) || null;
+};
+
+export const districtsOf = (value) => findRegion(value)?.districts || [];
+
+// OTM joylashgan hudud. TDYU - Toshkent SHAHRIDA.
+//
+// TOSHKENT VILOYATI ATAYLAB KIRITILMAGAN: ma'muriy jihatdan Toshkent shahri
+// va Toshkent viloyati ikki ALOHIDA hudud (14 talik ro'yxat aynan shuning
+// uchun 14 ta). Ya'ni Zangiotadagi qadamjo "boshqa hududda" hisoblanadi.
+// Agar komissiya buni boshqacha talqin qilsa - shu massivga
+// 'toshkent_viloyati' ni qo'shish kifoya, boshqa hech narsa o'zgarmaydi.
+export const UNIVERSITY_REGION_CODES = ['toshkent_shahri'];
 
 // Hudud cheklovi qaysi turlarga tegishli.
 export const REGION_RESTRICTED_TYPES = ['heritage'];
 
 // Tashrif hududi metodikaga mos keladimi.
 //   true  - hisobga olinadi
-//   false - OTM hududidagi qadamjo, hisobga olinmaydi
+//   false - OTM joylashgan hududdagi qadamjo, hisobga olinmaydi
 //   null  - hudud ko'rsatilmagan, ya'ni TEKSHIRIB BO'LMADI ("mos emas" EMAS)
 export const regionAllowsCredit = (placeType, region) => {
     if (!REGION_RESTRICTED_TYPES.includes(placeType)) return true;
-    const r = String(region || '').trim();
-    if (!r) return null;
-    return r.toLowerCase() !== UNIVERSITY_REGION.toLowerCase();
+    const raw = String(region || '').trim();
+    if (!raw) return null;
+    const found = findRegion(raw);
+    // Tanilmagan matn (masalan xorijiy shahar nomi) - OTM hududi emas.
+    if (!found) return true;
+    return !UNIVERSITY_REGION_CODES.includes(found.code);
+};
+
+// Metodikada nomi bor shaharmi. Hudud ham, tuman/shahar ham tekshiriladi:
+// Xiva Xorazm viloyatida, Qo'qon Farg'onada, Shahrisabz Qashqadaryoda -
+// ya'ni ular hudud emas, tuman darajasida uchraydi.
+export const isNamedHeritageCity = (region, district) => {
+    const named = HERITAGE_CITIES.map(normRegionText);
+    return [region, district].some(v => v && named.includes(normRegionText(v)));
 };
 
 export const CULTURAL_PLACE_TYPES = {
