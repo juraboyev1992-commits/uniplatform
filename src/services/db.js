@@ -2682,6 +2682,7 @@ const mapCulturalPlaceFromSupabase = (row) => ({
     latitude: row.latitude == null ? null : Number(row.latitude),
     longitude: row.longitude == null ? null : Number(row.longitude),
     isActive: !!row.is_active, createdBy: row.created_by, createdAt: row.created_at,
+    region: row.region || null,
 });
 const mapCulturalVisitFromSupabase = (row) => ({
     ...row.data, id: row.id, studentId: row.student_id, academicYear: row.academic_year,
@@ -2691,10 +2692,9 @@ const mapCulturalVisitFromSupabase = (row) => ({
     longitude: row.longitude == null ? null : Number(row.longitude),
     accuracy: row.accuracy_m == null ? null : Number(row.accuracy_m),
     distance: row.distance_m == null ? null : Number(row.distance_m),
-    // `null` - TEKSHIRILMADI (zona sozlanmagan yoki koordinata yo'q),
-    // `false` - tashqarida. Ikkisi bir xil emas.
-    onCampus: row.on_campus == null ? null : !!row.on_campus,
-    campusZoneName: row.campus_zone_name || null,
+    // Tashrif hududi (shahar/viloyat). Bo'sh bo'lsa `null` - ya'ni
+    // "ko'rsatilmagan", "mos emas" EMAS.
+    region: row.region || null,
     photoPath: row.photo_path, note: row.note, status: row.status,
     reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at,
     reviewComment: row.review_comment, createdAt: row.created_at,
@@ -13010,70 +13010,8 @@ export const db = {
 
     // Tashrif qayd etish. Fotosurat Supabase Storage ga yuklanadi -
     // fayl NOMI emas, faylning O'ZI saqlanadi, aks holda dalil tekshirilmasdi.
-    // --- OTM HUDUDI (9-mezon) -------------------------------------------
-    //
-    // Metodika madaniy tashrif OTM hududidan TASHQARIDA bo'lishini talab
-    // qiladi. Zona koordinatasi kodda emas, bazada: uni admin xaritadan
-    // belgilaydi (supabase/campus_zones.sql). Bitta emas, RO'YXAT - OTMning
-    // bir necha binosi va yotoqxonasi bo'lishi mumkin.
-    getCampusZones: async () => {
-        const { data, error } = await supabase
-            .from('campus_zones').select('*').order('name');
-        if (error) {
-            // Jadval hali yaratilmagan bo'lsa - bu xato emas, shunchaki
-            // tekshiruv ishlamaydi. Tashrif qayd etilishi to'xtamasligi kerak.
-            if (/relation .*campus_zones/i.test(error.message || '')) return [];
-            throw error;
-        }
-        return (data || []).map(r => ({
-            id: r.id, name: r.name,
-            latitude: Number(r.latitude), longitude: Number(r.longitude),
-            radiusM: Number(r.radius_m) || 300,
-            isActive: r.is_active !== false, note: r.note || '',
-        }));
-    },
-
-    saveCampusZone: async ({ id = null, name, latitude, longitude, radiusM = 300, isActive = true, note = '', by = null }) => {
-        if (!String(name || '').trim()) throw new Error('Zona nomini kiriting');
-        if (latitude == null || longitude == null) throw new Error('Koordinatani belgilang');
-        const row = {
-            id: id || 'czone_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-            name: String(name).trim(),
-            latitude: Number(latitude), longitude: Number(longitude),
-            radius_m: Math.max(1, Math.round(Number(radiusM) || 300)),
-            is_active: isActive !== false,
-            note: String(note || '').trim() || null,
-            updated_at: new Date().toISOString(),
-            ...(id ? {} : { created_by: by }),
-        };
-        const { error } = await supabase.from('campus_zones').upsert(row);
-        if (error) throw error;
-        return row.id;
-    },
-
-    deleteCampusZone: async (id) => {
-        const { error } = await supabase.from('campus_zones').delete().eq('id', id);
-        if (error) throw error;
-    },
-
-    // Koordinata OTM hududidamikanligi. Zona yo'q bo'lsa `null` qaytadi -
-    // "tekshirilmadi" degani, "tashqarida" EMAS. Ikkisini aralashtirish
-    // tasdiqlovchini chalg'itardi.
-    checkOnCampus: async (latitude, longitude) => {
-        if (latitude == null || longitude == null) return { checked: false, onCampus: null, zoneName: null };
-        const zones = (await db.getCampusZones()).filter(z => z.isActive);
-        if (zones.length === 0) return { checked: false, onCampus: null, zoneName: null };
-        for (const z of zones) {
-            const d = distanceMeters(Number(latitude), Number(longitude), z.latitude, z.longitude);
-            if (d != null && d <= z.radiusM) {
-                return { checked: true, onCampus: true, zoneName: z.name, distance: Math.round(d) };
-            }
-        }
-        return { checked: true, onCampus: false, zoneName: null };
-    },
-
     recordCulturalVisit: async ({
-        studentId, placeId = null, placeName, placeType,
+        studentId, placeId = null, placeName, placeType, region = null,
         visitedAt = null, latitude = null, longitude = null, accuracy = null,
         photoFile = null, note = '', academicYear = null,
     }) => {
@@ -13102,14 +13040,15 @@ export const db = {
             .upload(path, photoFile, { contentType: photoFile.type || 'image/jpeg', upsert: false });
         if (upErr) throw new Error('Fotosurat yuklanmadi: ' + upErr.message);
 
-        // OTM hududi tekshiruvi. Natija QAYD ETILGAN PAYTDAGI holat sifatida
-        // saqlanadi: zona keyin ko'chirilsa, eski tashrif qayta baholanmasin.
-        const campus = await db.checkOnCampus(latitude, longitude);
+        // HUDUD. Katalogdagi joy tanlansa - uning hududi, qo'lda yozilsa -
+        // talaba ko'rsatgani. Metodikada qadamjo/turizm maskani OTM joylashgan
+        // hududdan BOSHQA joyda bo'lishi talab qilinadi (teatr, muzey, kino va
+        // xiyobon uchun bunday cheklov yo'q).
+        const resolvedRegion = String((place?.region || region || '')).trim() || null;
 
         const record = {
             id, studentId, academicYear: year,
-            onCampus: campus.onCampus,
-            campusZoneName: campus.zoneName,
+            region: resolvedRegion,
             placeId, placeName: String(placeName).trim(), placeType,
             visitedAt: when,
             latitude: latitude == null ? null : Number(latitude),
@@ -13127,7 +13066,7 @@ export const db = {
             place_id: placeId, place_name: record.placeName, place_type: placeType,
             visited_at: when, latitude: record.latitude, longitude: record.longitude,
             accuracy_m: record.accuracy, distance_m: distance,
-            on_campus: record.onCampus, campus_zone_name: record.campusZoneName,
+            region: record.region,
             photo_path: path, note: record.note, status: 'pending',
             created_at: record.createdAt,
         });

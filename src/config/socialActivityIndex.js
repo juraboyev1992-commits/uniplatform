@@ -306,7 +306,7 @@ export const READING_POLICY = {
 // yarim ball berardi, yiliga 20 ta tadbir o'tkazadigan klubda 4 tasiga borgan
 // talabaga esa to'liq ball berardi. Natija teskari bo'lib chiqardi.
 //
-// Yo'nalish bir necha klубни qamrasa - ENG YUQORI foizli klub olinadi.
+// Yo'nalish bir necha klubni qamrasa - ENG YUQORI foizli klub olinadi.
 // Metodika "har bir to'garakdagi faol ishtirok" deydi, ya'ni birlik - klub;
 // bir klubdagi to'liq faollik boshqa klubdagi sustlik bilan yuvilmasligi kerak.
 // ---------------------------------------------------------------------------
@@ -709,6 +709,49 @@ export const sportClaimPoints = (level) =>
 //
 // Talaba hisobot YOZMAYDI: joyga borganda jonli fotosurat oladi va joylashuvi
 // qayd etiladi. Ma'lumotnoma shu qaydlardan o'zi shakllanadi.
+// ---------------------------------------------------------------------------
+// HUDUD QOIDASI (9-mezon)
+//
+// Metodika matni: "...Samarqand, Buxoro, Toshkent, Xiva, Qo'qon, Shahrisabz
+// va boshqa shu kabi qadimiy shaharlarga (OTM JOYLASHGAN HUDUDDAN BOSHQA
+// JOYDAGI) qadamjolar, turizm va ekoturizm maskanlariga qilingan sayohatlar
+// inobatga olinadi".
+//
+// IKKI MUHIM NUQTA:
+//
+//   1. "Hudud" - VILOYAT/SHAHAR, universitet binosi emas. TDYU Toshkentda,
+//      shuning uchun Toshkentdagi qadamjo hisobga olinmaydi, Samarqanddagisi
+//      olinadi.
+//
+//   2. Cheklov FAQAT qadamjo va turizm maskanlariga tegishli. Teatr, muzey,
+//      kinoteatr va xiyobon uchun joy cheklovi YO'Q - universitet yonidagi
+//      muzey ham to'liq hisoblanadi. Matnda ular alohida, cheklovsiz
+//      sanab o'tilgan.
+//
+// O'zgarsa - shu bitta qatorni o'zgartiring.
+// ---------------------------------------------------------------------------
+export const UNIVERSITY_REGION = 'Toshkent';
+
+// Metodikada aynan sanab o'tilgan shaharlar. Ro'yxat YOPIQ emas ("va boshqa
+// shu kabi qadimiy shaharlar"), shuning uchun talaba o'zi ham yoza oladi.
+export const HERITAGE_CITIES = [
+    'Samarqand', 'Buxoro', 'Toshkent', 'Xiva', "Qo'qon", 'Shahrisabz',
+];
+
+// Hudud cheklovi qaysi turlarga tegishli.
+export const REGION_RESTRICTED_TYPES = ['heritage'];
+
+// Tashrif hududi metodikaga mos keladimi.
+//   true  - hisobga olinadi
+//   false - OTM hududidagi qadamjo, hisobga olinmaydi
+//   null  - hudud ko'rsatilmagan, ya'ni TEKSHIRIB BO'LMADI ("mos emas" EMAS)
+export const regionAllowsCredit = (placeType, region) => {
+    if (!REGION_RESTRICTED_TYPES.includes(placeType)) return true;
+    const r = String(region || '').trim();
+    if (!r) return null;
+    return r.toLowerCase() !== UNIVERSITY_REGION.toLowerCase();
+};
+
 export const CULTURAL_PLACE_TYPES = {
     theatre: { id: 'theatre', label: 'Teatr' },
     museum: { id: 'museum', label: 'Muzey' },
