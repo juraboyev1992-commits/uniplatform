@@ -44,7 +44,16 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
         const allowed = new Set(scopeStudentIds);
         return rows.filter(v => allowed.has(v.studentId));
     }, [version, scopeStudentIds]);
-    const places = useMemo(() => db.getCulturalPlaces(true), [version]);
+    // TASDIQLANMAGANLAR BIRINCHI. Talaba yozgan joy katalogga
+    // `is_active = false` bilan tushadi va uni kimdir ko'rishi kerak -
+    // ro'yxat oxirida qolsa hech qachon ko'rilmaydi.
+    const places = useMemo(() => {
+        const rows = db.getCulturalPlaces(true);
+        return [...rows].sort((a, b) => (
+            (a.isActive === false ? 0 : 1) - (b.isActive === false ? 0 : 1)
+        ));
+    }, [version]);
+    const pendingPlaces = places.filter(p => p.isActive === false).length;
     const students = useMemo(
         () => new Map(db.getMockStudents().map(s => [s.id, s])),
         []
@@ -283,6 +292,11 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                         <h4 className="font-bold text-sm text-gray-700">
                             Joylar katalogi ({places.length})
+                            {pendingPlaces > 0 && (
+                                <span className="ml-2 text-amber-700">
+                                    &middot; {pendingPlaces} ta tasdiqlanmagan
+                                </span>
+                            )}
                         </h4>
                         <Button variant="outline" size="sm" icon={Plus} onClick={() => {
                             setForm(EMPTY_PLACE);
@@ -335,6 +349,9 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
                                             tekshirilmaydi, shuni ko'rsatib
                                             turamiz. Boshqa turlarda hudud
                                             shart emas. */}
+                                        {p.isActive === false && (
+                                            <Badge variant="warning" size="sm">Tasdiqlanmagan</Badge>
+                                        )}
                                         {p.type === 'heritage' && !p.region && (
                                             <Badge variant="warning" size="sm">Hududsiz</Badge>
                                         )}
@@ -427,6 +444,23 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
                             className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm"
                         />
                     </div>
+                    {/* TASDIQLASH. Talaba yozgan joy tasdiqlanmagan holda
+                        keladi; administrator nomini tekshirib, shu katakni
+                        belgilaganda talabalar ro'yxatida paydo bo'ladi. */}
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                        <input
+                            type="checkbox" checked={form.isActive !== false}
+                            onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))}
+                            className="mt-0.5 w-4 h-4 rounded border-gray-300 text-teal-600"
+                        />
+                        <span className="text-xs text-gray-700">
+                            Talabalar ro&rsquo;yxatida ko&rsquo;rinsin
+                            <span className="block text-[11px] text-gray-400">
+                                Belgilanmagan joy faqat shu panelda turadi.
+                            </span>
+                        </span>
+                    </label>
+
                     <p className="text-[11px] text-gray-400">
                         Koordinata ixtiyoriy. Kiritilsa tizim tashrif joydan qancha uzoqda qayd
                         etilganini hisoblaydi va {CULTURAL_PROXIMITY_METERS} metrdan uzoqni belgilaydi —

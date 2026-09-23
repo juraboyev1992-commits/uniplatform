@@ -13091,6 +13091,29 @@ export const db = {
         });
         if (error) throw error;
 
+        // RO'YXATDA YO'Q JOY KATALOGGA TUSHSIN. Talaba qo'lda yozgan joy
+        // `is_active = false` bilan qo'shiladi: talabalar ro'yxatida
+        // ko'rinmaydi, administrator tekshirib faollashtiradi. Shunda
+        // keyingi talaba uni ro'yxatdan topadi va bir xil joy o'n xil
+        // imloda yozilmaydi.
+        //
+        // XATO QAYDNI BUZMAYDI: tashrif allaqachon saqlangan, katalogga
+        // qo'shish esa qo'shimcha qulaylik. Funksiya hali bazaga
+        // qo'yilmagan bo'lsa ham qayd yo'qolmasligi kerak - shuning uchun
+        // xato yutiladi, lekin KONSOLGA yoziladi (jimgina yo'qolmaydi).
+        if (!placeId && record.placeName) {
+            try {
+                await supabase.rpc('suggest_cultural_place', {
+                    p_name: record.placeName,
+                    p_type: placeType,
+                    p_region: record.region,
+                    p_district: record.district,
+                });
+            } catch (e) {
+                console.warn('Joyni katalogga qo\'shib bo\'lmadi:', e?.message || e);
+            }
+        }
+
         (dbData.culturalVisits = dbData.culturalVisits || []).push(record);
         saveDB(dbData);
         return record;

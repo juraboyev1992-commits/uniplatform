@@ -5,6 +5,7 @@ import Badge from '../common/Badge';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
 import RegionPicker from '../common/RegionPicker';
+import CulturalPlacePicker from './CulturalPlacePicker';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -330,37 +331,13 @@ const CulturalVisitCapture = () => {
                             <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">
                                 3. Joy
                             </label>
-                            {placeChoices.length > 0 ? (
-                                <select
-                                    value={placeId}
-                                    onChange={e => { setPlaceId(e.target.value); setPlaceName(''); }}
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white"
-                                >
-                                    <option value="">&mdash; Ro&rsquo;yxatda yo&rsquo;q, o&rsquo;zim yozaman &mdash;</option>
-                                    {placeChoices.map(p => (
-                                        <option key={p.id} value={p.id}>
-                                            {p.name}{p.district ? ` — ${p.district}` : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                            ) : (
-                                // Suzilgandan keyin hech narsa qolmasa ro'yxat
-                                // ko'rsatilmaydi - bo'sh ro'yxat chalkashtiradi.
-                                <p className="text-[11px] text-gray-400 mb-1.5">
-                                    {region
-                                        ? 'Bu hududda bunday joy katalogda yo\u2018q \u2014 nomini o\u2018zingiz yozing.'
-                                        : 'Katalog bo\u2018sh \u2014 joy nomini o\u2018zingiz yozing.'}
-                                </p>
-                            )}
-
-                            {!placeId && (
-                                <input
-                                    type="text" value={placeName}
-                                    onChange={e => setPlaceName(e.target.value)}
-                                    placeholder="Joy nomi"
-                                    className={`w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm${placeChoices.length > 0 ? ' mt-2' : ''}`}
-                                />
-                            )}
+                            <CulturalPlacePicker
+                                places={placeChoices}
+                                placeId={placeId} placeName={placeName}
+                                onChange={({ placeId: id, placeName: nm }) => {
+                                    setPlaceId(id); setPlaceName(nm);
+                                }}
+                            />
                         </div>
                     )}
 
