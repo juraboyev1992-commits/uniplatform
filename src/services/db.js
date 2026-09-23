@@ -2309,6 +2309,18 @@ const mapMembershipFromSupabase = (row) => ({
 const persistIndexRow = async (table, row) => {
     const { error } = await supabase.from(table).upsert(row);
     if (error) {
+        // RUXSAT XATOSI - alohida xabar. Metodika bo'yicha hujjatni
+        // talabaning O'Z guruhi tyutori (4-kursdan yuqorisiga fakultet
+        // dekani o'rinbosari) tasdiqlaydi. Bazaning o'z matni
+        // ("new row violates row-level security policy") buni aytmaydi va
+        // tyutor nima qilganini tushunmay qolardi.
+        if (/row-level security|violates row-level/i.test(error.message || '')) {
+            throw new Error(
+                "Tasdiqlash huquqi yo'q: metodika bo'yicha hujjatni talabaning "
+                + "o'z guruhi tyutori tasdiqlaydi (4-kurs va undan yuqorisi uchun "
+                + "fakultet dekani o'rinbosari)."
+            );
+        }
         const missingTable = /does not exist|schema cache/i.test(error.message || '');
         throw new Error(missingTable
             ? `Saqlanmadi: \`${table}\` jadvali topilmadi. `
