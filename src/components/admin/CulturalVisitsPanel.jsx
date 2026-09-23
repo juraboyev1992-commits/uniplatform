@@ -66,7 +66,13 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
         finally { setBusy(false); }
     };
 
-    const [form, setForm] = useState({ name: '', type: '', address: '', region: '', district: '', latitude: '', longitude: '' });
+    // Joy formasi. `id` bo'lsa - mavjud joy tahrirlanmoqda, bo'lmasa
+    // yangisi qo'shilmoqda. Tahrirlash kerak bo'lib qoldi: hudud maydoni
+    // keyin qo'shilgani uchun katalogdagi ESKI joylarda u bo'sh turibdi va
+    // uni to'ldiradigan yo'l yo'q edi - ya'ni o'sha joylar uchun 9-mezon
+    // qoidasi hech qachon tekshirilmasdi.
+    const EMPTY_PLACE = { name: '', type: '', address: '', region: '', district: '', latitude: '', longitude: '' };
+    const [form, setForm] = useState(EMPTY_PLACE);
 
 
     // Umumiy ko'rsatkichlar - faqat ADMINISTRATOR ko'rinishida. Tyutorda
@@ -279,13 +285,18 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
                             Joylar katalogi ({places.length})
                         </h4>
                         <Button variant="outline" size="sm" icon={Plus} onClick={() => {
-                            setForm({ name: '', type: '', address: '', region: '', district: '', latitude: '', longitude: '' });
+                            setForm(EMPTY_PLACE);
                             setShowPlaceForm(true);
                         }}>
                             Joy qo'shish
                         </Button>
                     </div>
 
+                    {places.length > 0 && (
+                        <p className="text-[11px] text-gray-400">
+                            Joy ustiga bosib tahrirlash mumkin.
+                        </p>
+                    )}
                     {places.length === 0 ? (
                         <p className="text-[11px] text-gray-400">
                             Katalog bo'sh. Talaba joy nomini o'zi yozishi mumkin, lekin katalogdagi
@@ -294,7 +305,23 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
                     ) : (
                         <div className="space-y-1">
                             {places.map(p => (
-                                <div key={p.id} className="flex items-center justify-between gap-3 py-1.5 border-b border-gray-50 last:border-0">
+                                <button
+                                    type="button" key={p.id}
+                                    onClick={() => {
+                                        setForm({
+                                            id: p.id, name: p.name, type: p.type,
+                                            address: p.address || '',
+                                            region: p.region || '', district: p.district || '',
+                                            latitude: p.latitude ?? '', longitude: p.longitude ?? '',
+                                            // saveCulturalPlace da `isActive` sukut bo'yicha true -
+                                            // uzatmasak, o'chirilgan joy tahrirlanganda jimgina
+                                            // qayta yoqilib ketardi.
+                                            isActive: p.isActive !== false,
+                                        });
+                                        setShowPlaceForm(true);
+                                    }}
+                                    className="w-full flex items-center justify-between gap-3 py-1.5 border-b border-gray-50 last:border-0 text-left hover:bg-gray-50 rounded-lg px-1 -mx-1"
+                                >
                                     <div className="min-w-0">
                                         <p className="text-xs font-semibold text-gray-800 truncate">{p.name}</p>
                                         <p className="text-[11px] text-gray-400">
@@ -303,10 +330,19 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
                                             {p.address ? ` · ${p.address}` : ''}
                                         </p>
                                     </div>
-                                    <Badge variant={p.latitude != null ? 'success' : 'default'} size="sm">
-                                        {p.latitude != null ? 'Koordinatali' : 'Koordinatasiz'}
-                                    </Badge>
-                                </div>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        {/* Qadamjoda hudud yo'q bo'lsa - qoida
+                                            tekshirilmaydi, shuni ko'rsatib
+                                            turamiz. Boshqa turlarda hudud
+                                            shart emas. */}
+                                        {p.type === 'heritage' && !p.region && (
+                                            <Badge variant="warning" size="sm">Hududsiz</Badge>
+                                        )}
+                                        <Badge variant={p.latitude != null ? 'success' : 'default'} size="sm">
+                                            {p.latitude != null ? 'Koordinatali' : 'Koordinatasiz'}
+                                        </Badge>
+                                    </div>
+                                </button>
                             ))}
                         </div>
                     )}
@@ -333,7 +369,10 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
             </Modal>
 
             {/* Joy qo'shish */}
-            <Modal isOpen={showPlaceForm} onClose={() => setShowPlaceForm(false)} title="Joy qo'shish">
+            <Modal
+                isOpen={showPlaceForm} onClose={() => setShowPlaceForm(false)}
+                title={form.id ? 'Joyni tahrirlash' : "Joy qo'shish"}
+            >
                 <div className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <input
@@ -404,7 +443,7 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
                             onClick={() => run(async () => {
                                 await db.saveCulturalPlace({ ...form, by: user?.username });
                                 setShowPlaceForm(false);
-                            }, "Joy qo'shildi.")}
+                            }, form.id ? 'Joy yangilandi.' : "Joy qo'shildi.")}
                         >
                             Saqlash
                         </Button>
