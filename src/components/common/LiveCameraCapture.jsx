@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, X, AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
+import { Camera, X, AlertTriangle, Loader2, RefreshCw, SwitchCamera } from 'lucide-react';
 
 // JONLI SURATGA OLISH.
 //
@@ -47,7 +47,9 @@ const frameToFile = (video, index) => new Promise((resolve, reject) => {
     );
 });
 
-const LiveCameraCapture = ({ count = 3, photos = [], onChange }) => {
+// `hint` - kadr ustida turadigan eslatma. Suratga olish PAYTIDA ko'rinishi
+// kerak: formaning boshidagi matnni talaba kamerani ko'targanda o'qimaydi.
+const LiveCameraCapture = ({ count = 3, photos = [], onChange, hint = '' }) => {
     const videoRef = useRef(null);
     const streamRef = useRef(null);
     const fileRef = useRef(null);
@@ -59,6 +61,10 @@ const LiveCameraCapture = ({ count = 3, photos = [], onChange }) => {
     // Fayl tanlash yo'li BIR MARTA ishlatilsa ham qayd "jonli emas" deb
     // belgilanadi - dalilning kuchi eng zaif bo'lagi bo'yicha o'lchanadi.
     const [usedUpload, setUsedUpload] = useState(false);
+    // OLD/ORQA KAMERA. Kadrda joy ham, talabaning o'zi ham bo'lishi kerak -
+    // buni orqa kamera bilan yolg'iz qilib bo'lmaydi. Shuning uchun
+    // almashtirish tugmasi SHART, bezak emas.
+    const [facing, setFacing] = useState('environment');
 
     const done = photos.length >= count;
 
@@ -82,7 +88,7 @@ const LiveCameraCapture = ({ count = 3, photos = [], onChange }) => {
         let alive = true;
         setState('starting');
         navigator.mediaDevices
-            .getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+            .getUserMedia({ video: { facingMode: { ideal: facing } }, audio: false })
             .then(stream => {
                 if (!alive) { stream.getTracks().forEach(t => t.stop()); return; }
                 streamRef.current = stream;
@@ -107,7 +113,7 @@ const LiveCameraCapture = ({ count = 3, photos = [], onChange }) => {
             });
 
         return () => { alive = false; stop(); };
-    }, [done, attempt, stop]);
+    }, [done, attempt, facing, stop]);
 
     // Komponent yo'qolganda kamera albatta o'chsin.
     useEffect(() => stop, [stop]);
@@ -139,11 +145,25 @@ const LiveCameraCapture = ({ count = 3, photos = [], onChange }) => {
                         ref={videoRef} autoPlay playsInline muted
                         className="w-full h-56 object-cover"
                     />
+                    {hint && (
+                        <p className="absolute top-0 inset-x-0 px-3 py-2 bg-black/55 text-white text-[11px] font-semibold leading-snug text-center">
+                            {hint}
+                        </p>
+                    )}
                     <button
                         type="button" onClick={shoot} disabled={busy}
                         className="absolute bottom-3 left-1/2 -translate-x-1/2 px-5 py-2.5 rounded-xl bg-white/95 text-sm font-bold text-gray-800 shadow-lg disabled:opacity-60"
                     >
                         {busy ? 'Olinmoqda...' : `Suratga olish (${photos.length + 1}/${count})`}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setFacing(f => (f === 'environment' ? 'user' : 'environment'))}
+                        className="absolute bottom-3 right-3 w-10 h-10 flex items-center justify-center rounded-xl bg-white/95 text-gray-800 shadow-lg"
+                        title={facing === 'environment' ? 'Old kameraga o‘tish' : 'Orqa kameraga o‘tish'}
+                        aria-label="Kamerani almashtirish"
+                    >
+                        <SwitchCamera size={17} />
                     </button>
                 </div>
             )}

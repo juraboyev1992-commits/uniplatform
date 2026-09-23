@@ -429,15 +429,31 @@ const CulturalVisitCapture = () => {
                         {/* Kamera FAQAT joy tanlangach ochiladi. Aks holda
                             oyna ochilishi bilan ruxsat so'ralardi - talaba
                             hali nima qilayotganini bilmay turib. */}
+                        {/* TALAB ANIQ AYTILADI. Joyning o'zi tushirilgan surat
+                            talabaning O'SHA YERDA bo'lganini isbotlamaydi -
+                            uni internetdan ham olish mumkin. Shuning uchun
+                            kadrda ikkalasi ham bo'lishi kerak. Eslatma ikki
+                            joyda: shu yerda va suratga olish paytida kadr
+                            ustida (talaba kamerani ko'targanda formaning
+                            boshidagi matnni o'qimaydi). */}
                         {placeType && (selectedPlace || placeName) ? (
-                            <LiveCameraCapture
-                                count={CULTURAL_PHOTO_COUNT}
-                                photos={photos}
-                                onChange={(next, mode) => {
-                                    setPhotos(next);
-                                    if (mode) setCaptureMode(mode);
-                                }}
-                            />
+                            <>
+                                <p className="text-[11px] font-semibold text-teal-900 bg-teal-50 border border-teal-200 rounded-xl px-3 py-2 mb-2 leading-relaxed">
+                                    Kadrda <b>joyning o&rsquo;zi ham, siz ham</b> ko&rsquo;rinib
+                                    turishingiz shart. Faqat bino yoki ko&rsquo;rgazma tushirilgan
+                                    surat u yerda bo&rsquo;lganingizni isbotlamaydi va
+                                    tasdiqlanmasligi mumkin.
+                                </p>
+                                <LiveCameraCapture
+                                    count={CULTURAL_PHOTO_COUNT}
+                                    photos={photos}
+                                    hint={"Joy ham, siz ham kadrda ko\u2018ringan bo\u2018lsin"}
+                                    onChange={(next, mode) => {
+                                        setPhotos(next);
+                                        if (mode) setCaptureMode(mode);
+                                    }}
+                                />
+                            </>
                         ) : (
                             <p className="text-[11px] text-gray-400 border border-dashed border-gray-200 rounded-xl px-3 py-4 text-center">
                                 Avval joyni tanlang &mdash; keyin kamera ochiladi.

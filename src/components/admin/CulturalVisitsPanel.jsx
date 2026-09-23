@@ -152,7 +152,9 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
                     <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
                         <p className="text-[11px] text-gray-600 leading-relaxed">
                             <b>Bu yerda ball qo'yilmaydi.</b> Siz faqat fotosurat va joylashuv
-                            haqiqiy ekanini tasdiqlaysiz. Ball tashriflarning <b>muntazamligidan</b>
+                            haqiqiy ekanini tasdiqlaysiz. Kadrda <b>joy ham, talabaning o'zi ham</b>
+                            ko'rinib turishi kerak &mdash; faqat bino tushirilgan surat u yerda
+                            bo'lganini isbotlamaydi. Ball tashriflarning <b>muntazamligidan</b>
                             {' '}avtomatik chiqadi: har oyda kamida bir marta — 5 ball, har ikki
                             oyda — 3 ball, semestrda — 1 ball.
                         </p>
