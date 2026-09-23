@@ -11,7 +11,7 @@ import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import {
     INDEX_CRITERIA, CULTURAL_PLACE_TYPES, CULTURAL_PLACE_TYPE_ORDER,
-    CULTURAL_PHOTO_COUNT,
+    CULTURAL_PHOTO_COUNT, CULTURAL_PROXIMITY_METERS,
     regionAllowsCredit, isNamedHeritageCity,
 } from '../../config/socialActivityIndex';
 
@@ -84,24 +84,66 @@ const CulturalVisitCapture = () => {
         && (!region || !p.region || p.region === region)
     ));
 
-    // Oyna ochilganda joylashuv so'raladi - talaba tugma qidirmasin.
+    // JOYLASHUV. Oyna ochilganda so'raladi - talaba tugma qidirmasin va
+    // GPS ga "isishga" vaqt qolsin.
+    //
+    // NEGA `getCurrentPosition` EMAS, `watchPosition`: birinchi javob
+    // odatda WiFi/uyali tarmoqdan keladi va aniqligi kilometrlarda
+    // bo'ladi. GPS bir necha soniyadan keyin ancha aniq qiymat beradi.
+    // `watchPosition` shu yaxshilanishni kutadi va ENG ANIQ qiymatni oladi.
+    //
+    // `maximumAge: 0` - brauzerdagi ESKI, saqlangan joylashuv olinmasin:
+    // u boshqa shahardagi kechagi nuqta bo'lishi mumkin.
     useEffect(() => {
-        if (!open) return;
-        if (!navigator.geolocation) { setGeoState('denied'); return; }
+        if (!open) return undefined;
+        if (!navigator.geolocation) { setGeoState('denied'); return undefined; }
+
         setGeoState('asking');
-        navigator.geolocation.getCurrentPosition(
+        let best = null;
+        let stopped = false;
+
+        const finish = () => {
+            if (stopped) return;
+            stopped = true;
+            navigator.geolocation.clearWatch(id);
+            clearTimeout(timer);
+            setGeoState(best ? 'ok' : 'denied');
+        };
+
+        const id = navigator.geolocation.watchPosition(
             pos => {
-                setCoords({
+                const next = {
                     latitude: pos.coords.latitude,
                     longitude: pos.coords.longitude,
                     accuracy: pos.coords.accuracy,
-                });
-                setGeoState('ok');
+                };
+                if (!best || next.accuracy < best.accuracy) {
+                    best = next;
+                    setCoords(next);
+                }
+                // Yetarlicha aniq bo'lgach kutib o'tirmaymiz - GPS ni
+                // bekorga yoqib turish batareyani yeydi.
+                if (next.accuracy <= CULTURAL_PROXIMITY_METERS / 3) finish();
             },
-            () => setGeoState('denied'),
-            { enableHighAccuracy: true, timeout: 15000 }
+            () => { if (!best) { stopped = true; setGeoState('denied'); } },
+            { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
         );
+
+        // Aniqlik yaxshilanmasa ham cheksiz kutmaymiz.
+        const timer = setTimeout(finish, 20000);
+
+        return () => {
+            stopped = true;
+            navigator.geolocation.clearWatch(id);
+            clearTimeout(timer);
+        };
     }, [open]);
+
+    // ANIQLIK YETARLIMI. Aniqlik doirasi yaqinlik chegarasidan katta bo'lsa
+    // "joyda edi" degan xulosa chiqarib bo'lmaydi: masofa tekshiruvi ham
+    // ma'nosiz bo'ladi. Bu RAD ETISH emas - shunchaki rostini aytish.
+    const geoCoarse = coords?.accuracy != null
+        && coords.accuracy > CULTURAL_PROXIMITY_METERS;
 
     const reset = () => {
         setPlaceId(''); setPlaceName(''); setPlaceType(''); setNote('');
@@ -255,8 +297,8 @@ const CulturalVisitCapture = () => {
                 <div className="space-y-4">
                     {/* JOYLASHUV holati - talaba nima bo'layotganini bilsin. */}
                     <div className={`p-3 rounded-xl border text-[11px] ${
-                        geoState === 'ok' ? 'bg-emerald-50 border-emerald-100 text-emerald-800'
-                            : geoState === 'denied' ? 'bg-amber-50 border-amber-100 text-amber-800'
+                        geoState === 'ok' && !geoCoarse ? 'bg-emerald-50 border-emerald-100 text-emerald-800'
+                            : (geoState === 'denied' || geoCoarse) ? 'bg-amber-50 border-amber-100 text-amber-800'
                                 : 'bg-gray-50 border-gray-100 text-gray-600'
                     }`}>
                         {geoState === 'asking' && (
@@ -264,10 +306,24 @@ const CulturalVisitCapture = () => {
                                 <Loader2 size={12} className="animate-spin" /> Joylashuv aniqlanmoqda...
                             </span>
                         )}
-                        {geoState === 'ok' && (
+                        {geoState === 'ok' && !geoCoarse && (
                             <span className="flex items-center gap-1.5">
                                 <MapPin size={12} /> Joylashuv qayd etildi
                                 {coords?.accuracy && ` (±${Math.round(coords.accuracy)} m)`}
+                            </span>
+                        )}
+                        {/* ANIQLIK PAST. Ilgari bunday qayd ham yashil
+                            "qayd etildi" deb ko'rsatilardi - ±50 km bo'lsa
+                            ham. Bu dalil emas, va uni dalildek ko'rsatish
+                            talabani ham, tasdiqlovchini ham chalg'itadi. */}
+                        {geoState === 'ok' && geoCoarse && (
+                            <span className="flex items-start gap-1.5">
+                                <AlertTriangle size={12} className="shrink-0 mt-px" />
+                                Joylashuv aniq emas (&plusmn;{Math.round(coords.accuracy)} m) &mdash;
+                                bu qurilma joyni GPS orqali emas, tarmoq orqali aniqlayapti.
+                                Telefonda geolokatsiyani yoqing yoki ochiq havoga chiqing.
+                                Qayd etsa bo&rsquo;ladi, lekin joyda bo&rsquo;lganingizni
+                                bunday aniqlik tasdiqlamaydi.
                             </span>
                         )}
                         {geoState === 'denied' && (
