@@ -66,6 +66,16 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
 
     const [form, setForm] = useState({ name: '', type: '', address: '', latitude: '', longitude: '' });
 
+    // OTM HUDUDI. Metodika madaniy tashrif universitet hududidan TASHQARIDA
+    // bo'lishini talab qiladi. Zona koordinatasi kodda emas - uni admin shu
+    // yerda belgilaydi, chunki uni oldindan bilib bo'lmaydi va o'ylab
+    // topilgan nuqta butun tekshiruvni yolg'on qilardi.
+    const [zones, setZones] = useState([]);
+    const [zoneForm, setZoneForm] = useState({ name: '', latitude: '', longitude: '', radiusM: 300 });
+    useEffect(() => {
+        db.getCampusZones().then(setZones).catch(() => setZones([]));
+    }, [version]);
+
     // Umumiy ko'rsatkichlar - faqat ADMINISTRATOR ko'rinishida. Tyutorda
     // ro'yxat o'ziga biriktirilgan talabalar bilan cheklangan, ko'rsatkich
     // esa butun universitetniki bo'lardi va ikkisi bir-biriga zid ko'rinardi.
@@ -208,6 +218,15 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
                                                     {far && ' — uzoq'}
                                                 </span>
                                             )}
+                                            {/* OTM HUDUDI - metodikaning talabi.
+                                                `null` bo'lsa hech narsa chizilmaydi:
+                                                u "tashqarida" degani emas,
+                                                "tekshirilmadi" degani. */}
+                                            {v.onCampus === true && (
+                                                <span className="px-2 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 font-bold">
+                                                    OTM hududida{v.campusZoneName ? ` (${v.campusZoneName})` : ''} — metodika bo&rsquo;yicha hisobga olinmaydi
+                                                </span>
+                                            )}
                                         </div>
 
                                         <div className="flex gap-2">
@@ -247,6 +266,95 @@ const CulturalVisitsPanel = ({ scopeStudentIds = null, showPlaces = true }) => {
                 hisoblaydi - shuning uchun katalogni to'ldirish tekshiruvni
                 kuchaytiradi. Katalog universitet miqyosida - tyutorga
                 ko'rsatilmaydi. */}
+            {/* OTM HUDUDI.
+                Metodika madaniy tashrif universitet hududidan TASHQARIDA
+                bo'lishini talab qiladi. Zona belgilanmaguncha tekshiruv
+                umuman ishlamaydi - shuning uchun holat ochiq yoziladi,
+                "hammasi joyida" degan taassurot qolmasin. */}
+            {showPlaces && (
+            <Card>
+                <div className="p-5 space-y-3">
+                    <h4 className="font-bold text-sm text-gray-700">
+                        OTM hududi ({zones.length})
+                    </h4>
+                    <p className="text-[11px] text-gray-500">
+                        Metodika bo&rsquo;yicha tashrif universitet hududidan tashqarida bo&rsquo;lishi
+                        kerak. Shu yerda belgilangan doira ichida qayd etilgan tashrif
+                        ro&rsquo;yxatda alohida belgilanadi. Bir nechta bino va yotoqxona
+                        uchun bir nechta zona qo&rsquo;shing.
+                    </p>
+
+                    {zones.length === 0 ? (
+                        <p className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                            Zona belgilanmagan — hozircha tashrif OTM hududidami yoki yo&rsquo;qmi,
+                            tizim ayta olmaydi. Universitet binosining koordinatasini qo&rsquo;shing.
+                        </p>
+                    ) : (
+                        <div className="space-y-1">
+                            {zones.map(z => (
+                                <div key={z.id} className="flex items-center justify-between gap-3 py-1.5 border-b border-gray-50 last:border-0">
+                                    <span className="text-xs text-gray-700 min-w-0 truncate">
+                                        <b>{z.name}</b>
+                                        <span className="text-gray-400">
+                                            {' '}· {z.latitude.toFixed(5)}, {z.longitude.toFixed(5)} · {z.radiusM} m
+                                        </span>
+                                    </span>
+                                    <button
+                                        type="button" disabled={busy}
+                                        onClick={() => run(() => db.deleteCampusZone(z.id), "Zona o'chirildi")}
+                                        className="text-[11px] font-bold text-gray-400 hover:text-rose-600 shrink-0"
+                                    >
+                                        O&rsquo;chirish
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <input
+                            value={zoneForm.name}
+                            onChange={e => setZoneForm(f => ({ ...f, name: e.target.value }))}
+                            placeholder="Bino nomi"
+                            className="px-3 py-2 border border-gray-200 rounded-lg text-xs"
+                        />
+                        <input
+                            value={zoneForm.latitude}
+                            onChange={e => setZoneForm(f => ({ ...f, latitude: e.target.value }))}
+                            placeholder="Kenglik (41.36...)"
+                            className="px-3 py-2 border border-gray-200 rounded-lg text-xs tabular-nums"
+                        />
+                        <input
+                            value={zoneForm.longitude}
+                            onChange={e => setZoneForm(f => ({ ...f, longitude: e.target.value }))}
+                            placeholder="Uzunlik (69.28...)"
+                            className="px-3 py-2 border border-gray-200 rounded-lg text-xs tabular-nums"
+                        />
+                        <div className="flex gap-2">
+                            <input
+                                type="number" min="1" value={zoneForm.radiusM}
+                                onChange={e => setZoneForm(f => ({ ...f, radiusM: e.target.value }))}
+                                className="w-20 px-3 py-2 border border-gray-200 rounded-lg text-xs tabular-nums"
+                            />
+                            <Button
+                                variant="outline" size="sm" disabled={busy}
+                                onClick={() => run(async () => {
+                                    await db.saveCampusZone({ ...zoneForm, by: user?.username });
+                                    setZoneForm({ name: '', latitude: '', longitude: '', radiusM: 300 });
+                                }, 'Zona saqlandi')}
+                            >
+                                Qo&rsquo;shish
+                            </Button>
+                        </div>
+                    </div>
+                    <p className="text-[11px] text-gray-400">
+                        Koordinatani xaritadan oling: Google Maps&rsquo;da binoni o&rsquo;ng tugma bilan
+                        bosing — birinchi raqam kenglik, ikkinchisi uzunlik.
+                    </p>
+                </div>
+            </Card>
+            )}
+
             {showPlaces && (
             <Card>
                 <div className="p-5 space-y-3">
