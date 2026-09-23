@@ -266,6 +266,11 @@ const CulturalVisitCapture = () => {
                         )}
                     </div>
 
+                    {/* Katalog bo'sh bo'lsa ro'yxat KO'RSATILMAYDI: ichida
+                        bitta ham variant bo'lmagan ro'yxat, ostida esa "Joy
+                        nomi" maydoni - talabaga ikkita joy maydoni bordek
+                        tuyuladi. Bo'sh katalogda to'g'ridan-to'g'ri yozadi. */}
+                    {places.length > 0 && (
                     <div>
                         <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Joy</label>
                         <select
@@ -273,7 +278,7 @@ const CulturalVisitCapture = () => {
                             onChange={e => { setPlaceId(e.target.value); setPlaceName(''); setPlaceType(''); }}
                             className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white"
                         >
-                            <option value="">Ro'yxatdan tanlang yoki o'zingiz yozing...</option>
+                            <option value="">&mdash; Ro&rsquo;yxatda yo&rsquo;q, o&rsquo;zim yozaman &mdash;</option>
                             {CULTURAL_PLACE_TYPE_ORDER.map(t => {
                                 const group = places.filter(p => p.type === t);
                                 if (group.length === 0) return null;
@@ -285,8 +290,18 @@ const CulturalVisitCapture = () => {
                             })}
                         </select>
                     </div>
+                    )}
 
                     {!placeId && (
+                        <div className="space-y-3">
+                        {/* Sarlavha faqat ro'yxat bor paytda kerak - ikkovini
+                            ajratib turish uchun. Katalog bo'sh bo'lsa
+                            ajratadigan narsa yo'q. */}
+                        {places.length > 0 && (
+                            <label className="block text-xs font-bold text-gray-500 uppercase">
+                                Yangi joy ma&rsquo;lumotlari
+                            </label>
+                        )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <input
                                 type="text" value={placeName} onChange={e => setPlaceName(e.target.value)}
@@ -312,6 +327,7 @@ const CulturalVisitCapture = () => {
                                     setRegion(r); setDistrict(d);
                                 }}
                             />
+                        </div>
                         </div>
                     )}
 
