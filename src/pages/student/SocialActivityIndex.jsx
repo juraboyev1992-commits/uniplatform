@@ -102,7 +102,6 @@ const SocialActivityIndex = () => {
     // kutadi, mas'ul esa uni rad etishga majbur bo'ladi - ikkala tomon
     // uchun ham bekor ish. Metodikada ham bu mezonlar hujjat talab qilmaydi.
     const canUploadFor = (key) => CRITERION_ACTIONS[key]?.type === 'upload';
-    const uploadableCriteria = criteria.filter(c => canUploadFor(c.key));
 
     const selectedCategoryForUpload = criteriaCategories.find(c => c.key === uploadCriteriaKey);
     const subcategoriesForUpload = selectedCategoryForUpload
@@ -346,6 +345,14 @@ const SocialActivityIndex = () => {
                 evidenceCount: myEvidence.filter(e => e.criterionKey === c.key).length,
             };
         });
+
+    // DIQQAT - JOYI MUHIM: bu qator `criteria` dan KEYIN turishi shart.
+    // Ilgari u yuqorida, `criteria` e'lon qilinishidan oldin turardi va
+    // sahifa "Cannot access before initialization" bilan butunlay ochilmay
+    // qoldi. `const` e'lon qilinguncha ishlatib bo'lmaydi (TDZ), va buni
+    // na qurish, na `no-undef` ushlaydi - o'zgaruvchi MAVJUD, faqat hali
+    // yaratilmagan.
+    const uploadableCriteria = criteria.filter(c => canUploadFor(c.key));
 
     const totalPoints = index.total;
     const maxTotalPoints = index.maxTotal;
