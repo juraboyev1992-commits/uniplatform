@@ -29,7 +29,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../services/db';
 import {
     needsConfirmation, getCriterionAction,
-    INDEX_CRITERIA, INDEX_CRITERIA_ORDER,
+    CRITERION_ACTIONS, INDEX_CRITERIA, INDEX_CRITERIA_ORDER,
     PLACEMENT_LEVEL_ORDER, PLACEMENT_PLACES, placementToPoints, APPEAL,
     SPORT_CLAIM_LEVELS,
 } from '../../config/socialActivityIndex';
@@ -85,6 +85,21 @@ const SocialActivityIndex = () => {
         setCriteriaSubcategories(db.getSocialCriteriaSubcategories());
         setAutomaticPoints(db.getAutomaticSocialPointsForStudent(user.username));
     }, [user.username]);
+    // QAYSI MEZONGA HUJJAT YUKLANADI.
+    //
+    // `CRITERION_ACTIONS` (config/socialActivityIndex.js) har mezon uchun
+    // talabadan nima kutilishini belgilaydi: hujjat yuklash, havolaga o'tish,
+    // tasdiq so'rash yoki HECH NARSA. Bu sozlama yozilgan edi, lekin hech
+    // qayerga ULANMAGAN edi - natijada yuklash tugmasi hamma 11 mezonda
+    // ochiq turardi.
+    //
+    // Nega bu muhim: ball GPA dan, davomatdan yoki test natijasidan
+    // hisoblanadigan mezonga hujjat yuklash foydasiz. Talaba yuklaydi,
+    // kutadi, mas'ul esa uni rad etishga majbur bo'ladi - ikkala tomon
+    // uchun ham bekor ish. Metodikada ham bu mezonlar hujjat talab qilmaydi.
+    const canUploadFor = (key) => CRITERION_ACTIONS[key]?.type === 'upload';
+    const uploadableCriteria = criteria.filter(c => canUploadFor(c.key));
+
     const selectedCategoryForUpload = criteriaCategories.find(c => c.key === uploadCriteriaKey);
     const subcategoriesForUpload = selectedCategoryForUpload
         ? criteriaSubcategories.filter(s => s.categoryId === selectedCategoryForUpload.id && s.isActive && !s.isArchived)
@@ -1116,21 +1131,40 @@ const SocialActivityIndex = () => {
                             </div>
                         )}
 
-                        {/* Upload Document */}
-                        <div>
-                            <Button
-                                variant="primary"
-                                className="w-full"
-                                icon={Upload}
-                                onClick={() => {
-                                    setUploadCriteriaKey(selectedCriteria.key || '');
-                                    setShowUploadModal(true);
-                                    setSelectedCriteria(null);
-                                }}
-                            >
-                                Hujjat yuklash
-                            </Button>
-                        </div>
+                        {/* AMAL - mezonga qarab.
+                            Hujjat yuklash faqat uni haqiqatan talab qiladigan
+                            mezonlarda. Qolganlarida talabaga ball QAYERDAN
+                            kelishi aytiladi: "amal talab qilinmaydi" degan
+                            javobning o'zi yetarli emas, odam nega qila
+                            olmasligini bilishi kerak. */}
+                        {canUploadFor(selectedCriteria.key) ? (
+                            <div>
+                                <Button
+                                    variant="primary"
+                                    className="w-full"
+                                    icon={Upload}
+                                    onClick={() => {
+                                        setUploadCriteriaKey(selectedCriteria.key || '');
+                                        setShowUploadModal(true);
+                                        setSelectedCriteria(null);
+                                    }}
+                                >
+                                    {CRITERION_ACTIONS[selectedCriteria.key]?.label || 'Hujjat yuklash'}
+                                </Button>
+                                {CRITERION_ACTIONS[selectedCriteria.key]?.hint && (
+                                    <p className="text-[11px] text-gray-500 mt-2">
+                                        {CRITERION_ACTIONS[selectedCriteria.key].hint}
+                                    </p>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                                <p className="text-xs text-gray-600">
+                                    {CRITERION_ACTIONS[selectedCriteria.key]?.hint
+                                        || "Bu mezon bo'yicha hujjat yuklash talab qilinmaydi."}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </Modal>
             )}
@@ -1153,7 +1187,10 @@ const SocialActivityIndex = () => {
                             onChange={(e) => { setUploadCriteriaKey(e.target.value); setUploadSubcategoryId(''); }}
                         >
                             <option value="">Tanlang...</option>
-                            {criteria.map((c) => (
+                            {/* Faqat hujjat qabul qiladigan mezonlar. Ilgari
+                                bu yerda hamma 11 mezon turardi va talaba
+                                masalan GPA uchun ham hujjat yuklay olardi. */}
+                            {uploadableCriteria.map((c) => (
                                 <option key={c.key} value={c.key}>{c.name}</option>
                             ))}
                         </select>
