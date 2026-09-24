@@ -244,18 +244,24 @@ select:focus {
   }
 
   /* MUSOBAQA BLANKALARI.
-     Aynan CV bilan bir xil naqsh: hammasi yashiriladi, `.blank-sheet`
-     ichidagilar ko'rinadi. Alohida yozilgan, chunki CV qoidalari
-     `cv-printing` sinfiga bog'langan va ikkala holat bir vaqtda
-     yoqilmaydi. */
+     Aynan CV bilan bir xil naqsh: hammasi yashiriladi, ko'rinadigan qism
+     ochiladi. Alohida yozilgan, chunki CV qoidalari `cv-printing` sinfiga
+     bog'langan va ikkala holat bir vaqtda yoqilmaydi.
+
+     MUHIM FARQ: bu yerda ABSOLUTE qilinadigan narsa varaqaning o'zi emas,
+     ularni O'RAB turgan konteyner (`.blank-print-area`). Sabab: "har bir
+     hakamga alohida nusxa" tanlanganda varaqa bir nechta bo'ladi va
+     ularning har biri absolute qilinsa, hammasi bitta nuqtaga ustma-ust
+     yopishib qolardi. Konteyner absolute, varaqalar esa uning ichida
+     oddiy oqimda turadi. */
   body.blank-printing * {
     visibility: hidden;
     animation: none !important;
     transform: none !important;
     filter: none !important;
   }
-  body.blank-printing .blank-sheet,
-  body.blank-printing .blank-sheet * {
+  body.blank-printing .blank-print-area,
+  body.blank-printing .blank-print-area * {
     visibility: visible;
   }
   body.blank-printing aside,
@@ -268,13 +274,21 @@ select:focus {
     height: 0 !important;
     overflow: hidden !important;
   }
-  body.blank-printing .blank-sheet {
+  body.blank-printing .blank-print-area {
     position: absolute !important;
     left: 0;
     top: 0;
     width: 100%;
+  }
+  body.blank-printing .blank-sheet {
     border: none !important;
     padding: 0 !important;
+  }
+
+  /* Ikkinchi va keyingi varaqalar YANGI qog'ozdan boshlanadi - aks holda
+     ikkinchi hakam varaqasi birinchisining ostiga yopishib chiqardi. */
+  body.blank-printing .blank-sheet ~ .blank-sheet {
+    page-break-before: always;
   }
 
   /* Jadval varaqdan oshsa: qator o'rtasidan qirqilmasin, sarlavha esa
