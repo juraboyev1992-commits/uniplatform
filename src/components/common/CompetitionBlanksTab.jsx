@@ -81,14 +81,14 @@ const teamMemberNames = (participant) => {
     }
 };
 
-// Javob blankasi FAQAT savolli dvigatellarda ma'noli: munozara, sud
-// jarayoni va sportda "savol" degan narsa yo'q, ya'ni tugma bosilsa bo'sh
-// sahifa chiqardi.
-const QUESTION_ENGINES = ['correct_answer', 'quiz_mixed'];
-
-const ALL_BLANKS = [
+// Javob blankasi HAMMA musobaqada bor. Ilgari u faqat savolli
+// dvigatellarda ko'rinardi - "munozarada savol yo'q" degan mulohaza bilan.
+// Bu noto'g'ri edi: blank savolga emas, JAMOAGA kerak. Munozarada jamoa
+// uchrashuvga tayyorgarlik yozadi, sportda uchrashuv varaqasi kerak.
+// O'zgargani - birlik: savol, uchrashuv yoki raund (CompetitionAnswerBlanks).
+const BLANKS = [
     { id: 'scoring', label: 'Hakam baholash varaqasi', icon: Gavel },
-    { id: 'answers', label: 'Javob blankasi', icon: PenLine, needsQuestions: true },
+    { id: 'answers', label: 'Javob blankasi', icon: PenLine },
     { id: 'attendance', label: 'Ishtirokchilar va davomat', icon: ClipboardCheck },
     { id: 'protocol', label: 'Yakuniy bayonnoma', icon: FileText },
 ];
@@ -124,11 +124,6 @@ const CompetitionBlanksTab = ({ competition }) => {
         () => resolveColumns(competition), [competition]
     );
 
-    const hasQuestions = QUESTION_ENGINES.includes(competition?.scoringMethod);
-    const BLANKS = useMemo(
-        () => ALL_BLANKS.filter(b => !b.needsQuestions || hasQuestions),
-        [hasQuestions]
-    );
 
     const isTeam = competition?.type === 'team';
     const participants = competition?.participants || [];
