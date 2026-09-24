@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Printer, FileText, ClipboardCheck, Gavel, Download, Loader2 } from 'lucide-react';
+import { Printer, FileText, ClipboardCheck, Gavel, Download, Loader2, PenLine } from 'lucide-react';
 import Button from './Button';
+import CompetitionAnswerBlanks from './CompetitionAnswerBlanks';
 import { db } from '../../services/db';
 import {
     getCourtMatchCriteria,
@@ -80,8 +81,14 @@ const teamMemberNames = (participant) => {
     }
 };
 
-const BLANKS = [
+// Javob blankasi FAQAT savolli dvigatellarda ma'noli: munozara, sud
+// jarayoni va sportda "savol" degan narsa yo'q, ya'ni tugma bosilsa bo'sh
+// sahifa chiqardi.
+const QUESTION_ENGINES = ['correct_answer', 'quiz_mixed'];
+
+const ALL_BLANKS = [
     { id: 'scoring', label: 'Hakam baholash varaqasi', icon: Gavel },
+    { id: 'answers', label: 'Javob blankasi', icon: PenLine, needsQuestions: true },
     { id: 'attendance', label: 'Ishtirokchilar va davomat', icon: ClipboardCheck },
     { id: 'protocol', label: 'Yakuniy bayonnoma', icon: FileText },
 ];
@@ -115,6 +122,12 @@ const CompetitionBlanksTab = ({ competition }) => {
 
     const { kind: colKind, columns } = useMemo(
         () => resolveColumns(competition), [competition]
+    );
+
+    const hasQuestions = QUESTION_ENGINES.includes(competition?.scoringMethod);
+    const BLANKS = useMemo(
+        () => ALL_BLANKS.filter(b => !b.needsQuestions || hasQuestions),
+        [hasQuestions]
     );
 
     const isTeam = competition?.type === 'team';
@@ -402,26 +415,41 @@ const CompetitionBlanksTab = ({ competition }) => {
         </div>
     );
 
+    // Javob blankasining o'z sozlash paneli bor (turlar, format, tartib),
+    // shuning uchun u yuqoridagi umumiy sozlamalarni ishlatmaydi.
+    const blankTypeRow = (
+        <div className="no-print flex flex-wrap gap-1.5">
+            {BLANKS.map(b => (
+                <button
+                    key={b.id} type="button" onClick={() => setKind(b.id)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
+                        kind === b.id
+                            ? 'bg-indigo-50 border-indigo-300 text-indigo-800'
+                            : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                >
+                    <b.icon size={14} />
+                    {b.label}
+                </button>
+            ))}
+        </div>
+    );
+
+    if (kind === 'answers') {
+        return (
+            <div className="p-4 space-y-4 overflow-y-auto">
+                {blankTypeRow}
+                <CompetitionAnswerBlanks competition={competition} />
+            </div>
+        );
+    }
+
     return (
         <div className="p-4 space-y-4 overflow-y-auto">
             {/* Boshqaruv - qog'ozga tushmaydi */}
             <div className="no-print space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex flex-wrap gap-1.5">
-                        {BLANKS.map(b => (
-                            <button
-                                key={b.id} type="button" onClick={() => setKind(b.id)}
-                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
-                                    kind === b.id
-                                        ? 'bg-indigo-50 border-indigo-300 text-indigo-800'
-                                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                                }`}
-                            >
-                                <b.icon size={14} />
-                                {b.label}
-                            </button>
-                        ))}
-                    </div>
+                    {blankTypeRow}
                     <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" icon={busy ? Loader2 : Download} onClick={downloadPdf} disabled={busy}>
                             {busy ? 'Tayyorlanmoqda...' : 'PDF'}
