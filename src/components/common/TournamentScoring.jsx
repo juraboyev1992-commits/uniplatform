@@ -6,7 +6,8 @@ import {
     Keyboard, HelpCircle, UserCheck, AlertTriangle, Download, Maximize2, Minimize2,
     RefreshCw, Filter, ChevronUp, ChevronDown, Minus, Calendar, LayoutDashboard,
     Share2, Compass, GitMerge, FileBarChart2, BarChart3, CheckCircle, AlertCircle, Zap,
-    SlidersHorizontal, ArrowUpDown, LayoutGrid, List, Lock, ClipboardCheck, Gavel
+    SlidersHorizontal, ArrowUpDown, LayoutGrid, List, Lock, ClipboardCheck, Gavel,
+    Printer
 } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
@@ -17,6 +18,7 @@ import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import CompetitionResultsCenter from './CompetitionResultsCenter';
 import CompetitionOverviewTab from './CompetitionOverviewTab';
+import CompetitionBlanksTab from './CompetitionBlanksTab';
 import CompetitionParticipantsTab from './CompetitionParticipantsTab';
 import QuizMixedScoringInput from './QuizMixedScoringInput';
 import DebateChiefJudgePenaltyPanel, { DebateCriteriaInputs } from './DebateScoringInput';
@@ -1157,6 +1159,12 @@ const TournamentScoring = ({
                                     ? [{ id: 'yakunlash', label: 'Yakunlash', icon: FileBarChart2 }] : []),
                                 { id: 'apellyatsiya', label: 'Apellyatsiya', icon: AlertTriangle },
                                 ...(activeComp.tournamentEngine === 'knockout' ? [{ id: 'brackets', label: 'Brackets (Setka)', icon: GitMerge }] : []),
+                                // BLANKALAR - HAR QANDAY musobaqada. Zalda internet
+                                // uzilsa yoki hakam qog'ozda ishlashni afzal ko'rsa,
+                                // ish to'xtab qolmasligi kerak. Shartsiz: dvigatel
+                                // qanday bo'lishidan qat'i nazar qog'oz varaqa kerak
+                                // bo'lishi mumkin.
+                                { id: 'blankalar', label: 'Blankalar', icon: Printer },
                                 { id: 'schedule', label: 'Jadval', icon: Clock },
                             ].map(tab => (
                                 <button
@@ -1186,6 +1194,11 @@ const TournamentScoring = ({
                     {/* Right Workspace Content */}
                     <div className="flex-1 min-w-0 bg-white overflow-hidden flex flex-col justify-between">
                         
+                        {/* BLANKALAR TAB */}
+                        {activeTab === 'blankalar' && (
+                            <CompetitionBlanksTab competition={activeComp} />
+                        )}
+
                         {/* 1. OVERVIEW TAB (delegated to CompetitionOverviewTab.jsx) */}
                         {activeTab === 'overview' && (
                             <CompetitionOverviewTab

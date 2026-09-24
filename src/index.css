@@ -243,6 +243,47 @@ select:focus {
     width: 100%;
   }
 
+  /* MUSOBAQA BLANKALARI.
+     Aynan CV bilan bir xil naqsh: hammasi yashiriladi, `.blank-sheet`
+     ichidagilar ko'rinadi. Alohida yozilgan, chunki CV qoidalari
+     `cv-printing` sinfiga bog'langan va ikkala holat bir vaqtda
+     yoqilmaydi. */
+  body.blank-printing * {
+    visibility: hidden;
+    animation: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  body.blank-printing .blank-sheet,
+  body.blank-printing .blank-sheet * {
+    visibility: visible;
+  }
+  body.blank-printing aside,
+  body.blank-printing main,
+  body.blank-printing section,
+  body.blank-printing div {
+    position: static !important;
+  }
+  body.blank-printing > * {
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+  body.blank-printing .blank-sheet {
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none !important;
+    padding: 0 !important;
+  }
+
+  /* Jadval varaqdan oshsa: qator o'rtasidan qirqilmasin, sarlavha esa
+     har varaqda takrorlansin - aks holda ikkinchi varaqda qaysi ustun
+     nima ekani bilinmay qolardi. */
+  .blank-sheet table { page-break-inside: auto; }
+  .blank-sheet tr { page-break-inside: avoid; page-break-after: auto; }
+  .blank-sheet thead { display: table-header-group; }
+
   @page {
     size: A4;
     margin: 14mm;
