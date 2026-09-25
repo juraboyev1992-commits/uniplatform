@@ -5,7 +5,7 @@ import Button from './Button';
 import Modal from './Modal';
 import TeamDetailDrawer from './TeamDetailDrawer';
 import { db } from '../../services/db';
-import { isObjectiveEngine } from '../../config/competitionEngines';
+import { isObjectiveEngine, SHARED_JUDGE } from '../../config/competitionEngines';
 
 // Zakovat (correct_answer) "Natija kiritish" grid — a spreadsheet view of every Savol in the currently
 // selected Raund at once (rows = teams, columns = questions, click-to-cycle cells), replacing the old
@@ -54,32 +54,25 @@ const QuizScoringGrid = ({
     // set up "N Tur x M Raund x K Savol" at creation time.
     const localSavolLabel = (q) => q - turRangeStart + 1;
 
+    // Viktorinada belgi BITTA: kim qo'yishidan qat'i nazar hamma bir xil
+    // ko'radi va u bir marta hisoblanadi. Munozara va mezonli baholashda
+    // esa har hakamning o'z bahosi qoladi.
+    const sharedMarks = isObjectiveEngine(competition?.scoringMethod);
+    const scoreKey = sharedMarks ? SHARED_JUDGE : activeJudge;
+
     const scoresByQuestion = useMemo(() => {
-        // Obyektiv dvigatelda belgi umumiy kalitda turadi - hamma bir xil
-        // ko'radi. Eski qatorlar foydalanuvchi nomi bilan yozilgan, shuning
-        // uchun ular ham o'qiladi: aks holda bugungacha kiritilgan natijalar
-        // jadvaldan YO'QOLIB qolardi.
-        const shared = isObjectiveEngine(competition?.scoringMethod);
-        const all = db.getCompetitionScores(competition.id).filter(s => (
+        // `getEffectiveStores` obyektiv dvigatelda har katak uchun eng
+        // so'nggi yozuvni qaytaradi - eski, foydalanuvchi nomi bilan
+        // yozilgan qatorlar ham shu yerda hisobga olinadi.
+        const all = db.getEffectiveScores(competition.id).filter(s => (
             questionButtons.includes(s.round)
-            && (shared || s.judge === activeJudge)
+            && (sharedMarks || s.judge === activeJudge)
         ));
         const map = new Map(); // questionIndex -> Map(participantId -> value)
         questionButtons.forEach(q => map.set(q, new Map()));
-        // Bir katakda bir nechta yozuv bo'lishi mumkin (eski qatorlar turli
-        // foydalanuvchi nomi bilan yozilgan). Reyting ENG SO'NGGISINI
-        // hisoblaydi - jadval ham aynan shuni ko'rsatishi kerak, aks holda
-        // ekranda bir narsa, ballda boshqa narsa bo'lib qolardi.
-        const seenAt = new Map(); // "savol|ishtirokchi" -> sana
-        [...all]
-            .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
-            .forEach(s => {
-                const cell = `${s.round}|${s.participantId}`;
-                seenAt.set(cell, String(s.date || ''));
-                map.get(s.round)?.set(s.participantId, s.value);
-            });
+        all.forEach(s => map.get(s.round)?.set(s.participantId, s.value));
         return map;
-    }, [competition.id, activeJudge, questionButtons, version]);
+    }, [competition.id, activeJudge, sharedMarks, questionButtons, version]);
 
     const questionMeta = useMemo(() => {
         const overrides = db.getCompetitionQuestionPoints(competition.id);
@@ -119,7 +112,7 @@ const QuizScoringGrid = ({
         if (locked) return;
         const current = scoresByQuestion.get(questionIndex)?.get(participantId);
         const next = cycleValue(current);
-        await db.saveRoundScores(competition.id, questionIndex, activeJudge, [{ participantId, value: next, criteriaScores: {} }], device);
+        await db.saveRoundScores(competition.id, questionIndex, scoreKey, [{ participantId, value: next, criteriaScores: {} }], device, activeJudge);
         setVersion(v => v + 1);
         onScoresChanged?.();
     };
@@ -163,7 +156,7 @@ const QuizScoringGrid = ({
         if (!current) {
             if (!window.confirm("Bu ishtirokchini shu raund uchun diskvalifikatsiya qilmoqchimisiz? Uning bu raunddagi barcha javoblari bekor qilinadi.")) return;
             for (const q of questionButtons) {
-                await db.saveRoundScores(competition.id, q, activeJudge, [{ participantId, value: null, criteriaScores: {} }], device);
+                await db.saveRoundScores(competition.id, q, scoreKey, [{ participantId, value: null, criteriaScores: {} }], device, activeJudge);
             }
         }
         try {
@@ -237,7 +230,7 @@ const QuizScoringGrid = ({
                 const q = questionButtons[i];
                 const cell = row[3 + i];
                 const value = cell === 1 || cell === '1' ? true : cell === 0 || cell === '0' ? false : null;
-                await db.saveRoundScores(competition.id, q, activeJudge, [{ participantId, value, criteriaScores: {} }], device);
+                await db.saveRoundScores(competition.id, q, scoreKey, [{ participantId, value, criteriaScores: {} }], device, activeJudge);
             }
         }
         setCsvPreview(null);

@@ -8134,6 +8134,35 @@ export const db = {
         const data = getDB();
         return (data.competitionScores || []).filter(s => s.competitionId === compId);
     },
+
+    // AMALDAGI BELGILAR - jadvallar shu yerdan o'qiydi.
+    //
+    // Obyektiv dvigatelda (viktorina) bitta katakka bir nechta yozuv
+    // tushgan bo'lishi mumkin: eski qatorlar foydalanuvchi nomi bilan
+    // yozilgan, yangilari esa umumiy kalitda. Reyting eng SO'NGGISINI
+    // hisoblaydi - jadval ham AYNAN shuni ko'rsatishi shart, aks holda
+    // ekranda bir narsa, balda boshqa narsa bo'lib qolardi.
+    //
+    // NEGA ALOHIDA FUNKSIYA: bu tanlov uchta jadvalda kerak bo'ladi
+    // (QuizScoringGrid, QuizMixedScoringGrid, TournamentScoring). Har
+    // birida qaytadan yozilsa, bittasi o'zgarganda qolganlari jimgina
+    // ortda qolardi - bir marta shunday bo'ldi ham.
+    //
+    // Boshqa dvigatellarda hech narsa o'zgarmaydi: qatorlar boricha
+    // qaytariladi va chaqiruvchi avvalgidek hakam bo'yicha suzadi.
+    getEffectiveScores: (compId) => {
+        const rows = db.getCompetitionScores(compId);
+        const comp = db.getCompetitionById(compId);
+        if (!isObjectiveEngine(comp?.scoringMethod)) return rows;
+
+        const newest = new Map(); // "ishtirokchi|raund" -> qator
+        rows.forEach(r => {
+            const cell = `${r.participantId}|${r.round}`;
+            const prev = newest.get(cell);
+            if (!prev || String(prev.date || '') <= String(r.date || '')) newest.set(cell, r);
+        });
+        return [...newest.values()];
+    },
     // Called frequently (live-scoring autosave) - fetches only the rows this exact batch could touch
     // (one round/judge at a time, same as the original), so the "diff against old value" audit-logging
     // behavior is preserved without a full-table read. A value that hasn't actually changed still writes

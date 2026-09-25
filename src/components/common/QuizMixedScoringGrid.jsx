@@ -3,6 +3,7 @@ import { Lock, Unlock, Eye, EyeOff } from 'lucide-react';
 import { QUIZ_MIXED_ROUND_TYPES, computeQuizMixedPoints, getEffectivePointsTable } from '../../config/competitionEngines';
 import QuizMixedScoringInput from './QuizMixedScoringInput';
 import { db } from '../../services/db';
+import { isObjectiveEngine, SHARED_JUDGE } from '../../config/competitionEngines';
 
 // UniQuiz-style (quiz_mixed with real Tur stages) "Natija kiritish" grid — same spreadsheet SHAPE as
 // QuizScoringGrid.jsx (Zakovat) for entry convenience, but each Raund is the leaf scoring unit here (no
@@ -31,17 +32,24 @@ const QuizMixedScoringGrid = ({
     // doesn't pass a separate `totalRoundNumbers` (keeps this component usable standalone).
     const allRoundNumbers = totalRoundNumbers || roundNumbers;
 
+    // Viktorinada belgi BITTA - QuizScoringGrid dagi bilan bir xil qoida.
+    const sharedMarks = isObjectiveEngine(competition?.scoringMethod);
+    const scoreKey = sharedMarks ? SHARED_JUDGE : activeJudge;
+
     const scoresByRound = useMemo(() => {
-        const all = db.getCompetitionScores(competition.id).filter(s => s.judge === activeJudge && allRoundNumbers.includes(s.round));
+        const all = db.getEffectiveScores(competition.id).filter(s => (
+            allRoundNumbers.includes(s.round)
+            && (sharedMarks || s.judge === activeJudge)
+        ));
         const map = new Map(); // roundIndex -> Map(participantId -> value)
         allRoundNumbers.forEach(r => map.set(r, new Map()));
         all.forEach(s => map.get(s.round)?.set(s.participantId, s.value));
         return map;
-    }, [competition.id, activeJudge, allRoundNumbers, version]);
+    }, [competition.id, activeJudge, sharedMarks, allRoundNumbers, version]);
 
     const handleChange = async (participantId, round, value) => {
         if (locked) return;
-        await db.saveRoundScores(competition.id, round, activeJudge, [{ participantId, value, criteriaScores: {} }], device);
+        await db.saveRoundScores(competition.id, round, scoreKey, [{ participantId, value, criteriaScores: {} }], device, activeJudge);
         setVersion(v => v + 1);
         onScoresChanged?.();
     };

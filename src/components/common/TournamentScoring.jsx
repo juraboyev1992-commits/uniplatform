@@ -383,8 +383,15 @@ const TournamentScoring = ({
 
     const loadRoundScores = () => {
         if (!activeComp) return;
-        const allScores = db.getCompetitionScores(activeComp.id);
-        const roundScores = allScores.filter(s => s.round === currentRound && s.judge === scoreKey);
+        // `getEffectiveScores` obyektiv dvigatelda har katak uchun eng
+        // so'nggi yozuvni beradi. Umumiy kalit bo'yicha suzib bo'lmaydi:
+        // bugungacha kiritilgan natijalar foydalanuvchi nomi bilan
+        // yozilgan va ular jadvaldan YO'QOLIB qolardi.
+        const allScores = db.getEffectiveScores(activeComp.id);
+        const objective = isObjectiveEngine(activeComp.scoringMethod);
+        const roundScores = allScores.filter(s => (
+            s.round === currentRound && (objective || s.judge === scoreKey)
+        ));
         
         const scoresMap = {};
         const criteriaScoresMap = {};
