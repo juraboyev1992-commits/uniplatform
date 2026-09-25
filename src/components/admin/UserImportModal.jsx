@@ -1,5 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Download, Upload, FileSpreadsheet, AlertTriangle, CheckCircle2, X } from 'lucide-react';
+import {
+    Download, Upload, FileSpreadsheet, AlertTriangle, CheckCircle2, X, Copy, Check,
+} from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import { db } from '../../services/db';
@@ -38,6 +40,8 @@ const UserImportModal = ({ isOpen, onClose, actingUsername, onDone }) => {
     const [running, setRunning] = useState(false);
     const [progress, setProgress] = useState({ done: 0, total: 0 });
     const [outcome, setOutcome] = useState(null);      // [{ username, fullName, password, status, message }]
+    // Qaysi qator hozirgina nusxalandi - tugma "Nusxalandi" ga o'zgaradi.
+    const [copied, setCopied] = useState(null);
 
     const reset = () => {
         setFileName(''); setParseError(''); setCheck(null);
@@ -164,6 +168,56 @@ const UserImportModal = ({ isOpen, onClose, actingUsername, onDone }) => {
         setOutcome(done);
         setRunning(false);
         if (onDone) onDone();
+    };
+
+    // FOYDALANUVCHIGA YUBORILADIGAN MATN. Ataylab faqat shu ikki qiymat:
+    // holat yorlig'i ("yaratildi"), "Parol yozilmagan - avtomatik yaratildi"
+    // kabi izohlar va F.I.Sh. - bularning hammasi ADMIN uchun, qabul
+    // qiluvchiga esa keraksiz va chalg'itadi.
+    const credentialLine = (o) => `Login: ${o.username} \u00b7 parol: ${o.password}`;
+
+    // `navigator.clipboard` HTTPS va foydalanuvchi bosishini talab qiladi -
+    // ikkalasi ham bor. Eski brauzerlar uchun zaxira yo'l: vaqtinchalik
+    // maydon orqali. Ishlamasa jim qolmaymiz - `false` qaytadi.
+    const copyToClipboard = async (text) => {
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+        } catch { /* zaxira yo'lga o'tamiz */ }
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            return ok;
+        } catch {
+            return false;
+        }
+    };
+
+    const copyOne = async (o) => {
+        if (await copyToClipboard(credentialLine(o))) {
+            setCopied(o.username);
+            setTimeout(() => setCopied(c => (c === o.username ? null : c)), 1600);
+        }
+    };
+
+    const copyAll = async () => {
+        const lines = (outcome || [])
+            .filter(o => o.password)
+            .map(credentialLine)
+            .join('\n');
+        if (!lines) return;
+        if (await copyToClipboard(lines)) {
+            setCopied('__all__');
+            setTimeout(() => setCopied(c => (c === '__all__' ? null : c)), 1600);
+        }
     };
 
     const downloadOutcome = async () => {
@@ -335,18 +389,44 @@ const UserImportModal = ({ isOpen, onClose, actingUsername, onDone }) => {
                                             : o.status === 'yangilandi' ? 'bg-indigo-100 text-indigo-800'
                                             : 'bg-emerald-100 text-emerald-800'
                                     }`}>{o.status}</span>
-                                    <span className="min-w-0">
+                                    <span className="min-w-0 flex-1">
                                         <span className="font-bold text-gray-900">{o.username}</span>
                                         {o.password && <span className="text-gray-500"> · parol: <b className="text-gray-900">{o.password}</b></span>}
                                         {o.message && <span className="text-gray-500"> · {o.message}</span>}
                                     </span>
+                                    {/* Nusxalash FAQAT paroli bor qatorda: parolsiz
+                                        qatorda yuboradigan narsa yo'q. */}
+                                    {o.password && (
+                                        <button
+                                            type="button" onClick={() => copyOne(o)}
+                                            title="Login va parolni nusxalash"
+                                            className={`shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg font-semibold border transition-colors ${
+                                                copied === o.username
+                                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                                                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400'
+                                            }`}
+                                        >
+                                            {copied === o.username
+                                                ? <><Check size={12} /> Nusxalandi</>
+                                                : <><Copy size={12} /> Nusxalash</>}
+                                        </button>
+                                    )}
                                 </div>
                             ))}
                         </div>
 
-                        <Button variant="primary" className="w-full" onClick={downloadOutcome}>
-                            <Download size={14} className="mr-1.5" /> Natijani Excelga yuklab olish
-                        </Button>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            {createdWithPassword > 0 && (
+                                <Button variant="outline" className="flex-1" onClick={copyAll}>
+                                    {copied === '__all__'
+                                        ? <><Check size={14} className="mr-1.5" /> Nusxalandi</>
+                                        : <><Copy size={14} className="mr-1.5" /> Hammasini nusxalash ({createdWithPassword})</>}
+                                </Button>
+                            )}
+                            <Button variant="primary" className="flex-1" onClick={downloadOutcome}>
+                                <Download size={14} className="mr-1.5" /> Natijani Excelga yuklab olish
+                            </Button>
+                        </div>
                     </div>
                 )}
 
