@@ -324,12 +324,26 @@ const UserImportModal = ({ isOpen, onClose, actingUsername, onDone }) => {
                                     <div key={r.line} className="px-3 py-2 text-xs text-amber-900">
                                         <span className="font-bold">{r.line}-qator</span> · {r.value.username}
                                         <span> — {r.warnings.join('; ')}</span>
+                                        {/* AVTOMATIK PAROL SHU YERDA KO'RSATILADI.
+                                            U tekshiruv paytida allaqachon yaratilgan va
+                                            yozishda AYNAN shu ishlatiladi - yashirib
+                                            turishning ma'nosi yo'q edi, admin esa
+                                            "parol qani" deb qolardi.
+                                            Nusxalash tugmasi ATAYLAB yo'q: akkaunt
+                                            hali yaratilmagan, mavjud bo'lmagan
+                                            hisobning parolini yuborib bo'lmaydi. */}
+                                        {r.value.password && (
+                                            <span> · parol: <b className="text-amber-950">{r.value.password}</b></span>
+                                        )}
                                     </div>
                                 ))}
                             </div>
                         )}
 
                         <p className="text-[11px] text-gray-500">
+                            Parollarni nusxalash yozilgandan keyin ochiladi &mdash; hali mavjud
+                            bo'lmagan hisobning parolini yuborib bo'lmaydi.
+                            <br />
                             Xato qatorlar yozilmaydi, qolganlari yoziladi. Faylni tuzatib qayta yuklashingiz mumkin:
                             {' '}allaqachon yaratilgan login ikkinchi marta yaratilmaydi.
                         </p>
