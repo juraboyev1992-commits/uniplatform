@@ -75,6 +75,12 @@ const TournamentScoring = ({
     title = "Musobaqalar va Natijalar" 
 }) => {
     const { user, hasClubRole } = useAuth();
+
+    // `activeComp` ATAYLAB shu yerda - qolgan holatlardan ajralib.
+    // Sababi: quyidagi `getUserRole()` darhol chaqiriladi va u musobaqaning
+    // klubini bilishi kerak. E'lon pastda qolsa, rol hisoblanayotganda
+    // o'zgaruvchi hali "o'lik zona"da bo'lardi va sahifa ishga tushmasdi.
+    const [activeComp, setActiveComp] = useState(null);
     const navigate = useNavigate();
     const location = useLocation();
     // Opening/creating a competition from the bare-routed workspace (CompetitionWorkspacePage.jsx,
@@ -106,12 +112,31 @@ const TournamentScoring = ({
         navigate(target);
     };
 
+    // MUSOBAQA QAYSI KLUBGA TEGISHLI - ikki manbadan.
+    //
+    // `contextType`/`contextId` proplari FAQAT musobaqa klub bo'limi ichidan
+    // ochilganda to'ldiriladi. Havola orqali yoki ish maydoni sahifasidan
+    // kirilganda ular bo'sh bo'ladi - va koordinator o'z klubining
+    // musobaqasida "Mehmon" bo'lib qolardi: "Natija kiritish" tabi umuman
+    // ko'rinmasdi.
+    //
+    // Shuning uchun musobaqaning O'ZIDAN ham o'qiladi. Endi kirish yo'lidan
+    // qat'i nazar bir xil ishlaydi.
+    const owningClubId = (contextType === 'club' && contextId)
+        ? String(contextId)
+        : (activeComp?.contextType === 'club' && activeComp?.contextId
+            ? String(activeComp.contextId)
+            : null);
+
+    const isOwningClubCoordinator = () =>
+        !!owningClubId && hasClubRole(owningClubId, ['head_coordinator', 'coordinator']);
+
     // Determine detailed role and permissions
     const getUserRole = () => {
         if (!user) return 'PUBLIC';
         if (user.role === 'ADMINISTRATOR') return 'ADMINISTRATOR';
         if (user.role === 'MODERATOR') return 'MODERATOR';
-        if (user.role === 'COORDINATOR' || (contextType === 'club' && hasClubRole(contextId, ['head_coordinator', 'coordinator']))) return 'COORDINATOR';
+        if (user.role === 'COORDINATOR' || isOwningClubCoordinator()) return 'COORDINATOR';
         if (user.role === 'JUDGE' || user.username === 'talaba') return 'JUDGE';
         return 'PUBLIC';
     };
@@ -151,20 +176,11 @@ const TournamentScoring = ({
         return hasFullAdminAccess() || hasDelegatedPermission(user, activeComp, 'manage_groups');
     };
 
-    // MUSOBAQANING O'Z KLUBI koordinatorimi.
-    //
-    // `getUserRole()` dagi COORDINATOR tekshiruvidan FARQ QILADI: u sahifa
-    // qaysi yo'ldan ochilganiga (`contextType`/`contextId`) tayanadi, va u
-    // faqat klub sahifasidan kirilganda to'ldiriladi. Musobaqa havolasi
-    // orqali to'g'ridan-to'g'ri kirilganda bo'sh bo'ladi va koordinator
-    // o'z musobaqasida ham begonaday ko'rinardi.
-    //
-    // Bu yerda klub MUSOBAQANING O'ZIDAN olinadi, shuning uchun kirish
-    // yo'lidan qat'i nazar bir xil ishlaydi.
-    const isOwningClubCoordinator = () =>
-        activeComp?.contextType === 'club'
-        && !!activeComp.contextId
-        && hasClubRole(activeComp.contextId, ['head_coordinator', 'coordinator']);
+    // `isOwningClubCoordinator` YUQORIGA ko'chirildi (getUserRole dan oldin).
+    // Ilgari u shu yerda, ikkinchi nusxa bo'lib turardi va FAQAT
+    // `canEditBasics` uchun ishlatilardi - ya'ni koordinator musobaqa
+    // sozlamalarini ocha olardi, lekin rol hisobi uni ko'rmagani uchun
+    // "Natija kiritish" tabi baribir yopiq qolardi.
 
     // TURLAR JADVALI - har Turning sanasi, vaqti va mas'ul hakami.
     //
@@ -182,7 +198,6 @@ const TournamentScoring = ({
 
     // State management
     const [competitions, setCompetitions] = useState([]);
-    const [activeComp, setActiveComp] = useState(null);
     const [isConfiguring, setIsConfiguring] = useState(false);
     const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'participants' | 'scoring' | 'results' | 'brackets' | 'schedule' | 'judges' | 'analytics' | 'settings'
     const [loading, setLoading] = useState(true);
