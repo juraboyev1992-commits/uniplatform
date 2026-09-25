@@ -49,7 +49,9 @@ import ParticipantStatsPanel from './ParticipantStatsPanel';
 // ⚠️ VAQTINCHALIK — real ro'yxatdan o'tish ishlagach shu import va uning ishlatilgan joyi o'chiriladi.
 import TestTeamsQuickAdd from './TestTeamsQuickAdd';
 import { hasDelegatedPermission } from '../../utils/competitionPermissions';
-import { QUIZ_MIXED_ROUND_TYPES, getTieBreakLabel, getDisplayStages, getDisplayStageLeafLabel, getEffectivePointsTable } from '../../config/competitionEngines';
+import { QUIZ_MIXED_ROUND_TYPES, getTieBreakLabel, getDisplayStages, getDisplayStageLeafLabel, getEffectivePointsTable,
+    isObjectiveEngine, SHARED_JUDGE
+} from '../../config/competitionEngines';
 import { useTheme } from '../../contexts/ThemeContext';
 
 const SCORING_METHOD_LABELS = {
@@ -241,6 +243,19 @@ const TournamentScoring = ({
     const [selectedSingleRaund, setSelectedSingleRaund] = useState(null); // null = "Hammasi" (all raunds)
     const [selectedRaundIdx, setSelectedRaundIdx] = useState(1); // 1-based, into selectedStage.raundBoundaries
     const [activeJudge, setActiveJudge] = useState(user?.username || 'admin');
+
+    // BELGI SAQLANADIGAN KALIT.
+    //
+    // Munozara va mezonli baholashda har hakamning o'z bahosi bo'ladi -
+    // kalit ham o'zining login'i. Viktorinada esa "to'g'ri javob" fakt:
+    // belgi BITTA bo'lishi va kim qo'yishidan qat'i nazar hammaga bir xil
+    // ko'rinishi kerak. Shuning uchun u umumiy kalitga yoziladi.
+    //
+    // Audit jurnalida haqiqiy foydalanuvchi qoladi (saveRoundScores ning
+    // oxirgi argumenti) - "kim belgiladi" degan savolga javob shu yerda.
+    const scoreKey = isObjectiveEngine(activeComp?.scoringMethod)
+        ? SHARED_JUDGE
+        : activeJudge;
     const [device, setDevice] = useState('Hakam Plansheti');
     const [localScores, setLocalScores] = useState({});
     const [localCriteriaScores, setLocalCriteriaScores] = useState({});
@@ -325,7 +340,7 @@ const TournamentScoring = ({
             loadRoundScores();
             loadAuditLogs();
         }
-    }, [activeComp, currentRound, activeJudge, scoresVersion]);
+    }, [activeComp, currentRound, scoreKey, scoresVersion]);
 
     // Timer effect
     useEffect(() => {
@@ -369,7 +384,7 @@ const TournamentScoring = ({
     const loadRoundScores = () => {
         if (!activeComp) return;
         const allScores = db.getCompetitionScores(activeComp.id);
-        const roundScores = allScores.filter(s => s.round === currentRound && s.judge === activeJudge);
+        const roundScores = allScores.filter(s => s.round === currentRound && s.judge === scoreKey);
         
         const scoresMap = {};
         const criteriaScoresMap = {};
@@ -447,7 +462,9 @@ const TournamentScoring = ({
             criteriaScores: localCriteriaScores[pId] || {}
         }));
 
-        await db.saveRoundScores(activeComp.id, currentRound, activeJudge, scoresToSave, device);
+        await db.saveRoundScores(
+            activeComp.id, currentRound, scoreKey, scoresToSave, device, user?.username || activeJudge
+        );
 
         setScoresVersion(v => v + 1);
         setLastAutosaveAt(new Date().toISOString());

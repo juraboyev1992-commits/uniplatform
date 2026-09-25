@@ -357,6 +357,23 @@ export const COURT_SLOTS_DOUBLE = ['T1', 'I1'];
 // match-based?" reads this one list — it used to be re-typed inline in half a dozen files, and court_match
 // (added last) was silently missing from most of them, which is why a TSUL Court competition still showed a
 // meaningless "Jami raundlar" figure and offered round-based controls it doesn't use.
+// OBYEKTIV BAHOLASH - "to'g'ri javob" FIKR emas, FAKT.
+//
+// Munozarada har hakamning o'z bahosi bo'lishi TO'G'RI: bir nutqni
+// ikki hakam turlicha baholashi mumkin va ballar shuning uchun alohida
+// yuritiladi. Viktorinada esa savol yo to'g'ri, yo noto'g'ri - ikki xil
+// haqiqat bo'lmaydi.
+//
+// Shuning uchun bu dvigatellarda belgi BITTA bo'ladi: kim qo'yishidan
+// qat'i nazar hamma bir xil ko'radi va u BIR MARTA hisoblanadi.
+export const OBJECTIVE_ENGINES = ['correct_answer', 'quiz_mixed'];
+export const isObjectiveEngine = (scoringMethod) => OBJECTIVE_ENGINES.includes(scoringMethod);
+
+// Umumiy belgi saqlanadigan kalit. `@` belgisi ataylab: login qoidasi
+// faqat [a-z0-9._-] ga ruxsat beradi, ya'ni bu qiymat hech qachon
+// haqiqiy foydalanuvchi nomi bilan to'qnashmaydi.
+export const SHARED_JUDGE = '@umumiy';
+
 export const MATCH_BASED_ENGINES = ['match_play', 'debate_match', 'court_match'];
 export const isMatchBasedEngine = (scoringMethodOrEngine) => MATCH_BASED_ENGINES.includes(scoringMethodOrEngine);
 

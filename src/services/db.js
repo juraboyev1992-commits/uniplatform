@@ -9,7 +9,8 @@ import {
     sumRoundScoresInRange, rankByCountback, rankByLastN, DEFAULT_ADVANCEMENT_TIEBREAK,
     NOTIQ_SLOTS, computeNotiqTotal, aggregateNotiqAcrossJudges, computeTeamMatchTotal,
     computeDebateMatchWinner, getEffectivePointsTable, DEBATE_MATCH_CRITERIA,
-    getCourtSlots, getCourtMatchCriteria
+    getCourtSlots, getCourtMatchCriteria,
+    isObjectiveEngine, SHARED_JUDGE
 } from '../config/competitionEngines.js';
 import {
     DOCUMENT_TYPES, getDocumentType, getDocumentTypeLabel, resolveDocumentType,
@@ -8137,7 +8138,13 @@ export const db = {
     // (one round/judge at a time, same as the original), so the "diff against old value" audit-logging
     // behavior is preserved without a full-table read. A value that hasn't actually changed still writes
     // nothing and logs nothing, exactly like the original.
-    saveRoundScores: async (compId, round, judge, scoresList, device) => {
+    // `judge` - yozuv SAQLANADIGAN kalit, `actor` - uni KIM yozgani.
+    //
+    // Obyektiv dvigatellarda kalit hamma uchun bitta (`SHARED_JUDGE`), lekin
+    // audit jurnalida haqiqiy foydalanuvchi qolishi SHART: nizo chiqqanda
+    // "kim belgiladi" degan savolga javob beradigan yagona joy shu.
+    saveRoundScores: async (compId, round, judge, scoresList, device, actor = null) => {
+        const actingUser = actor || judge;
         const participantIds = scoresList.map(e => e.participantId);
         const { data: existingRows, error: fetchErr } = await supabase.from('competition_scores')
             .select('*').eq('competition_id', compId).eq('round', round).eq('judge', judge).in('participant_id', participantIds);
@@ -8155,7 +8162,8 @@ export const db = {
                 if (JSON.stringify(existing.value) !== JSON.stringify(newVal)) {
                     auditRows.push({
                         id: 'log_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
-                        competition_id: compId, judge, time: timestamp, participant_id: entry.participantId,
+                        competition_id: compId, judge: actingUser, time: timestamp,
+                        participant_id: entry.participantId,
                         round, old_val: existing.value, new_val: newVal, device: device || 'Web Browser'
                     });
                     upsertRows.push({
@@ -8171,7 +8179,8 @@ export const db = {
                 });
                 auditRows.push({
                     id: 'log_' + Date.now().toString() + Math.random().toString(36).slice(2, 8),
-                    competition_id: compId, judge, time: timestamp, participant_id: entry.participantId,
+                    competition_id: compId, judge: actingUser, time: timestamp,
+                    participant_id: entry.participantId,
                     round, old_val: null, new_val: newVal, device: device || 'Web Browser'
                 });
             }
@@ -9393,11 +9402,34 @@ export const db = {
             ? new Map((data.competitionQuestionPoints || []).filter(r => r.competitionId === compId).map(r => [r.questionIndex, r.points]))
             : null;
 
+        // OBYEKTIV DVIGATELLARDA BELGI BITTA.
+        //
+        // Quyida raund bali hakamlar bo'yicha QO'SHILADI. Munozarada bu
+        // to'g'ri, viktorinada esa xato: admin 1-savolni "to'g'ri" desa VA
+        // koordinator ham o'sha savolni "to'g'ri" desa, jamoa ikki barobar
+        // ball olardi. Ish taqsimlanganda (har hakam boshqa jamoani
+        // baholaganda) bu bilinmasdi - faqat USTMA-UST baholanganda chiqardi.
+        //
+        // Yechim: obyektiv dvigatelda hamma yozuv BITTA katakka tushadi va
+        // eng SO'NGGISI kuchda qoladi. Saqlangan qatorlar o'chirilmaydi -
+        // faqat hisob qoidasi o'zgaradi, ya'ni orqaga qaytarish mumkin.
+        const objectiveScoring = isObjectiveEngine(comp.scoringMethod);
+        const newestAt = new Map(); // "ishtirokchi|raund" -> eng so'nggi sana
+
         scores.forEach(s => {
             if (!participantScores[s.participantId]) return;
 
             if (!participantScores[s.participantId].rounds[s.round]) {
                 participantScores[s.participantId].rounds[s.round] = {};
+            }
+
+            if (objectiveScoring) {
+                const cell = `${s.participantId}|${s.round}`;
+                const prev = newestAt.get(cell);
+                // Sana yo'q eski qatorlar ham hisobga olinadi (bo'sh satr
+                // har qanday sanadan kichik).
+                if (prev !== undefined && String(s.date || '') < prev) return;
+                newestAt.set(cell, String(s.date || ''));
             }
 
             // Score values depend on the competition scoring method
@@ -9429,7 +9461,11 @@ export const db = {
                 numericVal = computeDebateRoundTotal(s.criteriaScores);
             }
             
-            participantScores[s.participantId].rounds[s.round][s.judge] = numericVal;
+            // Obyektiv dvigatelda kalit HAMMA UCHUN BITTA - shuning uchun
+            // qo'shish paytida bitta qiymat qoladi.
+            participantScores[s.participantId].rounds[s.round][
+                objectiveScoring ? SHARED_JUDGE : s.judge
+            ] = numericVal;
         });
         
         // Debate engine: Chief Judge penalties are stored separately from round scores and

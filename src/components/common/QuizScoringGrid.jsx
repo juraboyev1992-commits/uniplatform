@@ -5,6 +5,7 @@ import Button from './Button';
 import Modal from './Modal';
 import TeamDetailDrawer from './TeamDetailDrawer';
 import { db } from '../../services/db';
+import { isObjectiveEngine } from '../../config/competitionEngines';
 
 // Zakovat (correct_answer) "Natija kiritish" grid — a spreadsheet view of every Savol in the currently
 // selected Raund at once (rows = teams, columns = questions, click-to-cycle cells), replacing the old
@@ -54,10 +55,29 @@ const QuizScoringGrid = ({
     const localSavolLabel = (q) => q - turRangeStart + 1;
 
     const scoresByQuestion = useMemo(() => {
-        const all = db.getCompetitionScores(competition.id).filter(s => s.judge === activeJudge && questionButtons.includes(s.round));
+        // Obyektiv dvigatelda belgi umumiy kalitda turadi - hamma bir xil
+        // ko'radi. Eski qatorlar foydalanuvchi nomi bilan yozilgan, shuning
+        // uchun ular ham o'qiladi: aks holda bugungacha kiritilgan natijalar
+        // jadvaldan YO'QOLIB qolardi.
+        const shared = isObjectiveEngine(competition?.scoringMethod);
+        const all = db.getCompetitionScores(competition.id).filter(s => (
+            questionButtons.includes(s.round)
+            && (shared || s.judge === activeJudge)
+        ));
         const map = new Map(); // questionIndex -> Map(participantId -> value)
         questionButtons.forEach(q => map.set(q, new Map()));
-        all.forEach(s => map.get(s.round)?.set(s.participantId, s.value));
+        // Bir katakda bir nechta yozuv bo'lishi mumkin (eski qatorlar turli
+        // foydalanuvchi nomi bilan yozilgan). Reyting ENG SO'NGGISINI
+        // hisoblaydi - jadval ham aynan shuni ko'rsatishi kerak, aks holda
+        // ekranda bir narsa, ballda boshqa narsa bo'lib qolardi.
+        const seenAt = new Map(); // "savol|ishtirokchi" -> sana
+        [...all]
+            .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
+            .forEach(s => {
+                const cell = `${s.round}|${s.participantId}`;
+                seenAt.set(cell, String(s.date || ''));
+                map.get(s.round)?.set(s.participantId, s.value);
+            });
         return map;
     }, [competition.id, activeJudge, questionButtons, version]);
 
