@@ -83,15 +83,44 @@ const normalizeRole = (raw) => {
     return ROLE_ALIASES[upper] || null;
 };
 
+// Fakultet nomini solishtirishga tayyorlash.
+//
+// NEGA KERAK: Excel va Word oddiy apostrofni (') AVTOMATIK ravishda egri
+// apostrofga (’) almashtiradi. Ro'yxatda "Huquqni sohalararo o'rganish
+// fakulteti" oddiy apostrof bilan yozilgan, foydalanuvchining faylida esa
+// egrisi bo'ladi - va aynan mos kelishni talab qiladigan taqqoslash uni
+// "noma'lum fakultet" deb rad etardi. Apostrofsiz to'rtta fakultet
+// ishlaverardi, shuning uchun xato faqat ba'zi qatorlarda chiqib,
+// tushunarsiz ko'rinardi.
+//
+// Ayni paytda ortiqcha bo'sh joy ham yig'iladi: qo'lda to'ldirilgan
+// katakda ikki probel yoki oxiridagi probel odatiy hol.
+const facultyKey = (v) => String(v ?? '')
+    .replace(/[‘’ʻʼ`´]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+// Nomning oxiridagi "fakulteti" / "bo'limi" bo'lmasa ham tanilsin -
+// ro'yxatdan ko'chirganda oxirgi so'z tushib qolishi mumkin.
+const facultyStem = (v) => facultyKey(v).replace(/\s+(fakulteti|bo'limi)$/, '');
+
 // Fakultet nomi to'liq yoziladi, lekin qisqartma (OH, JOS) ham qabul
 // qilinadi. Qaytadi: nom | null (bo'sh) | undefined (noto'g'ri qiymat).
 const normalizeFaculty = (raw) => {
     const v = String(raw ?? '').trim();
     if (!v) return null;
-    const exact = FACULTY_NAMES.find(n => n.toLowerCase() === v.toLowerCase());
+
+    const key = facultyKey(v);
+    const exact = FACULTY_NAMES.find(n => facultyKey(n) === key);
     if (exact) return exact;
-    const byCode = FACULTIES.find(f => f.code.toLowerCase() === v.toLowerCase());
-    return byCode ? byCode.name : undefined;
+
+    const byCode = FACULTIES.find(f => f.code.toLowerCase() === key);
+    if (byCode) return byCode.name;
+
+    const stem = facultyStem(v);
+    const byStem = FACULTY_NAMES.find(n => facultyStem(n) === stem);
+    return byStem || undefined;
 };
 
 export const suggestImportPassword = () => {
