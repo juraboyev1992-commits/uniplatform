@@ -22,7 +22,7 @@ import { isObjectiveEngine, SHARED_JUDGE } from '../../config/competitionEngines
 const QuizMixedScoringGrid = ({
     competition, participants, activeJudge, device, roundNumbers, totalRoundNumbers, onScoresChanged,
     locked = false, hideResults = false, onToggleLock, onToggleHideResults, columnSuffix = 'R'
-}) => {
+, liveVersion = 0}) => {
     const [version, setVersion] = useState(0);
 
     // `roundNumbers` = which raund columns are actually RENDERED (a judge can narrow this to a single
@@ -45,7 +45,7 @@ const QuizMixedScoringGrid = ({
         allRoundNumbers.forEach(r => map.set(r, new Map()));
         all.forEach(s => map.get(s.round)?.set(s.participantId, s.value));
         return map;
-    }, [competition.id, activeJudge, sharedMarks, allRoundNumbers, version]);
+    }, [competition.id, activeJudge, sharedMarks, allRoundNumbers, version, liveVersion]);
 
     const handleChange = async (participantId, round, value) => {
         if (locked) return;

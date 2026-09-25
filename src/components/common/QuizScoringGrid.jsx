@@ -39,7 +39,7 @@ const QuizScoringGrid = ({
     questionButtons, selectedRoundGroup, roundGroupCount, currentRound, turRangeStart,
     questionsPerRoundGroup, locked, hideResults,
     onSelectRoundGroup, onScoresChanged, onToggleLock, onToggleHideResults
-}) => {
+, liveVersion = 0}) => {
     const [version, setVersion] = useState(0);
     const [selectedTeamId, setSelectedTeamId] = useState(null);
     const [editingPointsIdx, setEditingPointsIdx] = useState(null);
@@ -72,7 +72,7 @@ const QuizScoringGrid = ({
         questionButtons.forEach(q => map.set(q, new Map()));
         all.forEach(s => map.get(s.round)?.set(s.participantId, s.value));
         return map;
-    }, [competition.id, activeJudge, sharedMarks, questionButtons, version]);
+    }, [competition.id, activeJudge, sharedMarks, questionButtons, version, liveVersion]);
 
     const questionMeta = useMemo(() => {
         const overrides = db.getCompetitionQuestionPoints(competition.id);

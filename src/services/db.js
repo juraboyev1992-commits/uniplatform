@@ -8135,6 +8135,42 @@ export const db = {
         return (data.competitionScores || []).filter(s => s.competitionId === compId);
     },
 
+    // FAQAT SHU MUSOBAQANING BALLARINI QAYTA O'QISH.
+    //
+    // NEGA KERAK: ilovada realtime obuna yo'q, ya'ni koordinator belgi
+    // qo'ysa adminning ochiq ekranida hech narsa o'zgarmaydi. To'liq
+    // sinxronizatsiya (112 ta jadval) buning uchun juda og'ir - har necha
+    // soniyada chaqirib bo'lmaydi.
+    //
+    // Bu esa BITTA jadvaldan BITTA so'rov: musobaqa ballari. Mahalliy
+    // nusxadagi shu musobaqaning qatorlari almashtiriladi, boshqa
+    // musobaqalarnikiga tegilmaydi.
+    //
+    // O'ZGARISH BO'LGANINI qaytaradi: chaqiruvchi shunga qarab ekranni
+    // qayta chizadi. Har safar qayta chizish kursorni va aylantirishni
+    // sakratib yuborardi.
+    refreshCompetitionScores: async (compId) => {
+        const { data, error } = await supabase
+            .from('competition_scores').select('*').eq('competition_id', compId);
+        if (error) throw error;
+
+        const fresh = (data || []).map(mapCompetitionScoreFromSupabase);
+        const dbData = getDB();
+        const others = (dbData.competitionScores || []).filter(s => s.competitionId !== compId);
+        const before = (dbData.competitionScores || []).filter(s => s.competitionId === compId);
+
+        // Solishtirish uchun barqaror kalit - qator tartibi muhim emas.
+        const fingerprint = (rows) => rows
+            .map(r => `${r.participantId}|${r.round}|${r.judge}|${JSON.stringify(r.value)}`)
+            .sort()
+            .join(';');
+        const changed = fingerprint(before) !== fingerprint(fresh);
+
+        dbData.competitionScores = [...others, ...fresh];
+        saveDB(dbData);
+        return changed;
+    },
+
     // AMALDAGI BELGILAR - jadvallar shu yerdan o'qiydi.
     //
     // Obyektiv dvigatelda (viktorina) bitta katakka bir nechta yozuv

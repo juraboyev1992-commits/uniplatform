@@ -244,6 +244,13 @@ const TournamentScoring = ({
     const [selectedRaundIdx, setSelectedRaundIdx] = useState(1); // 1-based, into selectedStage.raundBoundaries
     const [activeJudge, setActiveJudge] = useState(user?.username || 'admin');
 
+    // BOSHQA ODAM KIRITGAN NATIJA O'ZI KO'RINSIN.
+    //
+    // `liveVersion` faqat SHU maqsadda oshadi. `scoresVersion` dan ATAYLAB
+    // ajratilgan: u "Natija kiritish" jadvalining saqlanmagan tahrirlarini
+    // qaytadan yuklab, yozilmagan ishni yo'q qilib yuborardi.
+    const [liveVersion, setLiveVersion] = useState(0);
+
     // BELGI SAQLANADIGAN KALIT.
     //
     // Munozara va mezonli baholashda har hakamning o'z bahosi bo'ladi -
@@ -380,6 +387,36 @@ const TournamentScoring = ({
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [activeComp, isConfiguring, activeTab, currentRound, localScores, localCriteriaScores, activeJudge]);
+
+    // Har 12 soniyada shu musobaqaning ballari qayta o'qiladi.
+    //
+    // FAQAT ko'rinib turganda: yopiq yorliqda so'rov yuborish bekorga
+    // trafik sarflaydi va bir odam o'nta yorliq ochib qo'yishi mumkin.
+    // Xato bo'lsa jim o'tiladi - keyingi urinish 12 soniyadan keyin, va
+    // ekranda allaqachon ishlayotgan ma'lumot turibdi.
+    useEffect(() => {
+        if (!activeComp?.id) return undefined;
+        let alive = true;
+
+        const tick = async () => {
+            if (document.visibilityState !== 'visible') return;
+            try {
+                const changed = await db.refreshCompetitionScores(activeComp.id);
+                if (alive && changed) setLiveVersion(v => v + 1);
+            } catch { /* keyingi urinishda */ }
+        };
+
+        const id = setInterval(tick, 12000);
+        // Yorliqqa qaytilganda darhol - 12 soniya kutib o'tirmasin.
+        const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+        document.addEventListener('visibilitychange', onVisible);
+
+        return () => {
+            alive = false;
+            clearInterval(id);
+            document.removeEventListener('visibilitychange', onVisible);
+        };
+    }, [activeComp?.id]);
 
     const loadRoundScores = () => {
         if (!activeComp) return;
@@ -804,13 +841,13 @@ const TournamentScoring = ({
 
     const leaderboardData = useMemo(
         () => (activeComp ? db.getLeaderboard(activeComp.id) : []),
-        [activeComp, scoresVersion, auditLogs]
+        [activeComp, scoresVersion, liveVersion, auditLogs]
     );
 
     // Compute dynamic scores for Results Center component
     const scoresData = useMemo(
         () => (activeComp ? db.getCompetitionScores(activeComp.id) : []),
-        [activeComp, scoresVersion]
+        [activeComp, scoresVersion, liveVersion]
     );
 
     // debate: Chief Judge penalty ledger for Results Center's final-score breakdown
@@ -1553,6 +1590,7 @@ const TournamentScoring = ({
                                             onToggleLock={handleToggleRoundLock}
                                             onToggleHideResults={handleToggleResultsHidden}
                                             onSelectRoundGroup={(groupNum) => handleRoundChange(groupRangeStart + (groupNum - 1) * QUESTIONS_PER_ROUND_GROUP)}
+                                            liveVersion={liveVersion}
                                             onScoresChanged={() => { setScoresVersion(v => v + 1); loadAuditLogs(); }}
                                         />
                                     ) : isQuizMixedStaged ? (
@@ -1590,6 +1628,7 @@ const TournamentScoring = ({
                                             hideResults={resultsHidden}
                                             onToggleLock={handleToggleRoundLock}
                                             onToggleHideResults={handleToggleResultsHidden}
+                                            liveVersion={liveVersion}
                                             onScoresChanged={() => { setScoresVersion(v => v + 1); loadAuditLogs(); }}
                                         />
                                         )
