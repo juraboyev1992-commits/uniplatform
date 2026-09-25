@@ -2339,6 +2339,24 @@ const clubDataColumnError = (error) => {
             + 'Supabase SQL Editor da `supabase/club_contacts.sql` ni bir marta ishga tushiring.'
         );
     }
+    // PGRST116 - "Cannot coerce the result to a single JSON object".
+    //
+    // Bu BAZA XATOSI EMAS, uning OQIBATI: ruxsat qoidasi yozishga yo'l
+    // bermaganda `update` 0 ta qator qaytaradi, `.single()` esa undan
+    // bitta obyekt yasamoqchi bo'ladi va shu ingliz tilidagi texnik
+    // xabarni beradi. Foydalanuvchi uchun u hech narsa anglatmaydi -
+    // koordinator "saqlanmadi" deb o'ylaydi va sababini bilmaydi.
+    if (error?.code === 'PGRST116' || /coerce the result/i.test(message)) {
+        return new Error(
+            "Saqlanmadi: bu ma'lumotni o'zgartirish huquqi yo'q. "
+            + "Klub nomi, yo'nalishi, rahbari va ro'yxatga olish ma'lumotlarini "
+            + "faqat administrator o'zgartiradi. Agar aloqa ma'lumotini kiritayotgan "
+            + "bo'lsangiz - administrator `supabase/rls_club_coordinator_settings.sql` "
+            + 'ni ishga tushirishi kerak.'
+        );
+    }
+    // Triggerdan kelgan aniq xabarlar o'zbekcha va tushunarli - ularni
+    // o'zgartirmasdan uzatamiz.
     return error;
 };
 
