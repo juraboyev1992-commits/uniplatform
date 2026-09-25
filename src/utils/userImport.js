@@ -105,6 +105,58 @@ const facultyKey = (v) => String(v ?? '')
 // ro'yxatdan ko'chirganda oxirgi so'z tushib qolishi mumkin.
 const facultyStem = (v) => facultyKey(v).replace(/\s+(fakulteti|bo'limi)$/, '');
 
+// ENG YAQIN NOMNI TAKLIF QILISH.
+//
+// NEGA: "noma'lum fakultet" xabari muammoni KO'RSATMAYDI. Faylda
+// "soahalararo" deb yozilgan bo'lsa (a va h o'rin almashgan), odam uni
+// ro'yxat bilan yonma-yon qo'yib ham darrov payqamaydi - men ham
+// payqamadim va avval apostrofdan deb o'yladim. Endi tizim aynan qaysi
+// nomni nazarda tutgan bo'lishi mumkinligini aytadi.
+//
+// TAKLIF XOLOS, avtomatik tuzatilmaydi: yaqin ikki nom bir-biriga
+// almashib ketsa, talaba butunlay boshqa fakultetga yozilardi va buni
+// hech kim sezmasdi. Qaror odamda.
+const editDistance = (a, b) => {
+    if (a === b) return 0;
+    let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i += 1) {
+        const cur = [i];
+        for (let j = 1; j <= b.length; j += 1) {
+            cur[j] = Math.min(
+                prev[j] + 1,
+                cur[j - 1] + 1,
+                prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+            );
+        }
+        prev = cur;
+    }
+    return prev[b.length];
+};
+
+export const closestFaculty = (raw) => {
+    const key = facultyKey(raw);
+    if (key.length < 3) return null;
+
+    // Nomning bir bo'lagi yozilgan bo'lsa ("Huquqni sohalararo") - masofa
+    // katta chiqadi, chunki qolgan so'zlar yetishmaydi. Shuning uchun avval
+    // ichki moslikni ko'ramiz. FAQAT BITTA nomga to'g'ri kelsa: ikkitasiga
+    // to'g'ri kelsa qaysi biri ekani noma'lum va taklif chalg'itadi.
+    if (key.length >= 8) {
+        const inside = FACULTY_NAMES.filter(n => facultyKey(n).includes(key));
+        if (inside.length === 1) return inside[0];
+    }
+
+    let best = null;
+    let bestDist = Infinity;
+    FACULTY_NAMES.forEach(n => {
+        const d = editDistance(key, facultyKey(n));
+        if (d < bestDist) { bestDist = d; best = n; }
+    });
+    // Chegara uzunlikka bog'liq: qisqa nomda ikki xato ko'p, uzunda kam.
+    // 25% dan uzoq bo'lsa - bu boshqa nom, taklif qilish chalg'itadi.
+    return bestDist <= Math.max(2, Math.round(key.length * 0.25)) ? best : null;
+};
+
 // Fakultet nomi to'liq yoziladi, lekin qisqartma (OH, JOS) ham qabul
 // qilinadi. Qaytadi: nom | null (bo'sh) | undefined (noto'g'ri qiymat).
 const normalizeFaculty = (raw) => {
@@ -175,7 +227,13 @@ export const validateImportRow = (row, { existingUsernames = new Set(), seenInFi
     }
 
     const faculty = normalizeFaculty(row.faculty);
-    if (faculty === undefined) errors.push(`Noma'lum fakultet: "${row.faculty}"`);
+    if (faculty === undefined) {
+        const guess = closestFaculty(row.faculty);
+        errors.push(
+            `Noma'lum fakultet: "${row.faculty}"`
+            + (guess ? ` — balki "${guess}"?` : '')
+        );
+    }
 
     let course = null;
     const rawCourse = row.course;
