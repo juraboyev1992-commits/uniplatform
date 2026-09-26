@@ -1,87 +1,393 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Trophy, RefreshCw, Lock } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { Trophy, RefreshCw, Lock, LogIn, AlertTriangle } from 'lucide-react';
 import { db } from '../../services/db';
+import { useAuth } from '../../contexts/AuthContext';
+import { getDisplayStages, computeGroupStandings } from '../../config/competitionEngines';
 
-// Public "live screen" view (spec §11 — "Live ekran uchun public view"), read-only, no auth-gated
-// actions. Renders the same real db.getLeaderboard result every other results view already trusts — no
-// new/duplicate computation. Meant for a projector/big-screen tab, so it polls lightly for updates
-// rather than requiring a manual refresh (this page has no other way to learn about new scores, unlike
-// the authenticated workspace which recomputes on its own state changes).
-const REFRESH_MS = 5000;
+// JONLI EKRAN - zaldagi proyektor uchun.
+//
+// ILGARI ISHLAMASDI. Sahifa `db.getLeaderboard()` ni chaqirardi, u esa
+// BRAUZERDAGI mahalliy nusxadan o'qiydi. Serverga birorta ham so'rov
+// yo'q edi: har 5 soniyada taymer `tick` ni oshirib, o'SHA O'ZGARMAGAN
+// nusxani qayta o'qirdi. Burchakdagi aylanayotgan belgi "jonli" degan
+// taassurot berardi, raqamlar esa oxirgi sinxronizatsiyada qotib qolardi.
+// Tizimga kirmagan kompyuterda esa mahalliy nusxa DEMO ma'lumot bo'lardi
+// va ekran "Musobaqa topilmadi" deb turardi.
+//
+// ENDI: sahifa serverdan o'qiydi va TIZIMGA KIRISH talab qiladi -
+// musobaqa va ballarni o'qish qoidasi `to authenticated`. Proyektorni
+// ulagan odam o'z hisobi bilan kiradi; ish maydonidagi tugma orqali
+// ochilsa, yangi oyna o'sha seansni oladi va hech narsa so'ralmaydi.
+
+const REFRESH_MS = 8000;
+// Ro'yxat ekranga sig'masa o'zi aylanadi: zalda hech kim sichqoncha
+// bilan pastga tushirib o'tirmaydi.
+const SCROLL_STEP_PX = 1;
+const SCROLL_TICK_MS = 50;
+const SCROLL_PAUSE_MS = 2500;
+// Proyektorda 24 ta ustun o'qilmaydi.
+const MAX_ROUND_COLUMNS = 12;
+
+const CARD = 'bg-slate-900 rounded-3xl border border-slate-800';
+
+// ---------------------------------------------------------------------------
+// SPORT (match_play) - guruh jadvali.
+// Reyting tabi (CompetitionRatingTab.jsx) bilan AYNAN bir manba:
+// uchrashuvlar + guruhlar -> computeGroupStandings. Ikki joyda ikki xil
+// hisob bo'lmasligi uchun o'sha funksiya qayta ishlatiladi.
+// ---------------------------------------------------------------------------
+const SportBoard = ({ competition, tick }) => {
+    const groups = useMemo(() => db.getCompetitionGroups(competition.id), [competition.id, tick]);
+    const matches = useMemo(() => db.getCompetitionMatches(competition.id), [competition.id, tick]);
+    const byGroup = groups.map(g => ({
+        name: g.name,
+        rows: computeGroupStandings(
+            matches.filter(m => m.groupName === g.name),
+            (competition.participants || []).filter(p => g.participantIds.includes(p.id))
+        ),
+    }));
+
+    if (byGroup.length === 0) {
+        return <p className="p-12 text-center text-slate-500 text-xl">Hali guruhlar tuzilmagan.</p>;
+    }
+
+    return (
+        <div className="p-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {byGroup.map(g => (
+                <div key={g.name} className="rounded-2xl border border-slate-800 overflow-hidden">
+                    <div className="bg-slate-800 px-4 py-2 text-lg font-black text-slate-200">
+                        {g.name} guruhi
+                    </div>
+                    <table className="w-full text-left">
+                        <thead className="text-sm font-bold text-slate-500 uppercase">
+                            <tr>
+                                <th className="p-3">Jamoa</th>
+                                <th className="p-3 text-center">O&rsquo;</th>
+                                <th className="p-3 text-center">G&rsquo;</th>
+                                <th className="p-3 text-center">D</th>
+                                <th className="p-3 text-center">M</th>
+                                <th className="p-3 text-center">Farq</th>
+                                <th className="p-3 text-center">Ochko</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                            {g.rows.map(r => (
+                                <tr key={r.participant.id}>
+                                    <td className="p-3 font-bold text-xl">{r.participant.name}</td>
+                                    <td className="p-3 text-center text-lg tabular-nums">{r.played}</td>
+                                    <td className="p-3 text-center text-lg tabular-nums text-emerald-400">{r.won}</td>
+                                    <td className="p-3 text-center text-lg tabular-nums text-slate-500">{r.drawn}</td>
+                                    <td className="p-3 text-center text-lg tabular-nums text-rose-400">{r.lost}</td>
+                                    <td className="p-3 text-center text-lg tabular-nums">
+                                        {r.goalDifference > 0 ? `+${r.goalDifference}` : r.goalDifference}
+                                    </td>
+                                    <td className="p-3 text-center text-2xl font-black text-amber-400 tabular-nums">
+                                        {r.points}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+// ---------------------------------------------------------------------------
+// MUNOZARA / SUD (debate_match, court_match) - jamoa reytingi.
+// Bu dvigatellar ham `competition_scores` ga yozmaydi, ballari
+// `debate_matches` da. `db.getDebateTeamRating` - Reyting tabidagi manba.
+// ---------------------------------------------------------------------------
+const MatchRatingBoard = ({ competition, tick }) => {
+    const rows = useMemo(() => db.getDebateTeamRating(competition.id), [competition.id, tick]);
+    const played = rows.filter(r => r.matchesPlayed > 0);
+
+    if (played.length === 0) {
+        return <p className="p-12 text-center text-slate-500 text-xl">Hali yakunlangan uchrashuv yo&rsquo;q.</p>;
+    }
+
+    return (
+        <table className="w-full text-left">
+            <thead className="bg-slate-800/80 text-sm lg:text-base font-bold text-slate-400 uppercase sticky top-0">
+                <tr>
+                    <th className="p-4 w-16">#</th>
+                    <th className="p-4">Jamoa</th>
+                    <th className="p-4 text-center">Uchrashuv</th>
+                    <th className="p-4">Holat</th>
+                    <th className="p-4 text-right">Jami ball</th>
+                </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+                {rows.map((r, i) => (
+                    <tr key={r.participant.id} className={i === 0 ? 'bg-amber-500/10' : ''}>
+                        <td className="p-4 font-black text-2xl lg:text-3xl text-slate-300 tabular-nums">{i + 1}</td>
+                        <td className="p-4 font-bold text-xl lg:text-2xl">{r.participant.name}</td>
+                        <td className="p-4 text-center text-lg tabular-nums">{r.matchesPlayed}</td>
+                        <td className="p-4 text-lg text-slate-400">{r.status}</td>
+                        <td className="p-4 text-right font-black text-3xl lg:text-4xl text-amber-400 tabular-nums">
+                            {r.matchesPlayed > 0 ? r.totalBall : '–'}
+                        </td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    );
+};
 
 const CompetitionLiveScreenPage = () => {
     const { competitionId } = useParams();
+    const { user, loading: authLoading } = useAuth();
+
     const [tick, setTick] = useState(0);
+    const [updatedAt, setUpdatedAt] = useState(null);
+    const [loadError, setLoadError] = useState('');
+    const [turIndex, setTurIndex] = useState(null);
+    const scrollRef = useRef(null);
 
+    // Serverdan o'qish. Xato bo'lsa ekran bo'shab qolmaydi - oxirgi
+    // ko'rsatilgan natija turaveradi va tepada ogohlantirish chiqadi.
     useEffect(() => {
-        const interval = setInterval(() => setTick(t => t + 1), REFRESH_MS);
-        return () => clearInterval(interval);
-    }, []);
+        if (!user) return undefined;
+        let alive = true;
 
-    const competition = useMemo(() => db.getCompetitionById(competitionId), [competitionId, tick]);
-    const leaderboard = useMemo(() => (competition ? db.getLeaderboard(competition.id) : []), [competition, tick]);
+        const pull = async () => {
+            try {
+                await db.refreshCompetitionLive(competitionId);
+                if (!alive) return;
+                setLoadError('');
+                setUpdatedAt(new Date());
+                setTick(t => t + 1);
+            } catch (e) {
+                if (alive) setLoadError(e?.message || 'Yangilanmadi');
+            }
+        };
 
-    if (!competition) {
+        pull();
+        const id = setInterval(pull, REFRESH_MS);
+        return () => { alive = false; clearInterval(id); };
+    }, [competitionId, user]);
+
+    const competition = useMemo(
+        () => db.getCompetitionById(competitionId), [competitionId, tick]
+    );
+    const engine = competition?.scoringMethod;
+    const isSport = engine === 'match_play';
+    const isMatchRating = engine === 'debate_match' || engine === 'court_match';
+    const isScoreGrid = !!competition && !isSport && !isMatchRating;
+
+    const leaderboard = useMemo(
+        () => (isScoreGrid ? db.getLeaderboard(competition.id) : []), [isScoreGrid, competition, tick]
+    );
+
+    // TURLAR. Ekran joriy Turni o'zi tanlaydi (musobaqa qayerda bo'lsa),
+    // lekin tanlovni qo'lda ham o'zgartirish mumkin - zalda "oldingi Tur
+    // qanday tugagandi" degan savol tez-tez chiqadi.
+    const stages = useMemo(
+        () => (isScoreGrid ? (getDisplayStages(competition) || []) : []), [isScoreGrid, competition]
+    );
+    const currentTur = useMemo(() => {
+        if (turIndex != null && turIndex < stages.length) return turIndex;
+        const cur = competition?.currentRound || 1;
+        const at = stages.findIndex(s => cur >= s.roundRange[0] && cur <= s.roundRange[1]);
+        return at >= 0 ? at : 0;
+    }, [turIndex, stages, competition?.currentRound]);
+
+    const roundColumns = useMemo(() => {
+        if (!isScoreGrid) return [];
+        // Tur yo'q musobaqada ham raund kesimi ko'rsatiladi - shunchaki
+        // butun musobaqa bitta oraliq.
+        const [from, to] = stages[currentTur]?.roundRange || [1, competition?.roundsCount || 0];
+        const all = [];
+        for (let r = from; r <= to; r += 1) all.push(r);
+        return all.slice(-MAX_ROUND_COLUMNS);
+    }, [isScoreGrid, stages, currentTur, competition?.roundsCount]);
+
+    // HECH NARSA KIRITILMAGANMI. Ishtirokchilar bor, ball yo'q bo'lsa
+    // jadval bir ustun nol bo'lib chiqardi - go'yo hammaga 0 qo'yilgan.
+    // Bunday manzara noto'g'ri, shuning uchun ochiq aytiladi.
+    const nothingScored = isScoreGrid && leaderboard.length > 0
+        && leaderboard.every(r => Object.values(r.roundScores || {}).every(v => v == null));
+
+    // Avtomatik aylantirish.
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return undefined;
+        let down = true;
+        let paused = false;
+        const id = setInterval(() => {
+            if (paused) return;
+            if (el.scrollHeight <= el.clientHeight + 4) return;
+            el.scrollTop += down ? SCROLL_STEP_PX : -SCROLL_STEP_PX;
+            const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+            const atTop = el.scrollTop <= 0;
+            if ((down && atEnd) || (!down && atTop)) {
+                paused = true;
+                down = !down;
+                setTimeout(() => { paused = false; }, SCROLL_PAUSE_MS);
+            }
+        }, SCROLL_TICK_MS);
+        return () => clearInterval(id);
+    }, [leaderboard.length, roundColumns.length, tick]);
+
+    const nameOf = (row) => row.participant.name || row.participant.fullName || '—';
+
+    // --- Kirish talab qilinadi ------------------------------------------
+    if (authLoading) {
         return (
-            <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
-                <p className="text-slate-400">Musobaqa topilmadi.</p>
+            <div className="min-h-screen bg-slate-950 text-slate-400 flex items-center justify-center">
+                Yuklanmoqda...
             </div>
         );
     }
 
-    const nameOf = (row) => row.participant.name || row.participant.fullName || '—';
+    if (!user) {
+        return (
+            <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-8">
+                <div className="max-w-md text-center space-y-4">
+                    <LogIn size={40} className="text-indigo-400 mx-auto" />
+                    <h1 className="text-2xl font-black">Jonli ekran uchun tizimga kiring</h1>
+                    <p className="text-slate-400 leading-relaxed">
+                        Musobaqa natijalari faqat tizimdagi foydalanuvchilarga ochiq.
+                        Proyektorni ulagan kompyuterda bir marta kiring &mdash; shundan
+                        keyin ekran o&rsquo;zi yangilanib turadi.
+                    </p>
+                    <Link
+                        to="/login"
+                        className="inline-block px-6 py-3 rounded-xl bg-indigo-600 font-bold hover:bg-indigo-700"
+                    >
+                        Kirish
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    if (!competition) {
+        return (
+            <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-8">
+                <p className="text-slate-400 text-center">
+                    {loadError ? `Yuklanmadi: ${loadError}` : 'Musobaqa topilmadi.'}
+                </p>
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-slate-950 text-white p-8">
-            <div className="max-w-4xl mx-auto space-y-8">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <Trophy size={32} className="text-amber-400" />
-                        <div>
-                            <h1 className="text-2xl font-black">{competition.name}</h1>
-                            <p className="text-sm text-slate-400">
-                                Raund {competition.currentRound || 1} / {competition.roundsCount}
-                            </p>
-                        </div>
+        <div className="min-h-screen bg-slate-950 text-white p-6 lg:p-10 flex flex-col">
+            {/* SARLAVHA */}
+            <div className="flex items-start justify-between gap-6 shrink-0">
+                <div className="flex items-center gap-4 min-w-0">
+                    <Trophy size={44} className="text-amber-400 shrink-0" />
+                    <div className="min-w-0">
+                        <h1 className="text-3xl lg:text-5xl font-black truncate">{competition.name}</h1>
+                        <p className="text-lg lg:text-xl text-slate-400 mt-1">
+                            {isScoreGrid
+                                ? <>
+                                    {stages[currentTur]?.label || `${competition.currentRound || 1}-savol`}
+                                    <span className="text-slate-600"> / {competition.roundsCount} savol</span>
+                                </>
+                                : 'Umumiy reyting'}
+                        </p>
                     </div>
-                    <RefreshCw size={16} className="text-slate-500 animate-spin" style={{ animationDuration: '3s' }} />
                 </div>
-
-                {/* "Natijalarni yashirish" — this page is always public/anonymous (no login, no role), so
-                    resultsHidden always wins here, unlike the authenticated workspace where judges/admins
-                    keep seeing real numbers regardless. */}
-                {competition.resultsHidden ? (
-                    <div className="bg-slate-900 rounded-3xl border border-slate-800 p-16 flex flex-col items-center justify-center text-center gap-3">
-                        <Lock size={28} className="text-indigo-400" />
-                        <p className="text-lg font-bold">Natijalarga o'zgartirish kiritilmoqda</p>
-                        <p className="text-sm text-slate-400 max-w-sm">Tez orada yangilangan natijalar bilan qaytadan ochiladi.</p>
+                <div className="text-right shrink-0">
+                    <div className="flex items-center justify-end gap-2 text-slate-400">
+                        <RefreshCw size={16} className="animate-spin" style={{ animationDuration: '3s' }} />
+                        {/* OXIRGI YANGILANGAN VAQT. Ilgari yo'q edi va ekran
+                            qotib qolganini bilib bo'lmasdi. */}
+                        <span className="text-base tabular-nums">
+                            {updatedAt ? updatedAt.toLocaleTimeString('uz-UZ') : '...'}
+                        </span>
                     </div>
-                ) : (
-                    <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden">
-                        <div className="overflow-x-auto">
+                    {loadError && (
+                        <p className="text-xs text-amber-400 mt-1 flex items-center justify-end gap-1">
+                            <AlertTriangle size={12} /> yangilanmadi
+                        </p>
+                    )}
+                </div>
+            </div>
+
+            {/* TUR TANLASH */}
+            {stages.length > 1 && (
+                <div className="flex flex-wrap gap-2 mt-6 shrink-0">
+                    {stages.map((st, i) => (
+                        <button
+                            key={`${st.label}_${i}`} type="button" onClick={() => setTurIndex(i)}
+                            className={`px-4 py-2 rounded-xl text-base font-bold transition-colors ${
+                                i === currentTur
+                                    ? 'bg-amber-400 text-slate-950'
+                                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                            }`}
+                        >
+                            {st.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {competition.resultsHidden ? (
+                <div className={`flex-1 mt-6 ${CARD} flex flex-col items-center justify-center text-center gap-4`}>
+                    <Lock size={40} className="text-indigo-400" />
+                    <p className="text-3xl font-black">Natijalarga o&rsquo;zgartirish kiritilmoqda</p>
+                    <p className="text-lg text-slate-400 max-w-lg">
+                        Tez orada yangilangan natijalar bilan qaytadan ochiladi.
+                    </p>
+                </div>
+            ) : (
+                <div ref={scrollRef} className={`flex-1 mt-6 ${CARD} overflow-auto`}>
+                    {isSport && <SportBoard competition={competition} tick={tick} />}
+                    {isMatchRating && <MatchRatingBoard competition={competition} tick={tick} />}
+                    {isScoreGrid && (nothingScored || leaderboard.length === 0 ? (
+                        <p className="p-12 text-center text-slate-500 text-xl">Hali natija kiritilmagan.</p>
+                    ) : (
                         <table className="w-full text-left">
-                            <thead className="bg-slate-800/60 text-xs font-bold text-slate-400 uppercase">
+                            <thead className="bg-slate-800/80 text-sm lg:text-base font-bold text-slate-400 uppercase sticky top-0">
                                 <tr>
-                                    <th className="p-4">#</th>
+                                    <th className="p-4 w-16">#</th>
                                     <th className="p-4">Ishtirokchi</th>
-                                    <th className="p-4 text-right">Ball</th>
+                                    {/* RAUND KESIMI - zalda "qaysi savolda o'zib
+                                        ketdi" degan savolga javob beradi. */}
+                                    {roundColumns.map(r => (
+                                        <th key={r} className="p-2 text-center w-12 tabular-nums">{r}</th>
+                                    ))}
+                                    <th className="p-4 text-right">Jami</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
                                 {leaderboard.map(row => (
-                                    <tr key={row.participant.id} className={row.rank === 1 ? 'bg-amber-500/10' : ''}>
-                                        <td className="p-4 font-black text-lg text-slate-300">{row.rank}</td>
-                                        <td className="p-4 font-bold">{nameOf(row)}</td>
-                                        <td className="p-4 text-right font-black text-xl text-amber-400">{row.totalScore}</td>
+                                    <tr
+                                        key={row.participant.id}
+                                        className={row.rank === 1 ? 'bg-amber-500/10' : ''}
+                                    >
+                                        <td className="p-4 font-black text-2xl lg:text-3xl text-slate-300 tabular-nums">
+                                            {row.rank}
+                                        </td>
+                                        <td className="p-4 font-bold text-xl lg:text-2xl">{nameOf(row)}</td>
+                                        {roundColumns.map(r => {
+                                            const v = row.roundScores?.[r];
+                                            return (
+                                                <td
+                                                    key={r}
+                                                    className={`p-2 text-center text-base lg:text-lg tabular-nums ${
+                                                        v == null ? 'text-slate-700' : 'text-slate-300'
+                                                    }`}
+                                                >
+                                                    {v == null ? '–' : v}
+                                                </td>
+                                            );
+                                        })}
+                                        <td className="p-4 text-right font-black text-3xl lg:text-4xl text-amber-400 tabular-nums">
+                                            {row.totalScore}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
-                        </div>
-                    </div>
-                )}
-            </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

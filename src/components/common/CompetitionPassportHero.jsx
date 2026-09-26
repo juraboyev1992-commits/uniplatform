@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     Trophy, Calendar, Users, ListChecks, Scale, UserPlus, Share2, MoreHorizontal,
     AlertCircle, BookOpen, User, Clock, Award, Shield, Zap, RefreshCw, Maximize2,
-    Minimize2, Sun, Moon
+    Minimize2, Sun, Moon, MonitorPlay
 } from 'lucide-react';
 import Badge from './Badge';
 import CompetitionSettingsMenu from './CompetitionSettingsMenu';
@@ -137,9 +137,19 @@ const CompetitionPassportHero = ({
                             {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                         </button>
                     )}
+                    {/* JONLI EKRAN - zaldagi proyektor uchun. Ilgari yozuvsiz,
+                        36px li Trophy ikonkasi edi: qatordagi ikkinchi kubok
+                        belgisi bo'lgani uchun nima ekani bilinmasdi va hech kim
+                        bosmasdi. Endi yonidagi "Hakamlik" tugmasi kabi yozuvli. */}
                     {onOpenLiveScreen && (
-                        <button type="button" onClick={onOpenLiveScreen} title="Live ekran (yangi oyna)" className="flex items-center justify-center w-9 h-9 bg-white/10 hover:bg-white/20 rounded-xl transition-colors">
-                            <Trophy size={14} />
+                        <button
+                            type="button"
+                            onClick={onOpenLiveScreen}
+                            title="Jonli ekran (yangi oynada ochiladi)"
+                            className="flex items-center gap-1.5 px-3.5 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold transition-colors"
+                        >
+                            <MonitorPlay size={14} />
+                            Jonli ekran
                         </button>
                     )}
                     {onToggleTheme && (

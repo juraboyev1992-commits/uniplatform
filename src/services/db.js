@@ -8196,6 +8196,60 @@ export const db = {
         return changed;
     },
 
+    // JONLI EKRAN uchun: musobaqa qatori VA ballari birga yangilanadi.
+    //
+    // Ballarning o'zi yetmaydi - `currentRound` va "natijalarni yashirish"
+    // bayrog'i musobaqa qatorida turadi va ular ham o'yin davomida
+    // o'zgaradi. Faqat ballarni yangilasak, ekran "1-raund" deb turaverardi.
+    //
+    // Ikkala so'rov ham BITTA musobaqa uchun, ya'ni kichik.
+    refreshCompetitionLive: async (compId) => {
+        const [compRes, scoreRes, matchRes, groupRes, debateRes] = await Promise.all([
+            supabase.from('competitions').select('*').eq('id', compId).maybeSingle(),
+            supabase.from('competition_scores').select('*').eq('competition_id', compId),
+            // SPORT va MUNOZARA reytingi `competition_scores` da EMAS.
+            //
+            // match_play guruh jadvalini uchrashuvlardan hisoblaydi,
+            // debate_match/court_match esa `debate_matches` dan. Bu
+            // jadvallarni olmasak, ekran bunday musobaqalarda hamma
+            // jamoani 0 ball deb ko'rsatardi - ya'ni soxta manzara.
+            supabase.from('competition_matches').select('*').eq('competition_id', compId),
+            supabase.from('competition_groups').select('*').eq('competition_id', compId),
+            supabase.from('debate_matches').select('*').eq('competition_id', compId),
+        ]);
+        if (compRes.error) throw compRes.error;
+        if (scoreRes.error) throw scoreRes.error;
+        if (matchRes.error) throw matchRes.error;
+        if (groupRes.error) throw groupRes.error;
+        if (debateRes.error) throw debateRes.error;
+
+        const dbData = getDB();
+
+        if (compRes.data) {
+            const fresh = mapCompetitionFromSupabase(compRes.data);
+            const list = dbData.competitions || [];
+            const at = list.findIndex(c => c.id === compId);
+            if (at >= 0) list[at] = fresh; else list.push(fresh);
+            dbData.competitions = list;
+        }
+
+        // Har bir jadvalda SHU musobaqaning qatorlari almashtiriladi,
+        // boshqa musobaqalarning qatorlari tegilmaydi.
+        const swap = (key, rows, mapper) => {
+            dbData[key] = [
+                ...(dbData[key] || []).filter(x => x.competitionId !== compId),
+                ...(rows || []).map(mapper),
+            ];
+        };
+        swap('competitionScores', scoreRes.data, mapCompetitionScoreFromSupabase);
+        swap('competitionMatches', matchRes.data, mapCompetitionMatchFromSupabase);
+        swap('competitionGroups', groupRes.data, mapCompetitionGroupFromSupabase);
+        swap('debateMatches', debateRes.data, mapDebateMatchFromSupabase);
+
+        saveDB(dbData);
+        return !!compRes.data;
+    },
+
     // AMALDAGI BELGILAR - jadvallar shu yerdan o'qiydi.
     //
     // Obyektiv dvigatelda (viktorina) bitta katakka bir nechta yozuv
