@@ -150,6 +150,10 @@ const CompetitionLiveScreenPage = () => {
     const [updatedAt, setUpdatedAt] = useState(null);
     const [loadError, setLoadError] = useState('');
     const [turIndex, setTurIndex] = useState(null);
+    // IKKI KO'RINISH. 'tur' - hozirgi Tur savol-savol (zalda o'yin
+    // ketayotganda), 'umumiy' - barcha Turlar kesimida umumiy reyting
+    // (Tur tugaganda "kim qanchada" degan savolga javob).
+    const [view, setView] = useState('tur');
     const scrollRef = useRef(null);
 
     // Serverdan o'qish. Xato bo'lsa ekran bo'shab qolmaydi - oxirgi
@@ -213,8 +217,6 @@ const CompetitionLiveScreenPage = () => {
     const questionCount = raundGroups.reduce((n, g) => n + g.rounds.length, 0);
     const overflow = questionCount > MAX_QUESTION_COLUMNS;
     const showQuestions = !overflow || !grouped;
-    // Guruhlangan va sig'adigan holatda har Raundga yig'indi ustuni.
-    const showSubtotal = grouped && showQuestions;
     // Sig'masa: guruhlangan bo'lsa Raund yig'indisiga o'tadi, guruhlanmagan
     // bo'lsa oxirgi ustunlar qoladi - ikkisi ham tepada yozib aytiladi.
     const flatColumns = useMemo(() => {
@@ -226,6 +228,29 @@ const CompetitionLiveScreenPage = () => {
         : (grouped
             ? "Savol ustunlari sig'madi - Raund yig'indisi ko'rsatilmoqda"
             : `Savol ustunlari sig'madi - oxirgi ${MAX_QUESTION_COLUMNS} tasi ko'rsatilmoqda`);
+
+    // Har Turning yig'indisi - "Reyting" tabidagi sumRoundRange bilan
+    // bir xil qoida: mavjud savol ballari qo'shiladi, baholanmagani
+    // o'tkazib yuboriladi. Ustun boshiga qisqa yorliq (turLabel) qo'yiladi:
+    // proyektorda "Saralash - 1-Tur" kabi uzun yozuv sig'maydi, sichqoncha
+    // ustiga olib borib o'qishning esa zalda ma'nosi yo'q.
+    const turColumns = useMemo(
+        () => stages.map((st, i) => ({
+            key: `${st.label}_${i}`,
+            label: st.turLabel || st.label || `${i + 1}-Tur`,
+            rounds: (() => {
+                const [from, to] = st.roundRange;
+                const out = [];
+                for (let r = from; r <= to; r += 1) out.push(r);
+                return out;
+            })(),
+        })),
+        [stages]
+    );
+    // Turlar bo'lmasa "umumiy reyting" hozirgi ko'rinishning O'ZI bo'ladi -
+    // ikkita bir xil ko'rinishni taklif qilishning ma'nosi yo'q.
+    const canSwitchView = isScoreGrid && stages.length > 1;
+    const showUmumiy = canSwitchView && view === 'umumiy';
 
     // Bir Raundning yig'indisi. Hamma savoli bo'sh bo'lsa 0 EMAS, chiziqcha:
     // 0 ball "belgilangan, lekin noto'g'ri" degani, bo'sh esa "hali
@@ -241,6 +266,20 @@ const CompetitionLiveScreenPage = () => {
     // Bunday manzara noto'g'ri, shuning uchun ochiq aytiladi.
     const nothingScored = isScoreGrid && leaderboard.length > 0
         && leaderboard.every(r => Object.values(r.roundScores || {}).every(v => v == null));
+
+    // TURLAR YIG'INDISI JAMIGA TENGMI.
+    //
+    // Umumiy reytingda zalda o'tirgan odam Tur ustunlarini qo'shib
+    // "Jami"ga solishtiradi. Musobaqaning saqlangan Tur tuzilmasi savol
+    // sonidan orqada qolib ketsa (masalan savol qo'shilgan, tuzilma esa
+    // eskisi), ustunlar barcha savolni qamramaydi va yig'indi Jamidan
+    // kam chiqadi. Bunday farqni JIM o'tkazib yuborish - ekranga
+    // noto'g'ri manzara chiqarish bilan barobar.
+    const turSumMismatch = showUmumiy && leaderboard.some(row => {
+        const parts = turColumns.map(t => sumOf(row, t.rounds)).filter(v => v != null);
+        const sum = Math.round(parts.reduce((a, b) => a + b, 0) * 10) / 10;
+        return Math.abs(sum - row.totalScore) > 0.05;
+    });
 
     // Avtomatik aylantirish.
     useEffect(() => {
@@ -261,7 +300,7 @@ const CompetitionLiveScreenPage = () => {
             }
         }, SCROLL_TICK_MS);
         return () => clearInterval(id);
-    }, [leaderboard.length, questionCount, grouped, tick]);
+    }, [leaderboard.length, questionCount, grouped, view, tick]);
 
     const nameOf = (row) => row.participant.name || row.participant.fullName || '—';
 
@@ -315,12 +354,12 @@ const CompetitionLiveScreenPage = () => {
                     <div className="min-w-0">
                         <h1 className="text-3xl lg:text-5xl font-black truncate">{competition.name}</h1>
                         <p className="text-lg lg:text-xl text-slate-400 mt-1">
-                            {isScoreGrid
-                                ? <>
+                            {!isScoreGrid ? 'Umumiy reyting' : showUmumiy
+                                ? <>Barcha Turlar<span className="text-slate-600"> / {stages.length} Tur</span></>
+                                : <>
                                     {stages[currentTur]?.label || `${competition.currentRound || 1}-savol`}
                                     <span className="text-slate-600"> / {competition.roundsCount} savol</span>
-                                </>
-                                : 'Umumiy reyting'}
+                                </>}
                         </p>
                     </div>
                 </div>
@@ -341,12 +380,41 @@ const CompetitionLiveScreenPage = () => {
                 </div>
             </div>
 
-            {/* TUR TANLASH */}
-            {trimNote && (
+            {/* KO'RINISH ALMASHTIRGICH */}
+            {canSwitchView && (
+                <div className="flex gap-2 mt-6 shrink-0">
+                    {[
+                        { id: 'tur', label: 'Hozirgi Tur' },
+                        { id: 'umumiy', label: 'Umumiy reyting' },
+                    ].map(v => (
+                        <button
+                            key={v.id} type="button" onClick={() => setView(v.id)}
+                            className={`px-5 py-2.5 rounded-xl text-lg font-black transition-colors ${
+                                view === v.id
+                                    ? 'bg-indigo-500 text-white'
+                                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                            }`}
+                        >
+                            {v.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {turSumMismatch && (
+                <p className="mt-4 text-sm text-amber-400 shrink-0 flex items-center gap-1.5">
+                    <AlertTriangle size={14} />
+                    Turlar yig&rsquo;indisi umumiy baldan farq qiladi &mdash; musobaqaning
+                    Tur tuzilmasi barcha savolni qamramaydi.
+                </p>
+            )}
+
+            {/* TUR TANLASH - umumiy reytingda Tur tanlashning ma'nosi yo'q */}
+            {trimNote && !showUmumiy && (
                 <p className="mt-4 text-sm text-amber-400/80 shrink-0">{trimNote}</p>
             )}
-            {stages.length > 1 && (
-                <div className="flex flex-wrap gap-2 mt-6 shrink-0">
+            {stages.length > 1 && !showUmumiy && (
+                <div className="flex flex-wrap gap-2 mt-4 shrink-0">
                     {stages.map((st, i) => (
                         <button
                             key={`${st.label}_${i}`} type="button" onClick={() => setTurIndex(i)}
@@ -374,7 +442,55 @@ const CompetitionLiveScreenPage = () => {
                 <div ref={scrollRef} className={`flex-1 mt-6 ${CARD} overflow-auto`}>
                     {isSport && <SportBoard competition={competition} tick={tick} />}
                     {isMatchRating && <MatchRatingBoard competition={competition} tick={tick} />}
-                    {isScoreGrid && (nothingScored || leaderboard.length === 0 ? (
+                    {/* UMUMIY REYTING - barcha Turlar kesimida. "Reyting"
+                        tabidagi T1/T2 ustunlarining o'zi, faqat proyektor
+                        o'lchamida va Tur yorliqlari yozilgan holda. */}
+                    {isScoreGrid && showUmumiy && (nothingScored || leaderboard.length === 0 ? (
+                        <p className="p-12 text-center text-slate-500 text-xl">Hali natija kiritilmagan.</p>
+                    ) : (
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-800/80 text-sm lg:text-base font-bold text-slate-400 uppercase sticky top-0">
+                                <tr>
+                                    <th className="p-4 w-16">#</th>
+                                    <th className="p-4">Ishtirokchi</th>
+                                    <th className="p-4 text-center border-r border-slate-700">Jami</th>
+                                    {turColumns.map(t => (
+                                        <th key={t.key} className="p-3 text-center whitespace-nowrap text-amber-300/90">
+                                            {t.label}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800">
+                                {leaderboard.map(row => (
+                                    <tr key={row.participant.id} className={row.rank === 1 ? 'bg-amber-500/10' : ''}>
+                                        <td className="p-4 font-black text-2xl lg:text-3xl text-slate-300 tabular-nums">
+                                            {row.rank}
+                                        </td>
+                                        <td className="p-4 font-bold text-xl lg:text-2xl">{nameOf(row)}</td>
+                                        <td className="p-4 text-center font-black text-3xl lg:text-4xl text-amber-400 tabular-nums border-r border-slate-700">
+                                            {row.totalScore}
+                                        </td>
+                                        {turColumns.map(t => {
+                                            const v = sumOf(row, t.rounds);
+                                            return (
+                                                <td
+                                                    key={t.key}
+                                                    className={`p-3 text-center text-xl lg:text-2xl font-bold tabular-nums ${
+                                                        v == null ? 'text-slate-700' : 'text-slate-300'
+                                                    }`}
+                                                >
+                                                    {v == null ? '–' : v}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    ))}
+
+                    {isScoreGrid && !showUmumiy && (nothingScored || leaderboard.length === 0 ? (
                         <p className="p-12 text-center text-slate-500 text-xl">Hali natija kiritilmagan.</p>
                     ) : (
                         <table className="w-full text-left">
