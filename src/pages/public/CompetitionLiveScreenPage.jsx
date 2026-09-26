@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Trophy, RefreshCw, Lock, LogIn, AlertTriangle } from 'lucide-react';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
-import { getDisplayStages, computeGroupStandings } from '../../config/competitionEngines';
+import { getDisplayStages, computeGroupStandings, getTurRaundGroups } from '../../config/competitionEngines';
 
 // JONLI EKRAN - zaldagi proyektor uchun.
 //
@@ -26,8 +26,12 @@ const REFRESH_MS = 8000;
 const SCROLL_STEP_PX = 1;
 const SCROLL_TICK_MS = 50;
 const SCROLL_PAUSE_MS = 2500;
-// Proyektorda 24 ta ustun o'qilmaydi.
-const MAX_ROUND_COLUMNS = 12;
+// Proyektorda ustun soni cheksiz emas. Bu chegaradan oshsa savol
+// ustunlari olib tashlanadi va o'rniga Raund yig'indisi chiqadi - lekin
+// JIM QOLMAYDI, tepada nima bo'lganini yozib qo'yadi. Ilgari shu yerda
+// `.slice(-12)` turardi: 2 Raundli (24 savollik) Turda birinchi Raund
+// butunlay ko'rinmay ketardi va buni hech narsa aytmasdi.
+const MAX_QUESTION_COLUMNS = 26;
 
 const CARD = 'bg-slate-900 rounded-3xl border border-slate-800';
 
@@ -194,15 +198,41 @@ const CompetitionLiveScreenPage = () => {
         return at >= 0 ? at : 0;
     }, [turIndex, stages, competition?.currentRound]);
 
-    const roundColumns = useMemo(() => {
-        if (!isScoreGrid) return [];
-        // Tur yo'q musobaqada ham raund kesimi ko'rsatiladi - shunchaki
-        // butun musobaqa bitta oraliq.
-        const [from, to] = stages[currentTur]?.roundRange || [1, competition?.roundsCount || 0];
-        const all = [];
-        for (let r = from; r <= to; r += 1) all.push(r);
-        return all.slice(-MAX_ROUND_COLUMNS);
-    }, [isScoreGrid, stages, currentTur, competition?.roundsCount]);
+    // TANLANGAN TURNING RAUNDLARI. Bir Turda ikki Raund bo'lsa ikkalasi
+    // ham ko'rinadi: savol ustunlari Raund sarlavhasi ostiga yig'iladi va
+    // har Raundning o'z yig'indisi chiqadi.
+    const raundGroups = useMemo(
+        () => (isScoreGrid ? getTurRaundGroups(competition, currentTur) : []),
+        [isScoreGrid, competition, currentTur]
+    );
+    // Raund sarlavhasi faqat haqiqatan bir nechta Raund bo'lganda
+    // chiqadi - UniQuiz kabi "har yozuv o'zi Raund" musobaqalarda ortiqcha.
+    const grouped = raundGroups.length > 1 && !!raundGroups[0].label;
+    const questionCount = raundGroups.reduce((n, g) => n + g.rounds.length, 0);
+    const overflow = questionCount > MAX_QUESTION_COLUMNS;
+    const showQuestions = !overflow || !grouped;
+    // Guruhlangan va sig'adigan holatda har Raundga yig'indi ustuni.
+    const showSubtotal = grouped && showQuestions;
+    // Sig'masa: guruhlangan bo'lsa Raund yig'indisiga o'tadi, guruhlanmagan
+    // bo'lsa oxirgi ustunlar qoladi - ikkisi ham tepada yozib aytiladi.
+    const flatColumns = useMemo(() => {
+        if (!showQuestions) return [];
+        const all = raundGroups.flatMap(g => g.rounds);
+        return overflow ? all.slice(-MAX_QUESTION_COLUMNS) : all;
+    }, [raundGroups, showQuestions, overflow]);
+    const trimNote = !overflow ? ''
+        : (grouped
+            ? "Savol ustunlari sig'madi - Raund yig'indisi ko'rsatilmoqda"
+            : `Savol ustunlari sig'madi - oxirgi ${MAX_QUESTION_COLUMNS} tasi ko'rsatilmoqda`);
+
+    // Bir Raundning yig'indisi. Hamma savoli bo'sh bo'lsa 0 EMAS, chiziqcha:
+    // 0 ball "belgilangan, lekin noto'g'ri" degani, bo'sh esa "hali
+    // baholanmagan" - ikkisi boshqa narsa.
+    const sumOf = (row, rounds) => {
+        const vals = rounds.map(r => row.roundScores?.[r]).filter(v => v != null);
+        if (vals.length === 0) return null;
+        return Math.round(vals.reduce((a, b) => a + b, 0) * 10) / 10;
+    };
 
     // HECH NARSA KIRITILMAGANMI. Ishtirokchilar bor, ball yo'q bo'lsa
     // jadval bir ustun nol bo'lib chiqardi - go'yo hammaga 0 qo'yilgan.
@@ -229,7 +259,7 @@ const CompetitionLiveScreenPage = () => {
             }
         }, SCROLL_TICK_MS);
         return () => clearInterval(id);
-    }, [leaderboard.length, roundColumns.length, tick]);
+    }, [leaderboard.length, questionCount, grouped, tick]);
 
     const nameOf = (row) => row.participant.name || row.participant.fullName || '—';
 
@@ -310,6 +340,9 @@ const CompetitionLiveScreenPage = () => {
             </div>
 
             {/* TUR TANLASH */}
+            {trimNote && (
+                <p className="mt-4 text-sm text-amber-400/80 shrink-0">{trimNote}</p>
+            )}
             {stages.length > 1 && (
                 <div className="flex flex-wrap gap-2 mt-6 shrink-0">
                     {stages.map((st, i) => (
@@ -344,16 +377,55 @@ const CompetitionLiveScreenPage = () => {
                     ) : (
                         <table className="w-full text-left">
                             <thead className="bg-slate-800/80 text-sm lg:text-base font-bold text-slate-400 uppercase sticky top-0">
+                                {/* RAUND SARLAVHASI. Bir Turda 2 Raund bo'lsa
+                                    savol ustunlari o'z Raundi ostida turadi -
+                                    zalda qaysi savol qaysi Raundga tegishli
+                                    ekani ko'rinib turishi kerak. */}
+                                {grouped && (
+                                    <tr>
+                                        <th className="p-4 w-16" rowSpan={showQuestions ? 2 : 1}>#</th>
+                                        <th className="p-4" rowSpan={showQuestions ? 2 : 1}>Ishtirokchi</th>
+                                        {raundGroups.map((g, gi) => (
+                                            <th
+                                                key={`g_${gi}`}
+                                                colSpan={showQuestions ? g.rounds.length + 1 : 1}
+                                                className={`p-2 text-center text-amber-300/90 ${
+                                                    gi > 0 ? 'border-l border-slate-700' : ''
+                                                }`}
+                                            >
+                                                {g.label}
+                                            </th>
+                                        ))}
+                                        <th className="p-4 text-right" rowSpan={showQuestions ? 2 : 1}>Jami</th>
+                                    </tr>
+                                )}
+                                {showQuestions && (
                                 <tr>
-                                    <th className="p-4 w-16">#</th>
-                                    <th className="p-4">Ishtirokchi</th>
-                                    {/* RAUND KESIMI - zalda "qaysi savolda o'zib
-                                        ketdi" degan savolga javob beradi. */}
-                                    {roundColumns.map(r => (
-                                        <th key={r} className="p-2 text-center w-12 tabular-nums">{r}</th>
-                                    ))}
-                                    <th className="p-4 text-right">Jami</th>
+                                    {!grouped && <th className="p-4 w-16">#</th>}
+                                    {!grouped && <th className="p-4">Ishtirokchi</th>}
+                                    {(grouped
+                                        ? raundGroups.map((g, gi) => (
+                                            <React.Fragment key={`h_${gi}`}>
+                                                {g.rounds.map((r, ri) => (
+                                                    <th
+                                                        key={r}
+                                                        className={`p-2 text-center w-12 tabular-nums font-normal ${
+                                                            gi > 0 && ri === 0 ? 'border-l border-slate-700' : ''
+                                                        }`}
+                                                    >
+                                                        {r}
+                                                    </th>
+                                                ))}
+                                                <th className="p-2 text-center w-16 text-amber-300/90">Ball</th>
+                                            </React.Fragment>
+                                        ))
+                                        : flatColumns.map(r => (
+                                            <th key={r} className="p-2 text-center w-12 tabular-nums font-normal">{r}</th>
+                                        ))
+                                    )}
+                                    {!grouped && <th className="p-4 text-right">Jami</th>}
                                 </tr>
+                                )}
                             </thead>
                             <tbody className="divide-y divide-slate-800">
                                 {leaderboard.map(row => (
@@ -365,19 +437,48 @@ const CompetitionLiveScreenPage = () => {
                                             {row.rank}
                                         </td>
                                         <td className="p-4 font-bold text-xl lg:text-2xl">{nameOf(row)}</td>
-                                        {roundColumns.map(r => {
-                                            const v = row.roundScores?.[r];
-                                            return (
-                                                <td
-                                                    key={r}
-                                                    className={`p-2 text-center text-base lg:text-lg tabular-nums ${
-                                                        v == null ? 'text-slate-700' : 'text-slate-300'
-                                                    }`}
-                                                >
-                                                    {v == null ? '–' : v}
-                                                </td>
-                                            );
-                                        })}
+                                        {grouped
+                                            ? raundGroups.map((g, gi) => {
+                                                const sub = sumOf(row, g.rounds);
+                                                return (
+                                                    <React.Fragment key={`c_${gi}`}>
+                                                        {showQuestions && g.rounds.map((r, ri) => {
+                                                            const v = row.roundScores?.[r];
+                                                            return (
+                                                                <td
+                                                                    key={r}
+                                                                    className={`p-2 text-center text-base lg:text-lg tabular-nums ${
+                                                                        v == null ? 'text-slate-700' : 'text-slate-300'
+                                                                    } ${gi > 0 && ri === 0 ? 'border-l border-slate-700' : ''}`}
+                                                                >
+                                                                    {v == null ? '–' : v}
+                                                                </td>
+                                                            );
+                                                        })}
+                                                        <td
+                                                            className={`p-2 text-center text-xl lg:text-2xl font-black tabular-nums ${
+                                                                sub == null ? 'text-slate-700' : 'text-amber-300'
+                                                            } ${!showQuestions && gi > 0 ? 'border-l border-slate-700' : ''}`}
+                                                        >
+                                                            {sub == null ? '–' : sub}
+                                                        </td>
+                                                    </React.Fragment>
+                                                );
+                                            })
+                                            : flatColumns.map(r => {
+                                                const v = row.roundScores?.[r];
+                                                return (
+                                                    <td
+                                                        key={r}
+                                                        className={`p-2 text-center text-base lg:text-lg tabular-nums ${
+                                                            v == null ? 'text-slate-700' : 'text-slate-300'
+                                                        }`}
+                                                    >
+                                                        {v == null ? '–' : v}
+                                                    </td>
+                                                );
+                                            })
+                                        }
                                         <td className="p-4 text-right font-black text-3xl lg:text-4xl text-amber-400 tabular-nums">
                                             {row.totalScore}
                                         </td>

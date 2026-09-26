@@ -1104,3 +1104,67 @@ export const getDisplayStageLeafLabel = (competition) => {
     return competition.scoringMethod === 'correct_answer' ? 'raund' : 'savol';
 };
 
+// BITTA TURNING ICHIDAGI RAUNDLAR.
+//
+// Tur -> Raund -> Savol. `competition_scores.round` esa har doim SAVOL
+// raqami (Turning ichida ham ketma-ket davom etadi), ya'ni Turning
+// oralig'ini bilish yetmaydi: 2 Raundli Tur 24 ta savoldan iborat
+// bo'lishi mumkin va ularni Raundlarga ajratmasa, jadval bir uzun
+// qatorga aylanadi.
+//
+// Qaytaradi: [{ label, rounds: [savol raqamlari] }].
+//
+// Uch xil holat, CompetitionResultsCenter'dagi `roundGroups` bilan bir
+// xil qoida bo'yicha:
+//   1. Admin "Tur tuzilmasi"da Raundlarni o'zi bo'lgan bo'lsa
+//      (`raundBoundaries`, masalan 25-savolning 5/5/5/5/4/1 taqsimi) -
+//      shu taqsim ustun turadi.
+//   2. Har bir yozuv o'ZI Raund bo'lsa (UniQuiz, leaf = 'raund') -
+//      guruhlash kerak emas, bitta guruh qaytadi (label yo'q).
+//   3. Aks holda savollar `questionsPerRound` bo'yicha bo'linadi.
+//
+// Raund raqami TUR ichida qaytadan 1 dan boshlanadi, savol raqamlari esa
+// Tur bo'yicha ketma-ket qoladi - "Natija kiritish" ham shunday sanaydi.
+//
+// ESLATMA: CompetitionResultsCenter.jsx va TournamentScoring.jsx da shu
+// mantiqning o'z nusxalari bor (ular bu funksiyadan oldin yozilgan).
+// Ularni bunga o'tkazish kerak, lekin alohida ishda - hozir tegilsa
+// tekshirilgan ekranlar buzilishi mumkin.
+export const getTurRaundGroups = (competition, stageIndex = 0) => {
+    if (!competition) return [];
+    const total = competition.roundsCount || 0;
+    if (total <= 0) return [];
+
+    const seq = ([from, to]) => {
+        const out = [];
+        for (let r = from; r <= to; r += 1) out.push(r);
+        return out;
+    };
+
+    const columnsAreQuestions = competition.scoringMethod === 'correct_answer'
+        || getDisplayStageLeafLabel(competition) === 'savol';
+
+    const stages = getDisplayStages(competition) || [];
+    const stage = stages[stageIndex] || stages[0] || null;
+    const [from, to] = stage ? stage.roundRange : [1, total];
+
+    if (columnsAreQuestions && stage?.raundBoundaries?.length > 1) {
+        return stage.raundBoundaries.map((rb, i) => ({
+            label: rb.label || `${i + 1}-Raund`,
+            rounds: seq(rb.roundRange),
+        }));
+    }
+
+    if (!columnsAreQuestions) return [{ label: null, rounds: seq([from, to]) }];
+
+    const size = competition.questionsPerRound || 12;
+    const groups = [];
+    for (let start = from; start <= to; start += size) {
+        groups.push({
+            label: `${groups.length + 1}-Raund`,
+            rounds: seq([start, Math.min(start + size - 1, to)]),
+        });
+    }
+    return groups;
+};
+
