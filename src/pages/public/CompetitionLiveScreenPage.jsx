@@ -118,9 +118,11 @@ const MatchRatingBoard = ({ competition, tick }) => {
                 <tr>
                     <th className="p-4 w-16">#</th>
                     <th className="p-4">Jamoa</th>
+                    {/* Jami ball ismdan keyin - bitta ekranda ikki jadval
+                        qarama-qarshi tartibda turmasligi uchun. */}
+                    <th className="p-4 text-right">Jami ball</th>
                     <th className="p-4 text-center">Uchrashuv</th>
                     <th className="p-4">Holat</th>
-                    <th className="p-4 text-right">Jami ball</th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
@@ -128,11 +130,11 @@ const MatchRatingBoard = ({ competition, tick }) => {
                     <tr key={r.participant.id} className={i === 0 ? 'bg-amber-500/10' : ''}>
                         <td className="p-4 font-black text-2xl lg:text-3xl text-slate-300 tabular-nums">{i + 1}</td>
                         <td className="p-4 font-bold text-xl lg:text-2xl">{r.participant.name}</td>
-                        <td className="p-4 text-center text-lg tabular-nums">{r.matchesPlayed}</td>
-                        <td className="p-4 text-lg text-slate-400">{r.status}</td>
                         <td className="p-4 text-right font-black text-3xl lg:text-4xl text-amber-400 tabular-nums">
                             {r.matchesPlayed > 0 ? r.totalBall : '–'}
                         </td>
+                        <td className="p-4 text-center text-lg tabular-nums">{r.matchesPlayed}</td>
+                        <td className="p-4 text-lg text-slate-400">{r.status}</td>
                     </tr>
                 ))}
             </tbody>
@@ -385,6 +387,7 @@ const CompetitionLiveScreenPage = () => {
                                     <tr>
                                         <th className="p-4 w-16" rowSpan={showQuestions ? 2 : 1}>#</th>
                                         <th className="p-4" rowSpan={showQuestions ? 2 : 1}>Ishtirokchi</th>
+                                        <th className="p-4 text-center border-r border-slate-700" rowSpan={showQuestions ? 2 : 1}>Jami</th>
                                         {raundGroups.map((g, gi) => (
                                             <th
                                                 key={`g_${gi}`}
@@ -396,13 +399,13 @@ const CompetitionLiveScreenPage = () => {
                                                 {g.label}
                                             </th>
                                         ))}
-                                        <th className="p-4 text-right" rowSpan={showQuestions ? 2 : 1}>Jami</th>
                                     </tr>
                                 )}
                                 {showQuestions && (
                                 <tr>
                                     {!grouped && <th className="p-4 w-16">#</th>}
                                     {!grouped && <th className="p-4">Ishtirokchi</th>}
+                                    {!grouped && <th className="p-4 text-center border-r border-slate-700">Jami</th>}
                                     {(grouped
                                         ? raundGroups.map((g, gi) => (
                                             <React.Fragment key={`h_${gi}`}>
@@ -423,7 +426,6 @@ const CompetitionLiveScreenPage = () => {
                                             <th key={r} className="p-2 text-center w-12 tabular-nums font-normal">{r}</th>
                                         ))
                                     )}
-                                    {!grouped && <th className="p-4 text-right">Jami</th>}
                                 </tr>
                                 )}
                             </thead>
@@ -437,6 +439,9 @@ const CompetitionLiveScreenPage = () => {
                                             {row.rank}
                                         </td>
                                         <td className="p-4 font-bold text-xl lg:text-2xl">{nameOf(row)}</td>
+                                        <td className="p-4 text-center font-black text-3xl lg:text-4xl text-amber-400 tabular-nums border-r border-slate-700">
+                                            {row.totalScore}
+                                        </td>
                                         {grouped
                                             ? raundGroups.map((g, gi) => {
                                                 const sub = sumOf(row, g.rounds);
@@ -479,9 +484,6 @@ const CompetitionLiveScreenPage = () => {
                                                 );
                                             })
                                         }
-                                        <td className="p-4 text-right font-black text-3xl lg:text-4xl text-amber-400 tabular-nums">
-                                            {row.totalScore}
-                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
