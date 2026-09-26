@@ -476,10 +476,19 @@ const TournamentScoring = ({
         justLoadedRef.current = true;
     };
 
-    const loadAuditLogs = () => {
+    // Logindagi jurnal so'rovi chegaralangan (eng so'nggi yozuvlar), ya'ni
+    // eski musobaqaning izi mahalliy nusxadan tushib qolgan bo'lishi
+    // mumkin. Audit esa aynan eski nizoda kerak bo'ladi - shuning uchun
+    // shu musobaqaning jurnali serverdan TO'LIQ o'qiladi.
+    //
+    // Xato bo'lsa ish to'xtamaydi: mahalliy nusxadagi yozuvlar baribir
+    // ko'rsatiladi.
+    const loadAuditLogs = async () => {
         if (!activeComp) return;
-        const logs = db.getAuditLogs(activeComp.id);
-        setAuditLogs(logs);
+        try {
+            await db.refreshCompetitionAuditLogs(activeComp.id);
+        } catch { /* mahalliy nusxadagisi ko'rsatiladi */ }
+        setAuditLogs(db.getAuditLogs(activeComp.id));
     };
 
     // Competition creation now happens entirely inside TournamentCreateWizard.jsx (4-step wizard),

@@ -2994,11 +2994,13 @@ const syncCoreDataFromSupabase = async () => {
             supabase.from('team_members').select('*'),
             supabase.from('events').select('*'),
             supabase.from('registrations').select('*'),
-            supabase.from('registration_audit_logs').select('*'),
+            supabase.from('registration_audit_logs').select('*')
+                .order('created_at', { ascending: false }).limit(2000),
             supabase.from('notifications').select('*'),
             supabase.from('competitions').select('*'),
             supabase.from('competition_scores').select('*'),
-            supabase.from('competition_audit_logs').select('*'),
+            supabase.from('competition_audit_logs').select('*')
+                .order('time', { ascending: false }).limit(2000),
             supabase.from('competition_rounds').select('*'),
             supabase.from('competition_matches').select('*'),
             supabase.from('competition_groups').select('*'),
@@ -3029,7 +3031,8 @@ const syncCoreDataFromSupabase = async () => {
             supabase.from('social_score_transactions').select('*'),
             supabase.from('activity_attendance').select('*'),
             supabase.from('activity_attendance_locks').select('*'),
-            supabase.from('activity_attendance_audit_logs').select('*'),
+            supabase.from('activity_attendance_audit_logs').select('*')
+                .order('created_at', { ascending: false }).limit(2000),
             supabase.from('academic_records').select('*'),
             supabase.from('integration_settings').select('*')
         ]),
@@ -3067,6 +3070,7 @@ const syncCoreDataFromSupabase = async () => {
             supabase.from('student_passport').select('*'),
             supabase.from('student_enrollment_history').select('*'),
             supabase.from('passport_access_logs').select('*')
+                .order('created_at', { ascending: false }).limit(2000)
         ]),
         Promise.all([
             supabase.from('talent_profiles').select('*'),
@@ -3090,6 +3094,7 @@ const syncCoreDataFromSupabase = async () => {
             supabase.from('award_batches').select('*'),
             supabase.from('documents').select('*'),
             supabase.from('document_audit_logs').select('*')
+                .order('created_at', { ascending: false }).limit(2000)
         ]),
         Promise.all([
             supabase.from('club_applications').select('*'),
@@ -3109,12 +3114,14 @@ const syncCoreDataFromSupabase = async () => {
         Promise.all([
             supabase.from('social_activity_applications').select('*'),
             supabase.from('social_activity_audit_logs').select('*')
+                .order('time', { ascending: false }).limit(2000)
         ]),
         supabase.from('competition_delegations').select('*'),
         Promise.all([
             supabase.from('club_positions').select('*'),
             supabase.from('club_position_applications').select('*'),
             supabase.from('club_position_audit_logs').select('*')
+                .order('time', { ascending: false }).limit(2000)
         ]),
         Promise.all([
             supabase.from('social_scoring_sources').select('*'),
@@ -8280,6 +8287,26 @@ export const db = {
         await syncCoreDataFromSupabase();
         return true;
     },
+    // FAQAT SHU MUSOBAQANING jurnalini qayta o'qish.
+    //
+    // Logindagi so'rov chegaralangan (eng so'nggi yozuvlar), bu esa
+    // chegarasiz - lekin bitta musobaqa uchun, ya'ni baribir kichik.
+    // Shu bilan eski musobaqaning audit izi ham to'liq ko'rinadi.
+    refreshCompetitionAuditLogs: async (compId) => {
+        const { data, error } = await supabase
+            .from('competition_audit_logs').select('*').eq('competition_id', compId);
+        if (error) throw error;
+
+        const fresh = (data || []).map(mapCompetitionAuditLogFromSupabase);
+        const dbData = getDB();
+        dbData.competitionAuditLogs = [
+            ...(dbData.competitionAuditLogs || []).filter(l => l.competitionId !== compId),
+            ...fresh,
+        ];
+        saveDB(dbData);
+        return fresh.length;
+    },
+
     getAuditLogs: (compId) => {
         const data = getDB();
         return (data.competitionAuditLogs || []).filter(log => log.competitionId === compId).sort((a, b) => new Date(b.time) - new Date(a.time));
