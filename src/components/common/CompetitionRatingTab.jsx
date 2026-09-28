@@ -121,6 +121,13 @@ const CompetitionRatingTab = ({ competition, leaderboardData, resultsHidden, can
     );
     const rows = facultyFilter ? leaderboardData.filter(r => r.participant.faculty === facultyFilter) : leaderboardData;
     const podium = rows.filter(r => r.rank <= 3);
+    // KLASSIK PYEDESTAL TARTIBI (2 - 1 - 3) faqat har o'rinda BITTA jamoa
+    // bo'lgandagina ma'noli. Teng ball bo'lsa - masalan uch jamoa birdek
+    // 2-o'rinda - `order-*` sinflari g'olibni ularning ORQASIGA tashlab
+    // yuborardi: 1-o'rin eng o'ngda, chetda qolardi. Bunday holatda
+    // pyedestal tartibi tashlanadi va kartalar o'rin bo'yicha,
+    // g'olibdan boshlab chiqadi (`rows` allaqachon shu tartibda).
+    const classicPodium = podium.length === 3 && new Set(podium.map(r => r.rank)).size === 3;
 
     // SR (Savol reytingi) — a real, derived tie-break proxy: how many rounds this participant scored
     // positively on, not a fabricated weight. Only meaningful for quiz-style methods.
@@ -171,16 +178,19 @@ const CompetitionRatingTab = ({ competition, leaderboardData, resultsHidden, can
             </div>
 
             {podium.length > 0 && (
-                <div className="flex flex-col md:flex-row items-stretch md:items-end gap-3">
+                // Kartalar O'RALADI va har biriga eng kam kenglik berilgan.
+                // Ilgari `flex-1` edi: teng ball tufayli 3 tadan ko'p karta
+                // chiqqanda ular qisilib, oxirgisi ekrandan chiqib ketardi.
+                <div className="flex flex-col md:flex-row md:flex-wrap items-stretch md:items-end gap-3">
                     {podium.map(row => {
                         const accent = PODIUM_ACCENTS[row.rank];
                         return (
                             <div
                                 key={row.participant.id}
-                                className={`flex-1 ${accent.order} ${accent.bg} rounded-3xl ring-2 ${accent.ring} p-4 text-center space-y-1.5`}
+                                className={`flex-1 md:basis-56 min-w-0 ${classicPodium ? accent.order : ''} ${accent.bg} rounded-3xl ring-2 ${accent.ring} p-4 text-center space-y-1.5`}
                             >
                                 <Medal size={22} className={`mx-auto ${accent.icon}`} />
-                                <p className="font-black text-sm text-gray-800 dark:text-gray-100 truncate">{nameOf(row)}</p>
+                                <p title={nameOf(row)} className="font-black text-sm text-gray-800 dark:text-gray-100 truncate">{nameOf(row)}</p>
                                 <p className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400">{row.totalScore}</p>
                                 <p className="text-[10px] font-bold text-gray-400 uppercase">{row.rank}-o'rin</p>
                             </div>
