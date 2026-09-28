@@ -14,6 +14,25 @@ const effectiveStartDateTime = (values) => {
     return `${date}T${time}`;
 };
 
+// Vaqt ATAYLAB tanlanganmi. Ilgari buni tahlil qilingan sanadan taxmin
+// qilinardi: `soat === 0 && daqiqa === 0` bo'lsa "vaqt kiritilmagan"
+// deyilardi. Bu yarim tunni haqiqatan tanlagan odamni jazolardi - uning
+// musobaqasi "vaqtsiz" hisoblanib, ro'yxat oynasi tekshiruvi chalkashardi.
+// Maydonning O'ZI bor-yo'qligi aniq javob beradi.
+const startTimeWasChosen = (values) => !!(values.startTime || values.time);
+
+// Xato matnida KIRITILGAN qiymatni ko'rsatish uchun. Telefonda
+// datetime-local maydoni tor bo'lib, qiymat "09/" bo'lib kesiladi -
+// "o'tmishda bo'lishi mumkin emas" degan xabar esa nimaning o'tmishda
+// ekanini aytmaydi. Odam nimani tuzatishini bilmay qoladi.
+const fmtDT = (raw) => {
+    if (!raw) return '';
+    const d = raw instanceof Date ? raw : new Date(raw);
+    if (Number.isNaN(d.getTime())) return String(raw);
+    const p = n => String(n).padStart(2, '0');
+    return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
 // Shared source of truth for the registration-window ordering rules — called both for this component's
 // own inline error display and by the two real callers (TournamentCreateWizard.jsx's getStepIssues,
 // EventManagement.jsx's handleSaveEvent) so a misconfigured window is caught before save in every path,
@@ -30,25 +49,42 @@ export const getRegistrationWindowIssues = (values, { isNew = false } = {}) => {
     // Minute granularity, same as db.js — picking the current minute is valid, the one before it isn't.
     const nowMinute = (() => { const d = new Date(); d.setSeconds(0, 0); return d; })();
     if (isNew && startAt) {
-        const timeWasChosen = !(startAt.getHours() === 0 && startAt.getMinutes() === 0);
+        const timeWasChosen = startTimeWasChosen(values);
         const todayStart = new Date(nowMinute.getFullYear(), nowMinute.getMonth(), nowMinute.getDate());
         if (timeWasChosen ? startAt < nowMinute : startAt < todayStart) {
-            issues.push("Boshlanish sanasi/vaqti o'tmishda bo'lishi mumkin emas.");
+            issues.push(`Boshlanish sanasi/vaqti o'tmishda bo'lishi mumkin emas — kiritilgan: ${fmtDT(startAt)}, hozir: ${fmtDT(nowMinute)}.`);
         }
     }
     if (isNew && opensAt && opensAt < nowMinute) {
-        issues.push("Ro'yxatdan o'tish boshlanish vaqti o'tmishda bo'lishi mumkin emas.");
+        issues.push(`Ro'yxatdan o'tish boshlanish vaqti o'tmishda bo'lishi mumkin emas — kiritilgan: ${fmtDT(opensAt)}, hozir: ${fmtDT(nowMinute)}.`);
     }
 
     if (!values.registrationRequired) return issues;
+
+    // VAQT TANLANMAGAN BO'LSA boshlanish "o'sha kunning allaqaysi payti"
+    // degani. Uni yarim tun deb olish noto'g'ri edi: sanasi bugun, vaqti
+    // ko'rsatilmagan tadbirga o'sha kuni ertalab ochiladigan ro'yxat
+    // "boshlanishdan keyin" bo'lib chiqib, o'rinsiz xato berardi.
+    // Bunday holatda chegara sifatida kun OXIRI olinadi.
+    const timeKnown = startTimeWasChosen(values);
+    const startBoundary = (() => {
+        if (!startAt || timeKnown) return startAt;
+        const d = new Date(startAt);
+        d.setHours(23, 59, 59, 999);
+        return d;
+    })();
+    // Vaqt noma'lum bo'lsa xabarda soat ko'rsatilmaydi - "00:00" deb
+    // yozish odamga o'zi kiritmagan vaqtni ko'rsatish bo'lardi.
+    const startText = startAt ? (timeKnown ? fmtDT(startAt) : fmtDT(startAt).slice(0, 10)) : '';
+
     if (opensAt && closesAt && opensAt > closesAt) {
-        issues.push("Ro'yxatdan o'tish boshlanish vaqti tugash vaqtidan keyin bo'lishi mumkin emas.");
+        issues.push(`Ro'yxatdan o'tish boshlanish vaqti tugash vaqtidan keyin bo'lishi mumkin emas — ochilish: ${fmtDT(opensAt)}, yopilish: ${fmtDT(closesAt)}.`);
     }
-    if (closesAt && startAt && closesAt > startAt) {
-        issues.push("Ro'yxatdan o'tish tugash vaqti boshlanish sanasi/vaqtidan keyin bo'lishi mumkin emas.");
+    if (closesAt && startBoundary && closesAt > startBoundary) {
+        issues.push(`Ro'yxatdan o'tish tugash vaqti boshlanish sanasi/vaqtidan keyin bo'lishi mumkin emas — yopilish: ${fmtDT(closesAt)}, boshlanish: ${startText}.`);
     }
-    if (opensAt && startAt && opensAt > startAt) {
-        issues.push("Ro'yxatdan o'tish boshlanish vaqti tadbir/musobaqaning o'z boshlanish vaqtidan keyin bo'lishi mumkin emas.");
+    if (opensAt && startBoundary && opensAt > startBoundary) {
+        issues.push(`Ro'yxatdan o'tish boshlanish vaqti tadbir/musobaqaning o'z boshlanish vaqtidan keyin bo'lishi mumkin emas — ro'yxat: ${fmtDT(opensAt)}, boshlanish: ${startText}.`);
     }
     return issues;
 };
@@ -258,7 +294,15 @@ const RegistrationSettingsFields = ({ values, onChange, locationConflict, compac
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* TELEFONDA BITTA USTUN. Ilgari `grid-cols-2` edi va
+                        telefonda har maydonga ~150px tushardi: datetime-local
+                        qiymati "09/" bo'lib kesilar, odam O'ZI kiritgan
+                        sana-vaqtni o'qiy olmasdi. Shuning uchun "to'g'ri
+                        kiritdim" deb o'ylab, aslida soati o'tib ketgan
+                        vaqtni qo'yib qo'yardi. Sondan iborat maydonlar
+                        (jamoa hajmi, maksimal ishtirokchi) tor joyga
+                        sig'adi - ular tegilmadi. */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className={label}>Ro'yxatdan o'tish boshlanishi <span className="text-red-500">*</span></label>
                             <input

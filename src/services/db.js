@@ -966,7 +966,18 @@ const findRegistrationWindowIssue = (record, { isNew = false } = {}) => {
         // A start moment of exactly midnight means "date chosen, time left blank" (combineDateTime's own
         // convention) - judge those by date alone, so creating a same-day event without picking a time
         // isn't rejected just because 00:00 already passed.
-        const timeWasChosen = !(startAt.getHours() === 0 && startAt.getMinutes() === 0);
+        //
+        // Lekin bu XULOSA qilingan sanadan taxmin qilish edi: yarim tunni
+        // ATAYLAB tanlagan odam ham "vaqt kiritmagan" hisoblanardi. Musobaqa
+        // yozuvida `startTime` maydonining o'zi bor, u aniq javob beradi.
+        // Oldindan birlashtirilgan `record.date` yo'lida esa ajratib
+        // bo'lmaydi - u yerda eski taxmin qoladi.
+        // (Ayni shu qoida RegistrationSettingsFields.jsx da ham bor -
+        // ikkalasi bir xil turishi shart, aks holda interfeys ruxsat
+        // bergan narsani saqlash rad etadi.)
+        const timeWasChosen = record.startDate
+            ? !!record.startTime
+            : !(startAt.getHours() === 0 && startAt.getMinutes() === 0);
         const todayStart = new Date(nowMinute.getFullYear(), nowMinute.getMonth(), nowMinute.getDate());
         if (timeWasChosen ? startAt < nowMinute : startAt < todayStart) {
             return "Boshlanish sanasi/vaqti o'tmishda bo'lishi mumkin emas.";
@@ -977,13 +988,29 @@ const findRegistrationWindowIssue = (record, { isNew = false } = {}) => {
     }
 
     if (!record.registrationRequired) return null;
+
+    // Vaqt tanlanmagan bo'lsa boshlanish "o'sha kunning allaqaysi payti"
+    // degani - chegara sifatida kun OXIRI olinadi. Yarim tun deb olinsa,
+    // sanasi bugun, vaqti ko'rsatilmagan tadbirga o'sha kuni ertalab
+    // ochiladigan ro'yxat "boshlanishdan keyin" bo'lib chiqardi.
+    // (RegistrationSettingsFields.jsx dagi qoida bilan bir xil.)
+    const startTimeKnown = record.startDate
+        ? !!record.startTime
+        : !!(startAt && !(startAt.getHours() === 0 && startAt.getMinutes() === 0));
+    const startBoundary = (() => {
+        if (!startAt || startTimeKnown) return startAt;
+        const d = new Date(startAt);
+        d.setHours(23, 59, 59, 999);
+        return d;
+    })();
+
     if (opensAt && closesAt && opensAt > closesAt) {
         return "Ro'yxatdan o'tish boshlanish vaqti tugash vaqtidan keyin bo'lishi mumkin emas.";
     }
-    if (closesAt && startAt && closesAt > startAt) {
+    if (closesAt && startBoundary && closesAt > startBoundary) {
         return "Ro'yxatdan o'tish tugash vaqti boshlanish sanasi/vaqtidan keyin bo'lishi mumkin emas.";
     }
-    if (opensAt && startAt && opensAt > startAt) {
+    if (opensAt && startBoundary && opensAt > startBoundary) {
         return "Ro'yxatdan o'tish boshlanish vaqti tadbir/musobaqaning o'z boshlanish vaqtidan keyin bo'lishi mumkin emas.";
     }
     return null;
