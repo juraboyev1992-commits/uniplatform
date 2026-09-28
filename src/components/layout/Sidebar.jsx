@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { useAuth, ROLES } from '../../contexts/AuthContext';
+import { NavLink, Link, useLocation } from 'react-router-dom';
+import { useAuth, ROLES, dashboardRouteFor } from '../../contexts/AuthContext';
 import {
     LayoutDashboard,
     BookOpen,
@@ -203,14 +203,22 @@ const Sidebar = ({ isOpen, onClose }) => {
             >
                 {/* Sidebar Header - only visible on mobile */}
                 <div className="lg:hidden p-4 border-b border-gray-200">
-                    <div className="flex items-center">
-                        <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center shadow-md">
+                    {/* Header.jsx dagi logotip bilan bir xil: bosh sahifaga
+                        havola, matn belgilanmaydi. Menyu ichida bo'lgani
+                        uchun bosilganda menyuning o'zi ham yopiladi. */}
+                    <Link
+                        to={dashboardRouteFor(user?.role)}
+                        onClick={() => onClose && onClose()}
+                        aria-label="Bosh sahifa"
+                        className="flex items-center select-none rounded-lg -m-1 p-1 hover:bg-gray-50 transition-colors"
+                    >
+                        <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center shadow-md shrink-0">
                             <span className="text-white font-bold text-xl">U</span>
                         </div>
                         <div className="ml-3">
                             <h1 className="text-lg font-bold gradient-text">UniPlatform</h1>
                         </div>
-                    </div>
+                    </Link>
                 </div>
 
                 {/* Navigation */}

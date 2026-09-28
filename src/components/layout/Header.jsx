@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth, ROLES } from '../../contexts/AuthContext';
+import { useAuth, ROLES, dashboardRouteFor } from '../../contexts/AuthContext';
 import { Bell, User, LogOut, ChevronDown, Menu } from 'lucide-react';
 import { db } from '../../services/db';
 
@@ -77,15 +77,28 @@ const Header = ({ onMenuClick }) => {
                         >
                             <Menu className="w-6 h-6" />
                         </button>
-                        <div className="flex items-center">
-                            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center shadow-md">
+                        {/* LOGOTIP = BOSH SAHIFA HAVOLASI.
+                            Ilgari oddiy `div` edi - hech qayerga olib
+                            bormasdi. Telefonda unga bosilganda brauzer
+                            matnni belgilab, "nusxalash" menyusini
+                            chiqarardi: odam bosh sahifaga qaytmoqchi
+                            bo'lsa, yozuvni nusxalab olardi.
+                            `select-none` aynan shu belgilashni to'xtatadi.
+                            Manzil rolga qarab olinadi - talaba admin
+                            paneliga tushib qolmasligi uchun. */}
+                        <Link
+                            to={dashboardRouteFor(user?.role)}
+                            aria-label="Bosh sahifa"
+                            className="flex items-center select-none rounded-lg -m-1 p-1 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
+                        >
+                            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center shadow-md shrink-0">
                                 <span className="text-white font-bold text-xl">U</span>
                             </div>
                             <div className="ml-3">
                                 <h1 className="text-xl font-bold gradient-text">UniPlatform</h1>
                                 <p className="text-xs text-gray-500">Universitet Boshqaruv Tizimi</p>
                             </div>
-                        </div>
+                        </Link>
                     </div>
 
                     {/* Right: Notifications and Profile */}

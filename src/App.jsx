@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useLocation } from 'react-router-dom';
-import { AuthProvider, useAuth, ROLES } from './contexts/AuthContext';
+import { AuthProvider, useAuth, ROLES, dashboardRouteFor } from './contexts/AuthContext';
 // Marshrutlar KERAK BO'LGANDAGINA yuklanadi (`lazy`). Ilgari hamma sahifa bitta faylga
 // qo'shilardi: butun admin paneli, grafik kutubxonasi va Excel eksporti talabaning bosh
 // sahifasi ochilishidan oldin yuklanib, tahlil qilinishi kerak edi - telefonda bu bir necha
@@ -118,22 +118,11 @@ const AppRouter = () => {
 
     // Redirect to appropriate dashboard based on role.
     // Kirilmagan bo'lsa - asosiy sahifa ("/", talabalar uchun kirish/ro'yxatdan o'tish).
+    // Rol -> yo'nalish jadvali AuthContext.jsx da (dashboardRouteFor):
+    // Header.jsx dagi logotip ham o'sha jadvaldan o'qiydi.
     const getDefaultRoute = () => {
         if (!isAuthenticated) return '/';
-
-        switch (user?.role) {
-            case ROLES.STUDENT:
-                return '/student/dashboard';
-            case ROLES.ADMIN:
-                return '/admin/dashboard';
-            case ROLES.MANAGEMENT:
-                return '/management/dashboard';
-            case ROLES.TUTOR:
-                return '/tutor/workspace';
-            default:
-                // Noma'lum/berilmagan rol - panelga o'tkazilmaydi, kirish sahifasida qoladi.
-                return '/';
-        }
+        return dashboardRouteFor(user?.role);
     };
 
     // "Ulashish" (PublicActivityPage) sends anonymous visitors to /login?redirect=/musobaqa/:id (or

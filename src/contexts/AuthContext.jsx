@@ -23,6 +23,23 @@ export const ROLES = {
     TUTOR: 'TYUTOR'
 };
 
+// Rolga mos "bosh sahifa". App.jsx yo'nalishlarni shu bo'yicha
+// belgilaydi, Header.jsx dagi logotip ham shu yerga olib boradi -
+// ikkalasi bitta manbadan o'qisin, aks holda yangi rol qo'shilganda
+// biri yangilanib, ikkinchisi eskicha qolib ketadi.
+// Koordinator alohida rol emas - u TALABA, klubdagi lavozimi bilan
+// ajraladi, shuning uchun uning ham bosh sahifasi talaba paneli.
+export const dashboardRouteFor = (role) => {
+    switch (role) {
+        case ROLES.STUDENT: return '/student/dashboard';
+        case ROLES.ADMIN: return '/admin/dashboard';
+        case ROLES.MANAGEMENT: return '/management/dashboard';
+        case ROLES.TUTOR: return '/tutor/workspace';
+        // Noma'lum/berilmagan rol - panelga o'tkazilmaydi.
+        default: return '/';
+    }
+};
+
 // Supabase Auth is email/phone-based; this app's UI and every `user.username` reference throughout the
 // codebase (dozens of call sites, never touched by this Phase 1 migration) is username-based — bridge
 // with a synthetic address so nothing else has to change. Real password-reset-by-email isn't meaningful
