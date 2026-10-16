@@ -40,6 +40,29 @@ export const dashboardRouteFor = (role) => {
     }
 };
 
+// FOYDALANUVCHILARNI BOSHQARISH HUQUQI.
+//
+// Bu ADMINISTRATOR rolining o'zidan tor: rol har bir administratorga
+// beriladi, foydalanuvchi akkauntlari esa (login, parol, rol berish,
+// bloklash, o'chirish) butun tizimning kaliti. Shuning uchun u rol
+// bo'yicha emas, ATAYLAB ro'yxat bo'yicha beriladi.
+//
+// Yangi mas'ul qo'shish kerak bo'lsa - uning loginini shu ro'yxatga
+// qo'shing. Ro'yxat kichik harfda solishtiriladi.
+//
+// DIQQAT: bu interfeys darajasidagi cheklov. Bazadagi `admin_*`
+// funksiyalar hamon `is_platform_admin()` ni tekshiradi, ya'ni boshqa
+// administrator so'rovni to'g'ridan-to'g'ri yuborsa baza rad etmaydi.
+// To'liq yopish uchun supabase tomonida ham qo'riqchi almashtirilishi
+// kerak (izohi `canManageUsers` ishlatilgan joyda).
+export const USER_MANAGER_USERNAMES = ['admin'];
+
+export const canManageUsers = (user) => {
+    if (!user || user.role !== ROLES.ADMIN) return false;
+    const name = String(user.username || '').trim().toLowerCase();
+    return USER_MANAGER_USERNAMES.includes(name);
+};
+
 // Supabase Auth is email/phone-based; this app's UI and every `user.username` reference throughout the
 // codebase (dozens of call sites, never touched by this Phase 1 migration) is username-based — bridge
 // with a synthetic address so nothing else has to change. Real password-reset-by-email isn't meaningful

@@ -24,15 +24,29 @@ import DormitoriesPanel from '../../components/admin/DormitoriesPanel';
 import UserAccountsPanel from '../../components/admin/UserAccountsPanel';
 import { db } from '../../services/db';
 import { useTabParam } from '../../hooks/useTabParam';
+import { useAuth, canManageUsers } from '../../contexts/AuthContext';
 
-const SETTINGS_TAB_IDS = [
-    'general', 'users', 'scoring', 'social-activity', 'notifications', 'venues', 'theme', 'data',
+// 'users' ATAYLAB bu ro'yxatda yo'q - u huquqqa qarab qo'shiladi.
+// `useTabParam` manzildagi tabni shu ro'yxat bo'yicha tekshiradi, ya'ni
+// ruxsati yo'q odam `?tab=users` deb yozsa ham 'general' ga tushadi.
+// Menyuni yashirishning o'zi yetmasdi: to'g'ridan-to'g'ri manzil,
+// brauzer tarixi va saqlangan havola baribir ochilaverardi.
+const BASE_SETTINGS_TAB_IDS = [
+    'general', 'scoring', 'social-activity', 'notifications', 'venues', 'theme', 'data',
 ];
 
 const SettingsPage = () => {
+    const { user } = useAuth();
+    // Foydalanuvchi akkauntlari - rol bo'yicha emas, ism bo'yicha
+    // ochiladi (izohi AuthContext.jsx dagi `canManageUsers` ustida).
+    const mayManageUsers = canManageUsers(user);
+    const settingsTabIds = mayManageUsers
+        ? ['general', 'users', ...BASE_SETTINGS_TAB_IDS.slice(1)]
+        : BASE_SETTINGS_TAB_IDS;
+
     // Tab manzilda — orqaga bosilganda oldingi tabga qaytadi, sozlamalardan
     // butunlay chiqib ketmaydi.
-    const [activeTab, setActiveTab] = useTabParam(SETTINGS_TAB_IDS, 'general');
+    const [activeTab, setActiveTab] = useTabParam(settingsTabIds, 'general');
     const [saved, setSaved] = useState(false);
     const [showResetModal, setShowResetModal] = useState(false);
 
@@ -195,7 +209,7 @@ const SettingsPage = () => {
 
     const tabs = [
         { id: 'general', label: 'Umumiy', icon: Settings },
-        { id: 'users', label: 'Foydalanuvchilar', icon: Shield },
+        ...(mayManageUsers ? [{ id: 'users', label: 'Foydalanuvchilar', icon: Shield }] : []),
         { id: 'scoring', label: 'Ball tizimi', icon: BarChart3 },
         { id: 'social-activity', label: 'Ijtimoiy faollik', icon: Award },
         { id: 'notifications', label: 'Bildirishnomalar', icon: Bell },
@@ -249,7 +263,7 @@ const SettingsPage = () => {
                 <div className="flex-1 space-y-6">
                     {/* Foydalanuvchi akkauntlari - o'z-o'zidan ro'yxatdan o'tish yopilgan,
                         akkauntni admin shu yerdan yaratadi va rolni belgilaydi. */}
-                    {activeTab === 'users' && <UserAccountsPanel />}
+                    {activeTab === 'users' && mayManageUsers && <UserAccountsPanel />}
 
                     {/* General Settings */}
                     {activeTab === 'general' && (
