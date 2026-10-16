@@ -1371,14 +1371,46 @@ const isRegistrationOpen = (record, startDateTime, now = new Date()) =>
 // await this and don't need their own saveDB() afterward for the notification itself.
 const addNotificationToSupabase = async (notif) => {
     const id = 'notif_' + Date.now().toString() + Math.random().toString(36).slice(2, 8);
-    const { data, error } = await supabase.from('notifications').insert({
-        id, user_id: notif.userId, type: notif.type, title: notif.title, message: notif.message,
-        ref_id: notif.refId || null, ref_type: notif.refType || null, is_read: false,
-        expires_at: notif.expiresAt || null
-    }).select().single();
-    if (error) throw error;
-    return { id: data.id, userId: data.user_id, type: data.type, title: data.title, message: data.message,
-        refId: data.ref_id, refType: data.ref_type, isRead: data.is_read, createdAt: data.created_at, expiresAt: data.expires_at };
+
+    // TO'G'RIDAN-TO'G'RI `insert` EMAS.
+    //
+    // `notifications` qoidasi faqat O'ZIGA yozishga ruxsat beradi, ya'ni
+    // jamoa sardori a'zolarini taklif qilganda baza rad etardi:
+    //   "new row violates row-level security policy for table notifications"
+    // Jamoaviy musobaqaga ro'yxatdan o'tish shu yerda to'xtab qolardi.
+    //
+    // Qoidani ochish noto'g'ri bo'lardi - u holda har kim har kimga soxta
+    // xabar yoza olardi. Shuning uchun yozuv `send_notification` orqali
+    // boradi: u har safar MUNOSABATNI tekshiradi (sardormi, qabul
+    // qiluvchi uning jamoasidami va h.k.). Izohi:
+    // supabase/notification_send.sql
+    const { data, error } = await supabase.rpc('send_notification', {
+        p_id: id,
+        p_user_id: notif.userId,
+        p_type: notif.type,
+        p_title: notif.title,
+        p_message: notif.message ?? null,
+        p_ref_id: notif.refId || null,
+        p_ref_type: notif.refType || null,
+        p_expires_at: notif.expiresAt || null,
+    });
+    if (error) throw notificationSendError(error);
+
+    // RPC qator obyektini qaytaradi (`returns public.notifications`).
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) throw new Error('Bildirishnoma yozilmadi');
+    return { id: row.id, userId: row.user_id, type: row.type, title: row.title, message: row.message,
+        refId: row.ref_id, refType: row.ref_type, isRead: row.is_read, createdAt: row.created_at, expiresAt: row.expires_at };
+};
+
+// Funksiya hali bazada bo'lmasa PostgREST "topilmadi" deydi va bu xabar
+// hech narsa tushuntirmaydi - nima qilish kerakligini aytib qo'yamiz.
+const notificationSendError = (error) => {
+    const msg = error?.message || '';
+    if (/send_notification/i.test(msg) && /(does not exist|not find|schema cache)/i.test(msg)) {
+        return new Error('Bildirishnoma yuborilmadi: supabase/notification_send.sql hali ishga tushirilmagan.');
+    }
+    return error;
 };
 
 // ~2 completed events per club (drives the "approved club activities" component of getClubScoreBreakdown),
