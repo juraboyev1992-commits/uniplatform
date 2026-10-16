@@ -235,7 +235,16 @@ const AwardRegistryPage = ({ embedded = false }) => {
                                         {ROLE_LABELS[d.role]
                                             ? <span className="font-semibold text-amber-700">{ROLE_LABELS[d.role]}</span>
                                             : d.teamName
-                                                ? <span className="font-semibold text-indigo-700">{d.teamName}</span>
+                                                ? (
+                                                    <span className="font-semibold text-indigo-700">
+                                                        {d.teamName}
+                                                        {(d.members || []).length > 0 && (
+                                                            <span className="ml-1.5 font-bold text-gray-400">
+                                                                &middot; {d.members.length} a&rsquo;zo
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                )
                                                 : <span className="text-gray-400">Yakka ishtirokchi</span>}
                                     </td>
                                     <td className="p-3 text-gray-600">{d.activityName}</td>
@@ -316,6 +325,42 @@ const AwardRegistryPage = ({ embedded = false }) => {
                                 <span className="text-sm font-semibold text-gray-800">{v}</span>
                             </div>
                         ))}
+
+                        {/* JAMOA TARKIBI. Hujjatning o'zida u allaqachon chiziladi
+                            (CertificateGenerator), lekin reestrda ko'rinmasdi -
+                            ya'ni jamoaviy diplom kimlarga tegishli ekanini bilish
+                            uchun har safar hujjatni ochish kerak bo'lardi. */}
+                        {(detail.members || []).length > 0 && (
+                            <div className="pt-1">
+                                <p className="text-[11px] font-bold text-gray-400 uppercase mb-2">
+                                    Jamoa tarkibi &middot; {detail.members.length} a&rsquo;zo
+                                </p>
+                                <ol className="space-y-1.5">
+                                    {detail.members.map((m, i) => (
+                                        <li
+                                            key={m.userId || i}
+                                            className="flex flex-wrap items-baseline gap-x-2 text-sm border-b border-gray-100 last:border-0 pb-1.5 last:pb-0"
+                                        >
+                                            <span className="text-gray-400 font-bold w-5 shrink-0">{i + 1}.</span>
+                                            <span className="font-semibold text-gray-800">
+                                                {m.officialName || m.fullName || m.userId}
+                                            </span>
+                                            {m.role === 'captain' && (
+                                                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                                                    kapitan
+                                                </span>
+                                            )}
+                                            {(m.faculty || m.course) && (
+                                                <span className="text-xs text-gray-500">
+                                                    {[m.faculty, m.course ? `${m.course}-kurs` : null, m.group]
+                                                        .filter(Boolean).join(' · ')}
+                                                </span>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ol>
+                            </div>
+                        )}
 
                         <div className="flex flex-wrap items-center gap-3">
                             <button
