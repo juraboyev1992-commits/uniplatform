@@ -41,6 +41,26 @@
 -- rol yetarli emas: login `user_managers` ro'yxatida ham bo'lishi shart.
 -- ---------------------------------------------------------------------------
 
+-- ---------------------------------------------------------------------------
+-- AVVAL ESKI NUSXALARNI OLIB TASHLAYMIZ
+--
+-- `create or replace` funksiyaning QAYTARISH TURINI o'zgartira olmaydi.
+-- Bazada bu funksiyalarning eskiroq, boshqa ustunlar qaytaradigan nusxasi
+-- turgan bo'lsa, qayta ishga tushirish shunday xato beradi:
+--     42P13: cannot change return type of existing function
+--
+-- Shuning uchun avval o'chiramiz. Xavfsiz: Supabase SQL Editor butun
+-- skriptni bitta tranzaksiyada bajaradi, ya'ni quyida biror narsa xato
+-- bersa o'chirish ham bekor qilinadi - funksiyalar yo'qolib qolmaydi.
+--
+-- Imzolar ANIQ yozilgan: `drop function if exists` noto'g'ri imzo bilan
+-- jimgina hech narsa qilmaydi va xato o'z-o'zidan qaytib kelardi.
+-- ---------------------------------------------------------------------------
+drop function if exists public.admin_set_user_blocked(uuid, boolean);
+drop function if exists public.admin_blocked_user_ids();
+drop function if exists public.admin_user_history(uuid);
+drop function if exists public.admin_delete_user(uuid);
+
 create or replace function public.admin_set_user_blocked(
     p_user_id uuid,
     p_blocked boolean
@@ -201,3 +221,31 @@ grant execute on function public.admin_user_history(uuid)               to authe
 revoke all on function public.admin_blocked_user_ids() from public, anon;
 grant execute on function public.admin_blocked_user_ids() to authenticated;
 grant execute on function public.admin_delete_user(uuid)                to authenticated;
+
+
+-- ---------------------------------------------------------------------------
+-- YAKUNIY TEKSHIRUV - SAKKIZALA funksiya bo'yicha
+--
+-- Bu so'rov uch faylning HAMMASINI birdan tekshiradi. Har qatorda
+-- `holat` ustuniga qarang:
+--     YANGI QO'RIQCHI            - hammasi joyida
+--     ESKI - QAYTA ISHGA TUSHIRING - o'sha funksiya turgan faylni
+--                                    qaytadan ishga tushiring
+--     (qator umuman yo'q)        - funksiya bazada yaratilmagan
+-- ---------------------------------------------------------------------------
+select
+    p.proname as funksiya,
+    case
+        when pg_get_functiondef(p.oid) like '%can_manage_users%'  then 'YANGI QO''RIQCHI'
+        when pg_get_functiondef(p.oid) like '%is_platform_admin%' then 'ESKI - QAYTA ISHGA TUSHIRING'
+        else 'aniqlanmadi'
+    end as holat
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname in (
+        'admin_create_user', 'admin_set_user_role', 'admin_reset_user_password',
+        'admin_set_user_blocked', 'admin_blocked_user_ids', 'admin_user_history',
+        'admin_delete_user', 'admin_import_user'
+  )
+order by holat desc, p.proname;
