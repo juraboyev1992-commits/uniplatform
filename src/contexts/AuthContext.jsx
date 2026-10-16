@@ -47,14 +47,24 @@ export const dashboardRouteFor = (role) => {
 // bloklash, o'chirish) butun tizimning kaliti. Shuning uchun u rol
 // bo'yicha emas, ATAYLAB ro'yxat bo'yicha beriladi.
 //
-// Yangi mas'ul qo'shish kerak bo'lsa - uning loginini shu ro'yxatga
-// qo'shing. Ro'yxat kichik harfda solishtiriladi.
+// BU RO'YXAT QULF EMAS - u faqat tugmani ko'rsatadi yoki yashiradi.
 //
-// DIQQAT: bu interfeys darajasidagi cheklov. Bazadagi `admin_*`
-// funksiyalar hamon `is_platform_admin()` ni tekshiradi, ya'ni boshqa
-// administrator so'rovni to'g'ridan-to'g'ri yuborsa baza rad etmaydi.
-// To'liq yopish uchun supabase tomonida ham qo'riqchi almashtirilishi
-// kerak (izohi `canManageUsers` ishlatilgan joyda).
+// Brauzerdagi kod foydalanuvchining o'z kompyuterida ishlaydi, ya'ni uni
+// chetlab o'tish mumkin. Haqiqiy qulf BAZADA: `can_manage_users()`
+// funksiyasi va `user_managers` jadvali (supabase/user_managers.sql).
+// Baza so'rovni kim yuborganini o'zi tekshiradi va brauzerda nima
+// qilinganiga qaramaydi.
+//
+// IKKALASI BIR XIL TURISHI SHART. Bu yerga login qo'shib, bazadagi
+// jadvalga qo'shmasangiz - odam tabni ko'radi, lekin har bir amal xato
+// beradi (interfeys taklif qiladi, baza rad etadi degan eski tuzoq).
+// Yangi mas'ul qo'shish:
+//   1. shu ro'yxatga loginni qo'shing;
+//   2. Supabase SQL Editor da:
+//      insert into public.user_managers (username, note)
+//      values ('yangi_login', 'kim va nega') on conflict do nothing;
+//
+// Ro'yxat kichik harfda solishtiriladi.
 export const USER_MANAGER_USERNAMES = ['admin'];
 
 export const canManageUsers = (user) => {

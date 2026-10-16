@@ -44,6 +44,15 @@ begin
 end
 $guard$;
 
+-- ---------------------------------------------------------------------------
+-- BOG'LIQLIK: avval supabase/user_managers.sql ni ishga tushiring.
+--
+-- Bu fayldagi funksiyalar `can_manage_users()` ni chaqiradi. Ilgari
+-- `is_platform_admin()` tekshirilardi - ya'ni ADMINISTRATOR roli berilgan
+-- HAR KIM parol almashtira, rol ko'tara va akkaunt o'chira olardi. Endi
+-- rol yetarli emas: login `user_managers` ro'yxatida ham bo'lishi shart.
+-- ---------------------------------------------------------------------------
+
 create or replace function public.admin_import_user(
     p_username  text,
     p_full_name text default '',
@@ -61,8 +70,8 @@ declare
     v_id     uuid;
     v_status text;
 begin
-    if not is_platform_admin() then
-        raise exception 'Faqat administrator foydalanuvchi import qila oladi';
+    if not can_manage_users() then
+        raise exception 'Import qilishga ruxsat yo''q - bu amal faqat akkauntlar uchun mas''ul administratorga ochiq';
     end if;
     if coalesce(v_uname, '') = '' then
         raise exception 'Login kiritilmadi';

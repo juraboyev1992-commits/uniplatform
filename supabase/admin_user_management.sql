@@ -9,7 +9,7 @@
 -- foydalanuvchi yarata olmaydi (buning uchun `service_role` kaliti kerak,
 -- lekin uni mijoz kodiga qo'yish - butun bazani ochib berish demak).
 -- Shuning uchun yaratish `security definer` funksiya ichida bajariladi va
--- funksiyaning o'zi `is_platform_admin()` bilan qo'riqlanadi.
+-- funksiyaning o'zi `can_manage_users()` bilan qo'riqlanadi.
 --
 -- OGOHLANTIRISH: funksiya `auth.users` jadvaliga to'g'ridan-to'g'ri yozadi.
 -- Bu Supabase'ning rasmiy yo'li emas (rasmiysi - Edge Function + service_role),
@@ -22,6 +22,15 @@ create extension if not exists pgcrypto;
 -- ---------------------------------------------------------------------------
 -- 1. Yangi foydalanuvchi yaratish
 -- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- BOG'LIQLIK: avval supabase/user_managers.sql ni ishga tushiring.
+--
+-- Bu fayldagi funksiyalar `can_manage_users()` ni chaqiradi. Ilgari
+-- `is_platform_admin()` tekshirilardi - ya'ni ADMINISTRATOR roli berilgan
+-- HAR KIM parol almashtira, rol ko'tara va akkaunt o'chira olardi. Endi
+-- rol yetarli emas: login `user_managers` ro'yxatida ham bo'lishi shart.
+-- ---------------------------------------------------------------------------
+
 create or replace function public.admin_create_user(
     p_username  text,
     p_password  text,
@@ -35,8 +44,8 @@ declare
     v_email text;
     v_has_provider_id boolean;
 begin
-    if not is_platform_admin() then
-        raise exception 'Faqat administrator foydalanuvchi yarata oladi';
+    if not can_manage_users() then
+        raise exception 'Foydalanuvchi yaratishga ruxsat yo''q - bu amal faqat akkauntlar uchun mas''ul administratorga ochiq';
     end if;
     if coalesce(v_uname, '') = '' then
         raise exception 'Foydalanuvchi nomi kiritilmadi';
@@ -121,8 +130,8 @@ create or replace function public.admin_set_user_role(
 ) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-    if not is_platform_admin() then
-        raise exception 'Faqat administrator rolni o''zgartira oladi';
+    if not can_manage_users() then
+        raise exception 'Rolni o''zgartirishga ruxsat yo''q - bu amal faqat akkauntlar uchun mas''ul administratorga ochiq';
     end if;
     if p_role not in ('TALABA', 'ADMINISTRATOR', 'RAHBARIYAT', 'TYUTOR') then
         raise exception 'Noma''lum rol: %', p_role;
@@ -144,8 +153,8 @@ create or replace function public.admin_reset_user_password(
 ) returns void
 language plpgsql security definer set search_path = public, auth, extensions as $$
 begin
-    if not is_platform_admin() then
-        raise exception 'Faqat administrator parolni o''zgartira oladi';
+    if not can_manage_users() then
+        raise exception 'Parolni o''zgartirishga ruxsat yo''q - bu amal faqat akkauntlar uchun mas''ul administratorga ochiq';
     end if;
     if length(coalesce(p_password, '')) < 6 then
         raise exception 'Parol kamida 6 ta belgidan iborat bo''lishi kerak';
@@ -159,7 +168,7 @@ end $$;
 
 -- ---------------------------------------------------------------------------
 -- Kirmagan (anon) foydalanuvchi bu funksiyalarni umuman chaqira olmasin.
--- Kirgan foydalanuvchi chaqirsa ham, ichkarida is_platform_admin() to'sadi.
+-- Kirgan foydalanuvchi chaqirsa ham, ichkarida can_manage_users() to'sadi.
 -- ---------------------------------------------------------------------------
 revoke all on function public.admin_create_user(text, text, text, text) from public, anon;
 revoke all on function public.admin_set_user_role(uuid, text) from public, anon;

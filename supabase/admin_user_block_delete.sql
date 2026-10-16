@@ -21,6 +21,7 @@
 --
 -- ISHGA TUSHIRISHDAN OLDIN `admin_user_management.sql` bajarilgan bo'lishi
 -- kerak (`is_platform_admin()` o'sha yerda yaratilgan).
+-- Qo'riqchi esa `can_manage_users()` - supabase/user_managers.sql.
 -- =====================================================================
 
 
@@ -31,14 +32,23 @@
 -- o'ylab topilmaydi. Bloklangan foydalanuvchi kira olmaydi, lekin uning
 -- `profiles` qatori va barcha yozuvlari tegilmaydi.
 -- ---------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- BOG'LIQLIK: avval supabase/user_managers.sql ni ishga tushiring.
+--
+-- Bu fayldagi funksiyalar `can_manage_users()` ni chaqiradi. Ilgari
+-- `is_platform_admin()` tekshirilardi - ya'ni ADMINISTRATOR roli berilgan
+-- HAR KIM parol almashtira, rol ko'tara va akkaunt o'chira olardi. Endi
+-- rol yetarli emas: login `user_managers` ro'yxatida ham bo'lishi shart.
+-- ---------------------------------------------------------------------------
+
 create or replace function public.admin_set_user_blocked(
     p_user_id uuid,
     p_blocked boolean
 ) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-    if not is_platform_admin() then
-        raise exception 'Faqat administrator akkauntni bloklay oladi';
+    if not can_manage_users() then
+        raise exception 'Akkauntni bloklashga ruxsat yo''q - bu amal faqat akkauntlar uchun mas''ul administratorga ochiq';
     end if;
     -- O'zini bloklab qo'yishdan himoya: aks holda oxirgi admin o'zini yopib,
     -- tizimga hech kim kira olmay qolardi.
@@ -70,8 +80,8 @@ create or replace function public.admin_blocked_user_ids()
 returns table (user_id uuid)
 language plpgsql security definer set search_path = public as $$
 begin
-    if not is_platform_admin() then
-        raise exception 'Faqat administrator ko''ra oladi';
+    if not can_manage_users() then
+        raise exception 'Ko''rishga ruxsat yo''q - bu ma''lumot faqat akkauntlar uchun mas''ul administratorga ochiq';
     end if;
     return query
         select u.id from auth.users u
@@ -111,8 +121,8 @@ declare
     ];
     i int;
 begin
-    if not is_platform_admin() then
-        raise exception 'Faqat administrator ko''ra oladi';
+    if not can_manage_users() then
+        raise exception 'Ko''rishga ruxsat yo''q - bu ma''lumot faqat akkauntlar uchun mas''ul administratorga ochiq';
     end if;
 
     select username into uname from public.profiles where id = p_user_id;
@@ -156,8 +166,8 @@ language plpgsql security definer set search_path = public as $$
 declare
     blockers text;
 begin
-    if not is_platform_admin() then
-        raise exception 'Faqat administrator akkaunt o''chira oladi';
+    if not can_manage_users() then
+        raise exception 'Akkauntni o''chirishga ruxsat yo''q - bu amal faqat akkauntlar uchun mas''ul administratorga ochiq';
     end if;
     if p_user_id = auth.uid() then
         raise exception 'O''z akkauntingizni o''chira olmaysiz';
