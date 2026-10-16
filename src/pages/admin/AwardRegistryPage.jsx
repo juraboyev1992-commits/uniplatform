@@ -42,7 +42,7 @@ const AwardRegistryPage = ({ embedded = false }) => {
     const navigate = useNavigate();
     const [tab, setTab] = useTabParam(['registry', 'scholarships', 'clubs', 'incentives', 'prizes', 'analytics'], 'registry');
     const [version, setVersion] = useState(0);
-    const [filters, setFilters] = useState({ search: '', group: '', documentType: '', status: '', faculty: '' });
+    const [filters, setFilters] = useState({ search: '', group: '', documentType: '', status: '', faculty: '', participation: '' });
     const [detail, setDetail] = useState(null);
     const [previewDoc, setPreviewDoc] = useState(null);
     const [revokeReason, setRevokeReason] = useState('');
@@ -185,6 +185,17 @@ const AwardRegistryPage = ({ embedded = false }) => {
                         <option value="">Aniq hujjat turi</option>
                         {DOCUMENT_TYPES.filter(t => !filters.group || t.group === filters.group)
                             .map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                    </select>
+                    {/* ISHTIROK SHAKLI - jamoaviy hujjatlarni ajratib ko'rish uchun.
+                        "Tashkilotchi / hakam" alohida turadi: tashakkurnoma olgan
+                        hakam na jamoaviy, na yakka ishtirokchi - uni ikkisining
+                        biriga qo'shish ro'yxatni chalg'itardi. */}
+                    <select value={filters.participation} onChange={e => set({ participation: e.target.value })}
+                        className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white">
+                        <option value="">Jamoaviy va yakka</option>
+                        <option value="team">Faqat jamoaviy</option>
+                        <option value="individual">Faqat yakka</option>
+                        <option value="staff">Tashkilotchi / hakam / volontyor</option>
                     </select>
                     <select value={filters.status} onChange={e => set({ status: e.target.value })}
                         className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white">

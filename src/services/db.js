@@ -17447,9 +17447,22 @@ export const db = {
 
     // Reestr uchun filtrlanadigan ro'yxat. Hujjatlar soni va UNIKAL talabalar soni alohida qaytadi -
     // bitta talaba 10 ta sertifikat olsa qamrov sun'iy oshib ketmasligi uchun.
-    getAwardRegistry: ({ documentType = '', group = '', status = '', faculty = '', search = '', year = '' } = {}) => {
+    getAwardRegistry: ({ documentType = '', group = '', status = '', faculty = '', search = '', year = '', participation = '' } = {}) => {
         const q = search.trim().toLowerCase();
+        // ISHTIROK SHAKLI. Hujjat uch toifadan birida bo'ladi:
+        //   'staff'      - tashkilotchi/hakam/volontyorga berilgan (role maydoni),
+        //   'team'       - jamoa nomiga berilgan,
+        //   'individual' - yakka ishtirokchiga.
+        // Jadvaldagi "Jamoaviy / Yakka" ustuni ham aynan shu tartibda
+        // hisoblaydi - filtr va ustun bir xil javob berishi uchun.
+        const STAFF_ROLES = ['judge', 'volunteer', 'organizer'];
+        const formOf = (d) => {
+            if (d.role && STAFF_ROLES.includes(d.role)) return 'staff';
+            if (d.isTeam || d.teamName) return 'team';
+            return 'individual';
+        };
         const rows = (getDB().documents || []).filter(d => {
+            if (participation && formOf(d) !== participation) return false;
             if (documentType && d.documentType !== documentType) return false;
             if (group && getDocumentType(d.documentType)?.group !== group) return false;
             if (status && d.status !== status) return false;
