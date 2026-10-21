@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Trophy, RefreshCw, Lock, LogIn, AlertTriangle } from 'lucide-react';
+import { Trophy, RefreshCw, Lock, LogIn, AlertTriangle, Timer as TimerIcon } from 'lucide-react';
 import { db } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import { getDisplayStages, computeGroupStandings, getTurRaundGroups } from '../../config/competitionEngines';
+import CompetitionTimer from '../../components/common/CompetitionTimer';
 
 // JONLI EKRAN - zaldagi proyektor uchun.
 //
@@ -150,6 +151,9 @@ const CompetitionLiveScreenPage = () => {
     const [updatedAt, setUpdatedAt] = useState(null);
     const [loadError, setLoadError] = useState('');
     const [turIndex, setTurIndex] = useState(null);
+    // TAYMER. Zalda savol o'qilgandan keyin o'ylash vaqti sanaladi.
+    // Yashirish mumkin - sport va munozarada u kerak emas.
+    const [showTimer, setShowTimer] = useState(true);
     // IKKI KO'RINISH. 'tur' - hozirgi Tur savol-savol (zalda o'yin
     // ketayotganda), 'umumiy' - barcha Turlar kesimida umumiy reyting
     // (Tur tugaganda "kim qanchada" degan savolga javob).
@@ -304,6 +308,21 @@ const CompetitionLiveScreenPage = () => {
 
     const nameOf = (row) => row.participant.name || row.participant.fullName || '—';
 
+    // TAYMER SOZLAMASI musobaqada saqlanadi - keyingi safar o'sha klub
+    // o'z vaqtini qaytadan terib o'tirmasin. Saqlash RUXSAT talab qiladi,
+    // shuning uchun xato jimgina o'tkaziladi: taymer baribir ishlaydi,
+    // faqat vaqt shu safarga qoladi.
+    const saveTimerSettings = async ({ seconds, warnAt, sound }) => {
+        if (!competition) return;
+        try {
+            await db.updateCompetition(competition.id, {
+                timerSeconds: seconds, timerWarnAt: warnAt, timerSound: sound,
+            });
+        } catch {
+            // Ruxsat yo'q - halokat emas.
+        }
+    };
+
     // --- Kirish talab qilinadi ------------------------------------------
     if (authLoading) {
         return (
@@ -377,8 +396,29 @@ const CompetitionLiveScreenPage = () => {
                             <AlertTriangle size={12} /> yangilanmadi
                         </p>
                     )}
+                    <button
+                        type="button"
+                        onClick={() => setShowTimer(t => !t)}
+                        className="mt-2 flex items-center gap-1.5 ml-auto px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 text-xs font-bold hover:bg-slate-700"
+                    >
+                        <TimerIcon size={13} />
+                        {showTimer ? 'Taymerni yashirish' : "Taymerni ko'rsatish"}
+                    </button>
                 </div>
             </div>
+
+            {/* SAVOL TAYMERI */}
+            {showTimer && !competition.resultsHidden && (
+                <div className="mt-6 shrink-0">
+                    <CompetitionTimer
+                        key={competition.id}
+                        defaultSeconds={competition.timerSeconds || 60}
+                        defaultWarnAt={competition.timerWarnAt || 10}
+                        defaultSound={competition.timerSound || 'beep'}
+                        onSettingsChange={saveTimerSettings}
+                    />
+                </div>
+            )}
 
             {/* KO'RINISH ALMASHTIRGICH */}
             {canSwitchView && (
