@@ -35,9 +35,14 @@ const CriteriaRoundAttendanceTab = ({ competition, canManageAttendance, hasFullA
     const refresh = () => setVersion(v => v + 1);
 
     const plan = useMemo(() => getAttendanceUnitPlan(competition), [competition]);
-    const perUnit = competition.attendanceGranularity !== 'whole_competition'
-        && plan.groups.some(g => g.units.length > 0)
-        && plan.groups.reduce((n, g) => n + g.units.length, 0) > 1;
+    const granularity = competition.attendanceGranularity || 'per_round';
+    const totalUnits = plan.groups.reduce((n, g) => n + g.units.length, 0);
+    // Ikki darajali tanlov, rejimga qarab:
+    //   "Butun turnir uchun" - hech qanday tanlov, davomat bitta.
+    //   "Har Tur uchun"      - faqat Tur tanlanadi.
+    //   "Har raund/savol..." - Tur ham, uning ichidagi birlik ham.
+    const showTurPicker = granularity !== 'whole_competition' && plan.groups.length > 1;
+    const showUnitPicker = granularity === 'per_round' && totalUnits > 1;
 
     const [selectedTur, setSelectedTur] = useState(1);
     const [selectedRoundGroup, setSelectedRoundGroup] = useState(1);
@@ -107,7 +112,13 @@ const CriteriaRoundAttendanceTab = ({ competition, canManageAttendance, hasFullA
                 <div className="min-w-0">
                     <h3 className="font-bold text-lg text-gray-900">
                         Davomat
-                        {perUnit && selectedUnit && (
+                        {granularity === 'whole_competition' && (
+                            <span className="text-gray-400 font-semibold text-sm"> — butun turnir uchun</span>
+                        )}
+                        {granularity === 'per_tur' && activeGroup.label && (
+                            <span className="text-indigo-600"> — {activeGroup.label}</span>
+                        )}
+                        {granularity === 'per_round' && selectedUnit && (
                             <span className="text-indigo-600"> — {activeGroup.label ? `${activeGroup.label}, ` : ''}{selectedUnit.label}</span>
                         )}
                     </h3>
@@ -116,7 +127,7 @@ const CriteriaRoundAttendanceTab = ({ competition, canManageAttendance, hasFullA
                     </p>
                 </div>
                 {/* Tur tanlagich - "Raundlar" bo'limidagi bilan bir xil. */}
-                {perUnit && plan.groups.length > 1 && (
+                {showTurPicker && (
                     <div className="flex items-center gap-1.5 flex-wrap">
                         {plan.groups.map((g, i) => (
                             <button
@@ -147,7 +158,7 @@ const CriteriaRoundAttendanceTab = ({ competition, canManageAttendance, hasFullA
                 qolardi - PILL_LIMIT dan oshsa ro'yxat ko'rinishiga o'tadi,
                 shunda shakl musobaqa kattaligidan qat'i nazar bir xil
                 bo'ladi. */}
-            {perUnit && activeGroup.units.length > 1 && (
+            {showUnitPicker && activeGroup.units.length > 1 && (
                 <div>
                     <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">
                         Qaysi {plan.leafLabel.toLowerCase()} uchun belgilanmoqda

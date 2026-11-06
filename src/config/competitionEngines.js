@@ -5,7 +5,7 @@
 // Davomat (attendance) leaf-unit resolution for jamoaviy criteria_based/single_score competitions —
 // shared by CompetitionRoundsTab.jsx (locks on "Yakunlash") and CriteriaRoundAttendanceTab.jsx (reads
 // the same id back), so both always agree on which leaf unit a given round belongs to.
-// `competition.attendanceGranularity`: 'per_round' (default) | 'per_day' | 'whole_competition'.
+// `competition.attendanceGranularity`: 'per_round' (default) | 'per_tur' | 'per_day' | 'whole_competition'.
 // `turScheduleRows` = db.getTurSchedule(competition.id) — passed in rather than fetched here since this
 // file is pure config with no db.js import. 'per_day' never fabricates a date: if the round's Tur has no
 // real scheduled date yet, it falls back to the same 'whole' bucket 'whole_competition' uses.
@@ -19,6 +19,17 @@
 export const resolveAttendanceLeafUnitId = (competition, roundIndex, turScheduleRows = []) => {
     const granularity = competition.attendanceGranularity || 'per_round';
     if (granularity === 'whole_competition') return 'whole';
+    // HAR TUR UCHUN. Savol-barg musobaqalarida (Zakovat, 25-savol ko'rinishi)
+    // 'per_round' har bir SAVOL uchun alohida davomat degani edi - 100 savolli
+    // turnirda 100 marta belgilash. Tur esa real majlis: talaba o'sha o'tirishda
+    // bor edi yoki yo'q edi. Birlik nomi `tur:` bilan boshlanadi, shuning uchun
+    // 'per_round' davrida yozilgan '1','2',... yozuvlari bilan ustma-ust
+    // tushmaydi - rejim o'zgartirilsa eski yozuvlar o'z joyida qoladi.
+    if (granularity === 'per_tur') {
+        const plan = getAttendanceUnitPlan(competition);
+        const idx = plan.groups.findIndex(g => g.units.some(u => u.index === Number(roundIndex)));
+        return idx >= 0 ? `tur:${idx + 1}` : 'tur:1';
+    }
     if (granularity === 'per_day') {
         const stages = competition.stages || [];
         const turIdx = stages.findIndex(s => roundIndex >= s.roundRange[0] && roundIndex <= s.roundRange[1]);
@@ -1119,9 +1130,48 @@ export const getDisplayStageLeafLabel = (competition) => {
 // va musobaqa sozlamalari IKKALASI shu ro'yxatdan oladi - ilgari u faqat
 // sehrgar ichida mahalliy o'zgaruvchi edi va sozlamalarda umuman yo'q edi.
 export const ATTENDANCE_GRANULARITY_OPTIONS = [
-    { id: 'per_round', label: 'Har raund/tur uchun', description: "Davomat har bir raund/tur yakunida alohida belgilanadi." },
+    { id: 'per_tur', label: 'Har Tur uchun', description: "Davomat har bir Tur (majlis) yakunida bir marta belgilanadi." },
+    { id: 'per_round', label: 'Har raund/savol uchun', description: "Davomat har bir raund yoki savol uchun alohida belgilanadi." },
     { id: 'whole_competition', label: 'Butun turnir uchun', description: "Davomat turnir davomida bir marta belgilanadi." }
 ];
+
+// Musobaqa shakliga mos sukutdagi rejim.
+//
+// Savol-barg musobaqalarida (Zakovat, 25-savol ko'rinishidagi quiz) bitta barg
+// birligi - bitta SAVOL. Har savol uchun alohida davomat hech qachon ma'noga
+// ega emas, shuning uchun ularda sukut bo'yicha Tur olinadi. Raund-barg
+// musobaqalarida (criteria_based, single_score, UniQuiz) esa raund real
+// bosqich, u yerda avvalgi sukut o'z kuchida qoladi.
+export const getDefaultAttendanceGranularity = (scoringEngine, leafLabel) => (
+    ['correct_answer', 'quiz_mixed'].includes(scoringEngine) && leafLabel !== 'raund'
+        ? 'per_tur'
+        : 'per_round'
+);
+
+// Shu birlik o'z davomat chelagining OXIRGISIMI.
+//
+// "Raundlar" bo'limidagi "Yakunlash" tugmasi davomatni qulflaydi. 'per_round'
+// da bu to'g'ri: bir raund tugadi - o'sha raundning davomati yopildi. Lekin
+// bir nechta birlik BITTA chelakka tushganda (butun turnir yoki bir Tur) eski
+// kod BIRINCHI birlik yakunlanishi bilanoq butun chelakni qulflardi - ya'ni
+// 1-savol tugashi bilan butun Turning davomati yopilib qolardi. Qulf faqat
+// chelakdagi oxirgi birlik yakunlanganda tushishi kerak.
+export const isLastUnitOfAttendanceLeaf = (competition, unitIndex) => {
+    const granularity = competition.attendanceGranularity || 'per_round';
+    if (granularity === 'per_round') return true;
+    const plan = getAttendanceUnitPlan(competition);
+    const idx = Number(unitIndex);
+    if (granularity === 'whole_competition') {
+        const all = plan.groups.flatMap(g => g.units.map(u => u.index));
+        return all.length === 0 || idx === Math.max(...all);
+    }
+    // per_tur va per_day: chelak = bitta Tur. (per_day da ikki Tur bitta sanaga
+    // tushsa qulf birinchi Tur oxirida tushadi - bu rejim hali interfeysda
+    // tanlanmaydi, shuning uchun shu holicha qoldirildi.)
+    const group = plan.groups.find(g => g.units.some(u => u.index === idx));
+    if (!group || group.units.length === 0) return true;
+    return group.units[group.units.length - 1].index === idx;
+};
 
 export const getAttendanceUnitPlan = (competition) => {
     const empty = { leafLabel: 'Raund', groups: [], currentIndex: 1 };

@@ -4,7 +4,7 @@ import Button from './Button';
 import Badge from './Badge';
 import Modal from './Modal';
 import { db } from '../../services/db';
-import { getDisplayStages, getDisplayStageLeafLabel, resolveAttendanceLeafUnitId, isMatchBasedEngine } from '../../config/competitionEngines';
+import { getDisplayStages, getDisplayStageLeafLabel, resolveAttendanceLeafUnitId, isLastUnitOfAttendanceLeaf, isMatchBasedEngine } from '../../config/competitionEngines';
 import CompetitionAdvancementPanel from './CompetitionAdvancementPanel';
 
 // TSUL Court case-role options (judge/prosecutor/defense/accused/witness/clerk) — shown per round when
@@ -242,8 +242,15 @@ const CompetitionRoundsTab = ({ competition, hasFullAdminAccess, canManageGroups
             // the same numbering CriteriaRoundAttendanceTab.jsx's own round-group selector must produce,
             // NOT card.rawStart (which is a raw question index for correct_answer, not a round number).
             // Davomat's own lock tables aren't migrated yet — lockActivityAttendanceUnit stays sync/mock.
-            const leafUnitId = resolveAttendanceLeafUnitId(competition, card.index, db.getTurSchedule(competition.id));
-            await db.lockActivityAttendanceUnit(competition.id, 'competition', 'criteria_round', leafUnitId, actingUsername);
+            // Qulf faqat chelakning OXIRGI birligida tushadi. 'per_round' da
+            // har birlik o'zi chelak, demak har doim; "Har Tur uchun" yoki
+            // "Butun turnir uchun" rejimida esa ilgari BIRINCHI birlik
+            // yakunlanishi bilanoq butun chelak qulflanib qolardi (1-savol
+            // tugadi - butun Turning davomati yopiq).
+            if (isLastUnitOfAttendanceLeaf(competition, card.index)) {
+                const leafUnitId = resolveAttendanceLeafUnitId(competition, card.index, db.getTurSchedule(competition.id));
+                await db.lockActivityAttendanceUnit(competition.id, 'competition', 'criteria_round', leafUnitId, actingUsername);
+            }
         }
         refresh();
     };

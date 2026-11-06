@@ -492,16 +492,17 @@ const TournamentRulesStep = ({ data, onChange, showAttendanceGranularity = false
                     <label className={labelClass}>Davomat granulligi</label>
                     <p className="text-[11px] text-gray-400 mb-2">
                         Jamoaga umumiy ball qo'yilgani ishtirokni tasdiqlamaydi — a'zolarning aynan qaysi
-                        bosqichda hozir bo'lganini alohida belgilash uchun. Turnir davomida real sana
-                        jadvali kiritilgach, "Har kun uchun" varianti ham qo'shiladi (Jadval bo'limi).
+                        bosqichda hozir bo'lganini alohida belgilash uchun. Savol bo'yicha boradigan
+                        turnirlarda "Har Tur uchun" tanlang: Tur — real majlis, savol esa emas, va 100
+                        savolli turnirda "Har raund/savol uchun" 100 marta belgilash degani.
                     </p>
-                    <div className="grid grid-cols-2 gap-2 max-w-md">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 max-w-2xl">
                         {ATTENDANCE_GRANULARITY_OPTIONS.map(opt => (
                             <button
                                 key={opt.id}
                                 type="button"
                                 title={opt.description}
-                                onClick={() => onChange({ attendanceGranularity: opt.id })}
+                                onClick={() => onChange({ attendanceGranularity: opt.id, attendanceGranularityTouched: true })}
                                 className={`px-3 py-2.5 rounded-xl text-xs font-bold border text-center transition-all ${
                                     data.attendanceGranularity === opt.id
                                         ? 'border-indigo-600 bg-indigo-600 text-white'

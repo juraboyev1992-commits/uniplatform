@@ -9,7 +9,7 @@ import TournamentStructureStep from './TournamentStructureStep';
 import TournamentRulesStep from './TournamentRulesStep';
 import TournamentReviewStep from './TournamentReviewStep';
 import SuccessModal from './SuccessModal';
-import { PRESETS, DEBATE_CRITERIA, getDefaultScoringMode, getPresetMode, compileStructureToRoundRules, isMatchBasedEngine, isPresetOfferedToClub } from '../../config/competitionEngines';
+import { PRESETS, DEBATE_CRITERIA, getDefaultScoringMode, getPresetMode, compileStructureToRoundRules, isMatchBasedEngine, isPresetOfferedToClub, getDefaultAttendanceGranularity } from '../../config/competitionEngines';
 import { getRegistrationWindowIssues } from '../activities/RegistrationSettingsFields';
 
 // Fallback criteria for a criteria_based override away from a preset that has no criteriaInput of its
@@ -269,12 +269,36 @@ const TournamentCreateWizard = ({ contextType = null, contextId = null, onCreate
     // computed here too so Step 3 can gate the "Davomat granulligi" selector at render time — only
     // meaningful for jamoaviy criteria_based/single_score, where the team gets one shared score and
     // individual show-up isn't otherwise provable.
-    const isAttendanceGranularityRelevant = useMemo(() => {
-        if (!selectedPreset || data.type !== 'team') return false;
+    // Qaysi dvigatel uchun davomat granulligi umuman ma'noga ega.
+    //
+    // Ilgari ro'yxatda faqat criteria_based/single_score bor edi. Lekin
+    // "Davomat" bo'limi (CriteriaRoundAttendanceTab) HAR QANDAY jamoaviy,
+    // match asosida bo'lmagan musobaqada chiqadi - correct_answer va
+    // quiz_mixed ham shunga kiradi. Natijada Zakovat/quiz turnirlari bu
+    // tanlovni hech qachon ko'rmas va jimgina 'per_round' bo'lib qolardi,
+    // ya'ni savol-barg turnirda HAR SAVOL uchun alohida davomat. 100 savolli
+    // turnirda bu 100 marta belgilash degani edi va uni keyin o'zgartirishning
+    // ham iloji yo'q edi.
+    const resolvedScoringEngine = useMemo(() => {
+        if (!selectedPreset) return null;
         const isOverridden = data.scoringMode !== getDefaultScoringMode(selectedPreset);
-        const resolvedScoringEngine = isOverridden ? data.scoringMode : selectedPreset.scoringEngine;
-        return ['criteria_based', 'single_score'].includes(resolvedScoringEngine);
-    }, [selectedPreset, data.type, data.scoringMode]);
+        return isOverridden ? data.scoringMode : selectedPreset.scoringEngine;
+    }, [selectedPreset, data.scoringMode]);
+
+    const isAttendanceGranularityRelevant = useMemo(() => (
+        !!selectedPreset && data.type === 'team'
+        && ['criteria_based', 'single_score', 'correct_answer', 'quiz_mixed'].includes(resolvedScoringEngine)
+    ), [selectedPreset, data.type, resolvedScoringEngine]);
+
+    // Dvigatel almashganda shu shaklga mos sukut qo'yiladi - lekin admin o'zi
+    // tanlagan bo'lsa, tanlovi ustun turadi.
+    useEffect(() => {
+        if (!isAttendanceGranularityRelevant || data.attendanceGranularityTouched) return;
+        const leafLabel = selectedPreset?.defaults?.stageLeafLabel;
+        const next = getDefaultAttendanceGranularity(resolvedScoringEngine, leafLabel);
+        if (next !== data.attendanceGranularity) updateData({ attendanceGranularity: next });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAttendanceGranularityRelevant, resolvedScoringEngine, data.attendanceGranularityTouched]);
 
     // Preview of this competition's real Tur/stage boundaries, BEFORE creation — mirrors exactly the
     // same two sources buildCompetitionPayload's isQuizMixed branch reads (compiled free structure, or

@@ -53,7 +53,7 @@ const CompetitionSettingsPanel = ({
                     yozuvi tagida turibdi. */}
                 <div>
                     <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Davomat granulligi</label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         {ATTENDANCE_GRANULARITY_OPTIONS.map(opt => (
                             <button
                                 key={opt.id}
