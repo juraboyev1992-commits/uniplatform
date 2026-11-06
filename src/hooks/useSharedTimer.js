@@ -44,6 +44,23 @@ const makeChannel = () => {
 let localState = null;
 const subscribers = new Set();
 
+// QAYSI SOZLAMA ALLAQACHON QABUL QILINGAN.
+//
+// Modul darajasida, ATAYLAB - `useRef` emas. Sabab nuqsonning o'zida:
+// header ichidagi taymer ochilgan-yopilgan sayin QAYTA mount bo'ladi,
+// jonli ekrandagi nusxa ham ko'rsatish almashsa mount bo'ladi. Har
+// mountda yangi `useRef(null)` paydo bo'lardi, props-sync esa "men bu
+// qiymatni hali qo'llamaganman" deb hisoblab, BAZADAN kelgan eski
+// qiymatni umumiy xotira ustiga yozardi. Operator panelda signalni
+// tanlagan bo'lsa ham, keyingi mountda inson ovozi qaytib kelardi -
+// nuqson uch marta tuzatilib, har safar shu yo'l bilan qaytgan.
+//
+// Modul darajasida bo'lsa, oynada BIRINCHI nusxa urug' qo'yadi, keyin
+// mount bo'lganlar esa tayyor holatni oladi. Ya'ni props - boshlang'ich
+// URUG', doimiy haqiqat manbasi emas; tanlov qilingandan keyin umumiy
+// xotira ustun turadi.
+let seededSig = null;
+
 const pushLocal = (next) => {
     localState = next;
     subscribers.forEach(fn => { try { fn(next); } catch { /* o'chgan komponent */ } });
@@ -53,9 +70,8 @@ export const useSharedTimer = ({
     mainSeconds = 60,
     submitSeconds = 10,
     warnAt = 10,
-    signalOn = true,
+    soundMode = 'signal',
     signalSound = 'beep',
-    voiceOn = false,
     voiceUzbek = false,
     voiceName = '',
 } = {}) => {
@@ -65,14 +81,19 @@ export const useSharedTimer = ({
         endsAt: null,          // ms - shu paytda joriy bosqich tugaydi
         pausedLeft: null,      // pauzada qolgan soniya
         mainSeconds, submitSeconds, warnAt,
-        // OVOZ SOZLAMASI HAM SHU YERDA.
+        // OVOZ - BITTA MAYDON, UCH QIYMAT: 'signal' | 'voice' | 'silent'.
         //
-        // Ilgari u har oynaning O'Z xotirasida edi va ikkita nuqson
-        // keltirardi: (1) bir oynada o'zgartirilsa ikkinchisi bilmas
-        // edi; (2) jonli ekran har 8 soniyada musobaqani qayta o'qiydi
-        // va eski saqlangan qiymat foydalanuvchi tanlovini bosib
-        // ketardi - topshirish bosqichiga yetguncha bir necha marta.
-        signalOn, signalSound, voiceOn, voiceUzbek, voiceName,
+        // Ilgari ikkita mustaqil bayroq edi (`signalOn`, `voiceOn`) va
+        // ular bir-biriga ZID holatga tushib qolardi: panelda signal
+        // tanlangan ko'rinardi, zalda esa inson ovozi sanardi. Nuqson
+        // uch marta tuzatilgan, har safar qaytgan - chunki qo'riqchi
+        // qo'yish bilan ikkala bayroq rost bo'lgan holatning O'ZI
+        // yo'qolmaydi, faqat bir yo'li yopiladi.
+        //
+        // Bitta maydonda esa bu holat IFODALANISHI MUMKIN EMAS: qiymat
+        // yo 'signal', yo 'voice'. Shuning uchun bu yerda qo'riqchi
+        // ham kerak emas.
+        soundMode, signalSound, voiceUzbek, voiceName,
         // Har boshlashda o'zgaradi - yangi seansni eskisidan ajratadi,
         // shunda bitta signal ikki marta chalinmaydi.
         runId: 0,
@@ -89,18 +110,17 @@ export const useSharedTimer = ({
     // uzatadi. Buni har safar qo'llasak, foydalanuvchining yangi
     // tanlovi bosib ketilardi - ayniqsa saqlash ruxsati bo'lmaganda,
     // chunki unda baza eski qiymatni qaytaraverardi.
-    const appliedRef = useRef(null);
     useEffect(() => {
         const incoming = {
             mainSeconds, submitSeconds, warnAt,
-            signalOn, signalSound, voiceOn, voiceUzbek, voiceName,
+            soundMode, signalSound, voiceUzbek, voiceName,
         };
         const sig = JSON.stringify(incoming);
-        if (appliedRef.current === sig) return;
-        appliedRef.current = sig;
+        if (seededSig === sig) return;
+        seededSig = sig;
         const cur = sharedRef.current;
         if (cur.phase === TIMER_PHASES.IDLE) pushLocal({ ...cur, ...incoming });
-    }, [mainSeconds, submitSeconds, warnAt, signalOn, signalSound, voiceOn, voiceUzbek, voiceName]);
+    }, [mainSeconds, submitSeconds, warnAt, soundMode, signalSound, voiceUzbek, voiceName]);
 
     const publish = useCallback((next) => {
         pushLocal(next);                       // shu oynadagi hamma taymer
