@@ -48,26 +48,26 @@ const CompetitionTimer = ({
     onSettingsChange = null,
     compact = false,
 }) => {
+    // ESKI SOZLAMANI O'QISH. Bazada hammasi bitta `timerSound` maydonida
+    // ('beep' | 'voice' | 'voice_uz' | 'silent'), shuning uchun eski
+    // qiymat yangi kalitlarga o'giriladi.
+    const legacy = {
+        signalOn: !['voice', 'voice_uz', 'silent'].includes(defaultSound),
+        signalSound: SIGNAL_SOUNDS.some(x => x.id === defaultSound) ? defaultSound : 'beep',
+        voiceOn: ['voice', 'voice_uz'].includes(defaultSound),
+        voiceUzbek: defaultSound === 'voice_uz',
+        voiceName: defaultVoice,
+    };
+
     const {
         shared, running, start, pause, reset, goSubmitPhase, finish, applySettings,
     } = useSharedTimer({
         mainSeconds: defaultSeconds,
         submitSeconds: defaultSubmitSeconds,
         warnAt: defaultWarnAt,
+        ...legacy,
     });
 
-    // ESKI SOZLAMANI O'QISH. Avval hammasi bitta `timerSound` maydonida
-    // edi ('beep' | 'voice' | 'voice_uz' | 'silent'). Saqlangan
-    // musobaqalar buzilmasligi uchun eski qiymat yangi ikki kalitga
-    // o'giriladi.
-    const [signalOn, setSignalOn] = useState(
-        () => !['voice', 'voice_uz', 'silent'].includes(defaultSound));
-    const [signalSound, setSignalSound] = useState(
-        () => (SIGNAL_SOUNDS.some(x => x.id === defaultSound) ? defaultSound : 'beep'));
-    const [voiceOn, setVoiceOn] = useState(
-        () => ['voice', 'voice_uz'].includes(defaultSound));
-    const [voiceUzbek, setVoiceUzbek] = useState(() => defaultSound === 'voice_uz');
-    const [voiceName, setVoiceName] = useState(defaultVoice);
     // Ixcham ko'rinish JIM - izohi fayl boshida.
     const [muted, setMuted] = useState(compact);
     const [showSettings, setShowSettings] = useState(false);
@@ -79,13 +79,7 @@ const CompetitionTimer = ({
     const begunRef = useRef(null);
     const endedRef = useRef(null);
 
-    useEffect(() => {
-        setSignalOn(!['voice', 'voice_uz', 'silent'].includes(defaultSound));
-        setSignalSound(SIGNAL_SOUNDS.some(x => x.id === defaultSound) ? defaultSound : 'beep');
-        setVoiceOn(['voice', 'voice_uz'].includes(defaultSound));
-        setVoiceUzbek(defaultSound === 'voice_uz');
-    }, [defaultSound]);
-    useEffect(() => { setVoiceName(defaultVoice); }, [defaultVoice]);
+    // Sozlama endi `useSharedTimer` ichida - bu yerda qayta o'rnatish kerak emas.
 
     // Ovoz ro'yxati brauzerda kechikib yuklanadi.
     useEffect(() => {
@@ -96,7 +90,10 @@ const CompetitionTimer = ({
         return () => window.speechSynthesis.removeEventListener?.('voiceschanged', load);
     }, []);
 
-    const { phase, endsAt, pausedLeft, mainSeconds, submitSeconds, warnAt, runId } = shared;
+    const {
+        phase, endsAt, pausedLeft, mainSeconds, submitSeconds, warnAt, runId,
+        signalOn, signalSound, voiceOn, voiceUzbek, voiceName,
+    } = shared;
     const anySound = signalOn || voiceOn;
 
     // Yurmayotganda ko'rsatiladigan raqam.
@@ -205,39 +202,38 @@ const CompetitionTimer = ({
             applySettings(next);
         }
         // SIGNAL VA OVOZ BIR-BIRINI O'CHIRADI. Ikkalasi birga chalinsa
-        // zalda ular ustma-ust tushib, sonni eshitib bo'lmasdi. Shuning
-        // uchun biri yoqilsa ikkinchisi avtomatik o'chadi - operator
-        // ikkinchi tugmani qidirib o'tirmasin. Ikkalasini o'chirib
-        // qo'yish mumkin: bu "ovozsiz" degani.
+        // zalda ustma-ust tushib, sonni eshitib bo'lmaydi. Biri yoqilsa
+        // ikkinchisi avtomatik o'chadi. Ikkalasini o'chirsa - "ovozsiz".
+        const sound = {};
         if (next.signalOn != null) {
-            setSignalOn(next.signalOn);
-            if (next.signalOn) setVoiceOn(false);
+            sound.signalOn = next.signalOn;
+            if (next.signalOn) sound.voiceOn = false;
         }
-        if (next.signalSound != null) setSignalSound(next.signalSound);
         if (next.voiceOn != null) {
-            setVoiceOn(next.voiceOn);
-            if (next.voiceOn) setSignalOn(false);
+            sound.voiceOn = next.voiceOn;
+            if (next.voiceOn) sound.signalOn = false;
         }
-        if (next.voiceUzbek != null) setVoiceUzbek(next.voiceUzbek);
-        if (next.voice != null) setVoiceName(next.voice);
+        if (next.signalSound != null) sound.signalSound = next.signalSound;
+        if (next.voiceUzbek != null) sound.voiceUzbek = next.voiceUzbek;
+        if (next.voice != null) sound.voiceName = next.voice;
+        // Umumiy xotiraga - ikkala oyna ham darhol biladi.
+        if (Object.keys(sound).length > 0) applySettings(sound);
 
         if (onSettingsChange) {
             // Baza maydoni bitta `timerSound` - eski musobaqalar bilan
             // mos qolishi uchun ikki kalit o'sha shaklga qaytariladi.
             // Bir-birini o'chirish saqlanadigan qiymatda ham aks etsin.
-            const sOn = next.signalOn != null ? next.signalOn
-                : (next.voiceOn ? false : signalOn);
-            const vOn = next.voiceOn != null ? next.voiceOn
-                : (next.signalOn ? false : voiceOn);
-            const vUz = next.voiceUzbek ?? voiceUzbek;
-            const sSound = next.signalSound ?? signalSound;
-            const legacy = vOn ? (vUz ? 'voice_uz' : 'voice') : (sOn ? sSound : 'silent');
+            const sOn = sound.signalOn ?? signalOn;
+            const vOn = sound.voiceOn ?? voiceOn;
+            const vUz = sound.voiceUzbek ?? voiceUzbek;
+            const sSound = sound.signalSound ?? signalSound;
+            const legacySound = vOn ? (vUz ? 'voice_uz' : 'voice') : (sOn ? sSound : 'silent');
             onSettingsChange({
                 seconds: next.mainSeconds ?? mainSeconds,
                 submitSeconds: next.submitSeconds ?? submitSeconds,
                 warnAt: next.warnAt ?? warnAt,
-                sound: legacy,
-                voice: next.voice ?? voiceName,
+                sound: legacySound,
+                voice: sound.voiceName ?? voiceName,
             });
         }
     };

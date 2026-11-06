@@ -53,6 +53,11 @@ export const useSharedTimer = ({
     mainSeconds = 60,
     submitSeconds = 10,
     warnAt = 10,
+    signalOn = true,
+    signalSound = 'beep',
+    voiceOn = false,
+    voiceUzbek = false,
+    voiceName = '',
 } = {}) => {
     // Umumiy holat - ikkala oynada bir xil turadi.
     const [shared, setShared] = useState(() => localState || {
@@ -60,6 +65,14 @@ export const useSharedTimer = ({
         endsAt: null,          // ms - shu paytda joriy bosqich tugaydi
         pausedLeft: null,      // pauzada qolgan soniya
         mainSeconds, submitSeconds, warnAt,
+        // OVOZ SOZLAMASI HAM SHU YERDA.
+        //
+        // Ilgari u har oynaning O'Z xotirasida edi va ikkita nuqson
+        // keltirardi: (1) bir oynada o'zgartirilsa ikkinchisi bilmas
+        // edi; (2) jonli ekran har 8 soniyada musobaqani qayta o'qiydi
+        // va eski saqlangan qiymat foydalanuvchi tanlovini bosib
+        // ketardi - topshirish bosqichiga yetguncha bir necha marta.
+        signalOn, signalSound, voiceOn, voiceUzbek, voiceName,
         // Har boshlashda o'zgaradi - yangi seansni eskisidan ajratadi,
         // shunda bitta signal ikki marta chalinmaydi.
         runId: 0,
@@ -69,14 +82,25 @@ export const useSharedTimer = ({
     const sharedRef = useRef(shared);
     sharedRef.current = shared;
 
-    // Tashqaridan sozlama o'zgarsa (boshqa musobaqa ochilsa) qabul qilamiz,
-    // lekin taymer yurib turgan bo'lsa tegmaymiz.
+    // Tashqaridan kelgan sozlama (boshqa musobaqa ochilsa) qabul qilinadi.
+    //
+    // AYNI QIYMAT QAYTA KELSA TEGILMAYDI. Jonli ekran musobaqani har 8
+    // soniyada qayta o'qiydi va o'sha o'zgarmagan qiymatni qayta
+    // uzatadi. Buni har safar qo'llasak, foydalanuvchining yangi
+    // tanlovi bosib ketilardi - ayniqsa saqlash ruxsati bo'lmaganda,
+    // chunki unda baza eski qiymatni qaytaraverardi.
+    const appliedRef = useRef(null);
     useEffect(() => {
+        const incoming = {
+            mainSeconds, submitSeconds, warnAt,
+            signalOn, signalSound, voiceOn, voiceUzbek, voiceName,
+        };
+        const sig = JSON.stringify(incoming);
+        if (appliedRef.current === sig) return;
+        appliedRef.current = sig;
         const cur = sharedRef.current;
-        if (cur.phase === TIMER_PHASES.IDLE) {
-            pushLocal({ ...cur, mainSeconds, submitSeconds, warnAt });
-        }
-    }, [mainSeconds, submitSeconds, warnAt]);
+        if (cur.phase === TIMER_PHASES.IDLE) pushLocal({ ...cur, ...incoming });
+    }, [mainSeconds, submitSeconds, warnAt, signalOn, signalSound, voiceOn, voiceUzbek, voiceName]);
 
     const publish = useCallback((next) => {
         pushLocal(next);                       // shu oynadagi hamma taymer
