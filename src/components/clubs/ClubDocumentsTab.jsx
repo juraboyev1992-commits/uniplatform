@@ -16,7 +16,7 @@ import ClubRegulationEditor from './ClubRegulationEditor';
 //   3. Qo'lda yuklangan haqiqiy fayllar (`club_documents`, endi HAQIQIY
 //      ombor - ilgari faqat nom/hajm saqlanardi, fayl mazmuni yo'q edi)
 //
-// KO'ZCHA ikkitа xil ishlaydi:
+// KO'ZCHA ikkita xil ishlaydi:
 //   - Nizom/yillik reja - platformaning O'Z matni, fayl emas. Shu yerning
 //     o'zida "o'qiydigan" ko'rinishda ochiladi (DocumentReaderModal).
 //   - Yuklangan fayl - HAQIQIY fayl, imzolangan havola orqali yangi tabda

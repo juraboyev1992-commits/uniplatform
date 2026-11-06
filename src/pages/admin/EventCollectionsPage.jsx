@@ -12,7 +12,7 @@ import { COLLECTION_STATUS_LABELS } from '../../config/eventCollections.js';
 const STATUS_VARIANTS = { DRAFT: 'default', ACTIVE: 'success', COMPLETED: 'info', ARCHIVED: 'default' };
 
 // "Tadbirlar to'plami" - mavjud Tadbir/Musobaqa modullarini o'zgartirmasdan, ularni
-// ixtiyoriy ravishda bitta ko'p-tadbirli loyihaga (festival, hafталik va h.k.)
+// ixtiyoriy ravishda bitta ko'p-tadbirli loyihaga (festival, haftalik va h.k.)
 // birlashtiradigan universal qatlam. Ro'yxat sahifasi - har qatorda umumiy
 // statistika (agregatsiya db.getEventCollectionAnalytics'dan, hech narsa saqlab
 // qo'yilmaydi, har safar joriy ma'lumotdan qayta hisoblanadi).

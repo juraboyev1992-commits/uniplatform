@@ -124,7 +124,7 @@ export const EVENT_TYPES = {
     SEMINAR: 'Seminar',
     EXAM: 'Imtihon',
     CULTURAL: 'Madaniy tadbir',
-    SPORTS: 'Sport tadbirи',
+    SPORTS: 'Sport tadbiri',
     CONFERENCE: 'Konferensiya'
 };
 

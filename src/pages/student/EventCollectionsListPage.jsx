@@ -32,7 +32,7 @@ const EventCollectionsListPage = () => {
         <div className="space-y-6">
             <div className="bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 rounded-2xl p-8 text-white shadow-xl">
                 <h1 className="text-3xl font-bold mb-2 flex items-center gap-3"><Layers className="w-8 h-8" /> Loyihalar</h1>
-                <p className="text-indigo-100">Festival, hafталik va boshqa ko'p tadbirli loyihalar - umumiy reyting va statistika bilan</p>
+                <p className="text-indigo-100">Festival, haftalik va boshqa ko'p tadbirli loyihalar - umumiy reyting va statistika bilan</p>
             </div>
 
             {rows.length === 0 && (

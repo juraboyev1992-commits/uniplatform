@@ -48,7 +48,7 @@ const ROW_STATUS_VARIANTS = { upcoming: 'info', ongoing: 'success', closed: 'def
 const fmtPct = (v) => v == null ? '—' : `${v.toFixed(1)}%`;
 const fmtNum = (v) => (v || 0).toLocaleString('uz-UZ');
 
-// Ko'p-tadbirli loyiha (festival, hafталik va h.k.) - mavjud Tadbir/Musobaqa
+// Ko'p-tadbirli loyiha (festival, haftalik va h.k.) - mavjud Tadbir/Musobaqa
 // modullarini o'zgartirmasdan, ularni ixtiyoriy ravishda birlashtirib umumiy
 // statistika/reyting ko'rsatadigan qatlam. Hech narsa oldindan hisoblab
 // saqlanmaydi - har ochilganda db.getEventCollectionAnalytics joriy
