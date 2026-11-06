@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Info } from 'lucide-react';
-import { SCORING_MODES, TIEBREAK_PRIMARY_LABELS, TIEBREAK_FALLBACK_LABELS } from '../../config/competitionEngines';
+import { SCORING_MODES, TIEBREAK_PRIMARY_LABELS, TIEBREAK_FALLBACK_LABELS, ATTENDANCE_GRANULARITY_OPTIONS } from '../../config/competitionEngines';
 import { db } from '../../services/db';
 
 const inputClass = "w-full px-4 py-3 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm";
@@ -40,11 +40,6 @@ const Toggle = ({ checked, onChange, label }) => (
 // canonical "Ro'yxatdan o'tish" block, correctly gated to team-type activities only) — a second, ungated
 // copy used to live here too (shown even for individual competitions) and has been removed; both wrote
 // the same data.teamMinSize/teamMaxSize fields, so nothing about that data is lost.
-const ATTENDANCE_GRANULARITY_OPTIONS = [
-    { id: 'per_round', label: 'Har raund/tur uchun', description: "Davomat har bir raund/tur yakunida alohida belgilanadi." },
-    { id: 'whole_competition', label: 'Butun turnir uchun', description: "Davomat turnir davomida bir marta belgilanadi." }
-];
-
 const TournamentRulesStep = ({ data, onChange, showAttendanceGranularity = false, isCorrectAnswer = false, turCount = 1, isQuizMixed = false, isMatchEngine = false, advancementStages = [] }) => {
     const setRestriction = (patch) => onChange({ restrictions: { ...data.restrictions, ...patch } });
     const toggleInList = (key, value) => {

@@ -9,19 +9,12 @@
 // `turScheduleRows` = db.getTurSchedule(competition.id) — passed in rather than fetched here since this
 // file is pure config with no db.js import. 'per_day' never fabricates a date: if the round's Tur has no
 // real scheduled date yet, it falls back to the same 'whole' bucket 'whole_competition' uses.
-// How many 'per_round' leaf units a team competition actually has, in the SAME numbering
-// CompetitionRoundsTab.jsx's cards already use as their `index` (the true global "Raund" group number,
-// also the competitionRounds overlay's own key) — correct_answer groups `roundsCount` raw questions into
-// chunks of `questionsPerRound` (Zakovat's `roundsCount` is a raw QUESTION count, not a round count), every
-// other round/stage-based engine (quiz_mixed, criteria_based, single_score, ...) has no such grouping, so
-// `roundsCount` IS already the round count. match_play/debate_match never call this — they address leaf
-// units by matchId instead (see getMatchPlayAttendanceRoster/getDebateMatchBenchRoster).
-export const getAttendanceRoundGroupCount = (competition) => {
-    if (competition.scoringMethod === 'correct_answer') {
-        return Math.max(1, Math.ceil((competition.roundsCount || 1) / (competition.questionsPerRound || 12)));
-    }
-    return competition.roundsCount || 1;
-};
+// ESLATMA: bu yerda `getAttendanceRoundGroupCount` ham bor edi - birliklarni
+// TEKIS sanardi va quiz_mixed uchun `roundsCount` ni xomligicha qaytarardi,
+// ya'ni 100 savolli turnirda Davomat bo'limiga 100 ta nomsiz tugma chiqarardi.
+// O'rnini quyidagi `getAttendanceUnitPlan` egalladi: u aynan o'sha raqamlarni
+// beradi (demak qulflar va saqlangan yozuvlar o'zgarmaydi), lekin Tur bo'yicha
+// guruhlab va nomlab.
 
 export const resolveAttendanceLeafUnitId = (competition, roundIndex, turScheduleRows = []) => {
     const granularity = competition.attendanceGranularity || 'per_round';
@@ -1102,6 +1095,98 @@ export const getDisplayStageLeafLabel = (competition) => {
     if (fixedMatch) return fixedMatch.stageLeafLabel;
     if (competition.stageLeafLabel) return competition.stageLeafLabel;
     return competition.scoringMethod === 'correct_answer' ? 'raund' : 'savol';
+};
+
+// DAVOMAT BIRLIKLARI, TUR BO'YICHA GURUHLANGAN.
+//
+// "Davomat" bo'limi qaysi birlik uchun belgilanayotganini tanlatadi. Ilgari u
+// birliklarni TEKIS ro'yxat qilib chiqarardi: `getAttendanceRoundGroupCount`
+// quiz_mixed uchun `roundsCount` ni xomligicha qaytaradi, ya'ni 25-savol
+// ko'rinishidagi turnirda (4 Tur x 25 savol) ekranda 100 ta raqamli tugma
+// paydo bo'lardi - nima ekani yozilmagan holda. "Raundlar" bo'limi esa ayni
+// o'sha birliklarni Tur bo'yicha ajratib, bir vaqtda 25 tasini ko'rsatadi.
+//
+// Bu funksiya "Raundlar" bo'limidagi kartochka hisobini AYNAN takrorlaydi
+// (CompetitionRoundsTab.jsx ichidagi `cards`). Raqamlash bir xil bo'lishi
+// SHART: o'sha yerdagi "Yakunlash" tugmasi `card.index` bo'yicha aynan shu
+// davomat birligini qulflaydi, ikki tomon boshqacha sanasa, qulf boshqa
+// birlikka tushadi.
+//
+// Qaytaradi: { leafLabel, groups: [{ label, units: [{ index, label }] }],
+//              currentIndex } - `index` esa `resolveAttendanceLeafUnitId` ga
+// beriladigan global birlik raqami, ya'ni saqlangan yozuvlar o'zgarmaydi.
+// Davomat qanchalik mayda belgilanishi. Yaratish sehrgari (TournamentRulesStep)
+// va musobaqa sozlamalari IKKALASI shu ro'yxatdan oladi - ilgari u faqat
+// sehrgar ichida mahalliy o'zgaruvchi edi va sozlamalarda umuman yo'q edi.
+export const ATTENDANCE_GRANULARITY_OPTIONS = [
+    { id: 'per_round', label: 'Har raund/tur uchun', description: "Davomat har bir raund/tur yakunida alohida belgilanadi." },
+    { id: 'whole_competition', label: 'Butun turnir uchun', description: "Davomat turnir davomida bir marta belgilanadi." }
+];
+
+export const getAttendanceUnitPlan = (competition) => {
+    const empty = { leafLabel: 'Raund', groups: [], currentIndex: 1 };
+    if (!competition) return empty;
+
+    const isQuizScoring = competition.scoringMethod === 'correct_answer';
+    const perRaund = competition.questionsPerRound || 12;
+    const total = competition.roundsCount || 0;
+    if (total <= 0) return empty;
+
+    const stages = getDisplayStages(competition);
+    const hasStages = Array.isArray(stages) && stages.length > 0;
+    const isUniQuizStaged = competition.scoringMethod === 'quiz_mixed' && hasStages && stages.length > 1;
+    // `getDisplayStageLeafLabel` correct_answer dan boshqa HAMMASI uchun
+    // 'savol' qaytaradi - bu uning o'z vazifasi uchun to'g'ri, lekin davomat
+    // birligi nomi sifatida noto'g'ri: criteria_based/single_score savol bilan
+    // umuman ishlamaydi, ularning birligi raund. "Savol" nomi faqat shu nom
+    // ROSTDAN ma'noga ega bo'lgan joyda - quiz_mixed ning savol-barg
+    // ko'rinishida (25-savol) - ishlatiladi.
+    const leafLabel = (competition.scoringMethod === 'quiz_mixed'
+        && getDisplayStageLeafLabel(competition) === 'savol') ? 'Savol' : 'Raund';
+
+    // Tur ichida raqam qaytadan 1 dan boshlanadi - "Raundlar" bo'limi ham
+    // aynan shunday sanaydi (`buildCard`ning `localIndex`i). Tur bo'lmasa
+    // mahalliy raqam global raqam bilan ustma-ust tushadi.
+    const unit = (index, localIndex) => ({ index, label: `${localIndex}-${leafLabel}` });
+
+    // Joriy birlik: correct_answer da `currentRound` XOM savol raqami, qolgan
+    // dvigatellarda esa birlikning o'zi.
+    const currentIndex = isQuizScoring
+        ? Math.max(1, Math.ceil((competition.currentRound || 1) / perRaund))
+        : (competition.currentRound || 1);
+
+    let groups;
+    if (isUniQuizStaged) {
+        // Har bir yozuv allaqachon barg birlik (savol yoki raund) - qo'shimcha
+        // guruhlash yo'q, faqat Tur oralig'iga bo'linadi.
+        groups = stages.map((st) => {
+            const [from, to] = st.roundRange;
+            return {
+                label: st.label,
+                units: Array.from({ length: to - from + 1 }, (_, i) => unit(from + i, i + 1))
+            };
+        });
+    } else if (!isQuizScoring) {
+        groups = [{ label: null, units: Array.from({ length: total }, (_, i) => unit(i + 1, i + 1)) }];
+    } else if (!hasStages) {
+        const groupCount = Math.max(1, Math.ceil(total / perRaund));
+        groups = [{ label: null, units: Array.from({ length: groupCount }, (_, i) => unit(i + 1, i + 1)) }];
+    } else {
+        // correct_answer: savollar `questionsPerRound` bo'yicha Raundga yig'iladi,
+        // Raundlar esa Tur oralig'iga.
+        groups = stages.map((st) => {
+            const [turStart, turEnd] = st.roundRange;
+            const units = [];
+            let local = 0;
+            for (let start = turStart; start <= turEnd; start += perRaund) {
+                local += 1;
+                units.push(unit(Math.ceil(start / perRaund), local));
+            }
+            return { label: st.label, units };
+        });
+    }
+
+    return { leafLabel, groups: groups.filter(g => g.units.length > 0), currentIndex };
 };
 
 // BITTA TURNING ICHIDAGI RAUNDLAR.

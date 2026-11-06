@@ -1,5 +1,6 @@
 import React from 'react';
 import { db } from '../../services/db';
+import { ATTENDANCE_GRANULARITY_OPTIONS } from '../../config/competitionEngines';
 import CompetitionJudgesTab from './CompetitionJudgesTab';
 import CompetitionDelegationDrawer from './CompetitionDelegationDrawer';
 import CompetitionRoundsTab from './CompetitionRoundsTab';
@@ -36,6 +37,49 @@ const CompetitionSettingsPanel = ({
                         className="w-full px-4 py-2 border bg-gray-50 text-gray-400 rounded-xl text-sm"
                     />
                     <p className="text-[10px] text-gray-400 mt-1">Bosqichlar sonini faqat turnir yaratilishidan oldin o'zgartirish mumkin.</p>
+                </div>
+                {/* DAVOMAT GRANULLIGI endi keyin ham o'zgartiriladi.
+                    //
+                    Ilgari u FAQAT yaratish sehrgarida tanlanardi va keyin hech
+                    qayerdan o'zgartirib bo'lmasdi. Oqibati: 100 savolli turnirda
+                    "Har bosqich uchun" tanlab qo'yilgan bo'lsa, Davomat bo'limida
+                    100 marta alohida belgilashdan boshqa yo'l qolmasdi. Endi
+                    "Butun turnir uchun" ga o'tkazish mumkin - u holda davomat
+                    bir marta belgilanadi.
+                    //
+                    DIQQAT: rejim o'zgarsa, davomat BOSHQA birlikka yoziladi
+                    ("whole"). Eski yozuvlar o'chmaydi, lekin ularni ko'rish
+                    uchun rejimni qaytarish kerak. Shuning uchun ogohlantirish
+                    yozuvi tagida turibdi. */}
+                <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Davomat granulligi</label>
+                    <div className="grid grid-cols-2 gap-2">
+                        {ATTENDANCE_GRANULARITY_OPTIONS.map(opt => (
+                            <button
+                                key={opt.id}
+                                type="button"
+                                title={opt.description}
+                                onClick={async () => {
+                                    if ((competition.attendanceGranularity || 'per_round') === opt.id) return;
+                                    await db.updateCompetition(competition.id, { attendanceGranularity: opt.id });
+                                    onCompetitionUpdated?.();
+                                }}
+                                className={`px-3 py-2.5 rounded-xl text-xs font-bold border text-center transition-all ${
+                                    (competition.attendanceGranularity || 'per_round') === opt.id
+                                        ? 'border-indigo-600 bg-indigo-600 text-white'
+                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                        "Butun turnir uchun" tanlansa, Davomat bo'limida bosqich tanlash qatori umuman
+                        ko'rinmaydi va ishtirok bir marta belgilanadi. Rejim o'zgartirilsa, davomat boshqa
+                        birlikka yoziladi — avvalgi rejimda belgilangan yozuvlar o'chmaydi, lekin ularni
+                        ko'rish uchun rejimni qaytarish kerak.
+                    </p>
                 </div>
             </div>
         );
