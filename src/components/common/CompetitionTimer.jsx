@@ -184,10 +184,22 @@ const CompetitionTimer = ({
             const inWarn = phase === TIMER_PHASES.SUBMIT || whole <= warnAt;
             if (inWarn && whole > 0 && spokenRef.current !== `${runId}:${phase}:${whole}`) {
                 spokenRef.current = `${runId}:${phase}:${whole}`;
-                // BITTA tanlov - bitta tarmoq. Ikkisi birga chiqishi mumkin emas.
-                if (!muted) {
-                    if (soundMode === 'signal') playTick(signalSound);
-                    else if (soundMode === 'voice') speakNumber(whole, voiceName, { uzbek: voiceUzbek });
+                // TOPSHIRISH BOSQICHIDA INSON OVOZI CHALINMAYDI.
+                //
+                // Sabab amaliy: o'sha 10 soniyada zal shovqinli - jamoalar
+                // varaqani yozib, hakamga uzatayotgan payt. Ustiga ovoz
+                // sanab turishi aralashtiradi, qisqa signal esa vaqt
+                // ketayotganini xalaqit bermay bildiradi.
+                //
+                // Shuning uchun inson ovozi FAQAT asosiy o'ylash vaqtida
+                // ishlaydi. Topshirishda tanlangan rejimdan qat'i nazar
+                // signal sanaydi ("Ovozsiz" bundan mustasno - u butunlay jim).
+                if (!muted && soundMode !== 'silent') {
+                    if (soundMode === 'signal' || phase === TIMER_PHASES.SUBMIT) {
+                        playTick(signalSound);
+                    } else {
+                        speakNumber(whole, voiceName, { uzbek: voiceUzbek });
+                    }
                 }
             }
         }, TICK_MS);
@@ -399,7 +411,8 @@ const CompetitionTimer = ({
                             ))}
                         </div>
                         <p className={`text-[11px] mt-2 ${hint}`}>
-                            Javob yozish vaqti esa butun davomida sanaladi.
+                            Javob yozish vaqti esa butun davomida sanaladi -
+                            u yerda har doim signal, inson ovozi emas.
                         </p>
                     </div>
                 </div>
@@ -450,6 +463,12 @@ const CompetitionTimer = ({
                                 {voiceUzbek
                                     ? "Brauzerda o'zbek ovozi yo'q. TURKCHA ovozni tanlang - u eng yaqin eshitiladi, ruscha ham bo'ladi."
                                     : 'Raqam aytiladi, tanlangan ovoz tilida.'}
+                            </p>
+                            {/* Operator buni oldindan bilsin - aks holda
+                                "ovoz ishlamayapti" deb o'ylashi mumkin. */}
+                            <p className={`text-[11px] ${hint}`}>
+                                Inson ovozi faqat o&rsquo;ylash vaqtida sanaydi. Javob
+                                topshirish bosqichida qisqa signal sanaydi.
                             </p>
                         </div>
                     )}
