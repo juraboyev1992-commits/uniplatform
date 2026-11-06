@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth, ROLES, dashboardRouteFor } from '../../contexts/AuthContext';
+import CompetitionTimer from '../common/CompetitionTimer';
 import { Bell, User, LogOut, ChevronDown, Menu } from 'lucide-react';
 import { db } from '../../services/db';
 
@@ -15,7 +16,7 @@ const formatRelativeTime = (iso) => {
 };
 
 const Header = ({ onMenuClick }) => {
-    const { user, logout } = useAuth();
+    const { user, logout, isClubManager } = useAuth();
     const navigate = useNavigate();
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
@@ -103,6 +104,17 @@ const Header = ({ onMenuClick }) => {
 
                     {/* Right: Notifications and Profile */}
                     <div className="flex items-center space-x-4">
+                        {/* SAVOL TAYMERI - ixcham nusxa.
+                            Musobaqa o'tkazadigan odamgagina ko'rinadi: talaba
+                            uchun bu shunchaki shovqin bo'lardi. Jonli ekrandagi
+                            katta taymer bilan bir vaqtda yuradi (brauzer kanali),
+                            lekin JIM - karnay proyektor kompyuterida, ya'ni
+                            jonli ekran tomonida. */}
+                        {isClubManager && (
+                            <div className="hidden md:block">
+                                <CompetitionTimer compact />
+                            </div>
+                        )}
                         {/* Notifications */}
                         <div className="relative">
                             <button

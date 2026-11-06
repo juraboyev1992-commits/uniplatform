@@ -312,11 +312,12 @@ const CompetitionLiveScreenPage = () => {
     // o'z vaqtini qaytadan terib o'tirmasin. Saqlash RUXSAT talab qiladi,
     // shuning uchun xato jimgina o'tkaziladi: taymer baribir ishlaydi,
     // faqat vaqt shu safarga qoladi.
-    const saveTimerSettings = async ({ seconds, warnAt, sound }) => {
+    const saveTimerSettings = async ({ seconds, submitSeconds, warnAt, sound, voice }) => {
         if (!competition) return;
         try {
             await db.updateCompetition(competition.id, {
-                timerSeconds: seconds, timerWarnAt: warnAt, timerSound: sound,
+                timerSeconds: seconds, timerSubmitSeconds: submitSeconds,
+                timerWarnAt: warnAt, timerSound: sound, timerVoice: voice,
             });
         } catch {
             // Ruxsat yo'q - halokat emas.
@@ -413,8 +414,10 @@ const CompetitionLiveScreenPage = () => {
                     <CompetitionTimer
                         key={competition.id}
                         defaultSeconds={competition.timerSeconds || 60}
+                        defaultSubmitSeconds={competition.timerSubmitSeconds ?? 10}
                         defaultWarnAt={competition.timerWarnAt || 10}
                         defaultSound={competition.timerSound || 'beep'}
+                        defaultVoice={competition.timerVoice || ''}
                         onSettingsChange={saveTimerSettings}
                     />
                 </div>

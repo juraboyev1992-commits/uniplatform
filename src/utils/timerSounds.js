@@ -39,6 +39,14 @@ export const TIMER_SOUNDS = [
         end: { freq: 180, type: 'square', ms: 700 },
     },
     {
+        id: 'voice',
+        label: 'Odam ovozi (sonni aytadi)',
+        // Signal o'rniga son aytiladi - pastdagi `speakNumber`.
+        tick: null,
+        end: { freq: 440, type: 'sine', ms: 900 },
+        speaks: true,
+    },
+    {
         id: 'silent',
         label: 'Ovozsiz',
         tick: null,
@@ -98,3 +106,51 @@ const play = (spec, volume) => {
 
 export const playTick = (soundId, volume = 0.35) => play(getTimerSound(soundId).tick, volume);
 export const playEnd = (soundId, volume = 0.5) => play(getTimerSound(soundId).end, volume);
+
+
+// ---------------------------------------------------------------------------
+// ODAM OVOZI - brauzerning o'z nutq sintezi (speechSynthesis).
+//
+// NEGA SON, NEGA SO'Z EMAS: brauzerlarda o'zbekcha ovoz deyarli yo'q.
+// Agar "o'n", "to'qqiz" degan SO'ZLARNI boshqa tildagi ovozga bersak, u
+// ularni buzib o'qiydi. RAQAM berilsa esa har ovoz uni o'z tilida to'g'ri
+// aytadi - inglizcha ovoz "ten", ruscha ovoz o'z tilida. Operator
+// ovozni ro'yxatdan tanlaydi.
+//
+// Ovoz ro'yxati brauzerda KECHIKIB yuklanadi, shuning uchun u har safar
+// qaytadan so'raladi - bir marta eslab qolish bo'sh ro'yxat qoldirardi.
+// ---------------------------------------------------------------------------
+
+export const speechAvailable = () =>
+    typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+export const listVoices = () => {
+    if (!speechAvailable()) return [];
+    try { return window.speechSynthesis.getVoices() || []; } catch { return []; }
+};
+
+// Sanoq tez ketadi (har soniyada bitta), shuning uchun oldingisi
+// tugamagan bo'lsa to'xtatiladi - aks holda ovozlar ustma-ust tushib,
+// raqamlar kechikib ketardi.
+export const speakNumber = (n, voiceName = null, { rate = 1.25 } = {}) => {
+    if (!speechAvailable()) return false;
+    try {
+        const synth = window.speechSynthesis;
+        synth.cancel();
+        const u = new window.SpeechSynthesisUtterance(String(n));
+        u.rate = rate;
+        if (voiceName) {
+            const v = listVoices().find(x => x.name === voiceName);
+            if (v) { u.voice = v; u.lang = v.lang; }
+        }
+        synth.speak(u);
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+export const stopSpeech = () => {
+    if (!speechAvailable()) return;
+    try { window.speechSynthesis.cancel(); } catch { /* e'tiborsiz */ }
+};
