@@ -31,22 +31,39 @@ const makeChannel = () => {
     try { return new window.BroadcastChannel(CHANNEL); } catch { return null; }
 };
 
+// OYNA ICHIDAGI UMUMIY XOTIRA.
+//
+// `BroadcastChannel` xabarni O'ZI YUBORGAN oynaga qaytarmaydi. Shuning
+// uchun bitta oynada ikkita taymer bo'lsa (yuqori qatordagi tugma va
+// uning ichidagi panel) ular bir-birini eshitmas edi: biri yurib,
+// ikkinchisi to'xtab turardi.
+//
+// Yechim: oyna ichida oddiy umumiy xotira. Har o'zgarish avval shu
+// yerga yoziladi va shu oynadagi hamma taymerga xabar beriladi, keyin
+// kanal orqali BOSHQA oynalarga uzatiladi.
+let localState = null;
+const subscribers = new Set();
+
+const pushLocal = (next) => {
+    localState = next;
+    subscribers.forEach(fn => { try { fn(next); } catch { /* o'chgan komponent */ } });
+};
+
 export const useSharedTimer = ({
     mainSeconds = 60,
     submitSeconds = 10,
     warnAt = 10,
 } = {}) => {
     // Umumiy holat - ikkala oynada bir xil turadi.
-    const [shared, setShared] = useState(() => ({
+    const [shared, setShared] = useState(() => localState || {
         phase: TIMER_PHASES.IDLE,
         endsAt: null,          // ms - shu paytda joriy bosqich tugaydi
         pausedLeft: null,      // pauzada qolgan soniya
         mainSeconds, submitSeconds, warnAt,
-        // Har boshlashda o'zgaradi - ikki oyna bitta signalni ikki marta
-        // chalmasligi uchun emas (har biri o'zi chaladi), balki yangi
-        // seansni eskisidan ajratish uchun.
+        // Har boshlashda o'zgaradi - yangi seansni eskisidan ajratadi,
+        // shunda bitta signal ikki marta chalinmaydi.
         runId: 0,
-    }));
+    });
 
     const chanRef = useRef(null);
     const sharedRef = useRef(shared);
@@ -55,15 +72,24 @@ export const useSharedTimer = ({
     // Tashqaridan sozlama o'zgarsa (boshqa musobaqa ochilsa) qabul qilamiz,
     // lekin taymer yurib turgan bo'lsa tegmaymiz.
     useEffect(() => {
-        setShared(s => (s.phase === TIMER_PHASES.IDLE
-            ? { ...s, mainSeconds, submitSeconds, warnAt }
-            : s));
+        const cur = sharedRef.current;
+        if (cur.phase === TIMER_PHASES.IDLE) {
+            pushLocal({ ...cur, mainSeconds, submitSeconds, warnAt });
+        }
     }, [mainSeconds, submitSeconds, warnAt]);
 
     const publish = useCallback((next) => {
-        setShared(next);
+        pushLocal(next);                       // shu oynadagi hamma taymer
         const ch = chanRef.current;
         if (ch) { try { ch.postMessage({ kind: 'state', state: next }); } catch { /* yopilgan */ } }
+    }, []);
+
+    // Shu oynadagi o'zgarishlarga obuna.
+    useEffect(() => {
+        const fn = (next) => setShared(next);
+        subscribers.add(fn);
+        if (localState) setShared(localState);
+        return () => { subscribers.delete(fn); };
     }, []);
 
     useEffect(() => {
@@ -75,7 +101,8 @@ export const useSharedTimer = ({
             const msg = e.data;
             if (!msg) return;
             if (msg.kind === 'state') {
-                setShared(msg.state);
+                // Boshqa oynadan kelgan holat - shu oynadagi hammaga tarqatiladi.
+                pushLocal(msg.state);
             } else if (msg.kind === 'whoHasState') {
                 // Yangi ochilgan oyna so'rayapti - yurib turgan bo'lsa javob beramiz.
                 const cur = sharedRef.current;

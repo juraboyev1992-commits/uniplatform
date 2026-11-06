@@ -172,41 +172,120 @@ const CompetitionTimer = ({
             : warning ? 'text-amber-400'
                 : 'text-white';
 
-    // --- IXCHAM: yuqori qatorda, operator uchun -------------------------
+    // --- PANEL: yuqori qatordagi ochiladigan oynada, yorug' fonda -------
+    //
+    // Jonli ekran qorong'i, yuqori qatordagi oyna esa yorug' - shuning
+    // uchun bu alohida ko'rinish. Boshqaruv bir xil, faqat raqam kichik
+    // va ranglar yorug' fonga moslangan.
     if (compact) {
         return (
-            <div className="flex items-center gap-1.5">
-                <div
-                    className={`px-2.5 py-1 rounded-lg font-black tabular-nums text-base min-w-[3.25rem] text-center ${
-                        done ? 'bg-rose-100 text-rose-700'
-                            : isSubmit ? 'bg-rose-100 text-rose-700'
-                                : warning ? 'bg-amber-100 text-amber-800'
-                                    : 'bg-gray-100 text-gray-700'
-                    }`}
-                    title={PHASE_LABEL[phase]}
-                >
-                    {fmt(remaining)}
+            <div className="p-4 space-y-3">
+                <div className="flex items-baseline justify-between gap-3">
+                    <span className={`font-black tabular-nums leading-none ${
+                        done || isSubmit ? 'text-rose-600' : warning ? 'text-amber-600' : 'text-gray-900'
+                    }`} style={{ fontSize: '44px' }}>
+                        {fmt(remaining)}
+                    </span>
+                    <span className={`text-sm font-bold ${isSubmit ? 'text-rose-600' : 'text-gray-400'}`}>
+                        {PHASE_LABEL[phase]}
+                    </span>
                 </div>
-                <button
-                    type="button" onClick={running ? pause : onStart}
-                    title={running ? "To'xtatish" : 'Boshlash'}
-                    className={`p-2 rounded-lg ${running ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'} hover:opacity-80`}
-                >
-                    {running ? <Pause size={15} /> : <Play size={15} />}
-                </button>
-                <button
-                    type="button" onClick={onReset} title="Qaytadan"
-                    className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
-                >
-                    <RotateCcw size={15} />
-                </button>
-                <button
-                    type="button" onClick={() => setMuted(m => !m)}
-                    title={muted ? 'Ovozni yoqish' : "Ovozni o'chirish"}
-                    className={`p-2 rounded-lg ${muted ? 'bg-gray-100 text-gray-400' : 'bg-indigo-100 text-indigo-700'} hover:opacity-80`}
-                >
-                    {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-                </button>
+
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button" onClick={running ? pause : onStart}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold ${
+                            running ? 'bg-amber-500 text-white hover:bg-amber-600'
+                                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        }`}
+                    >
+                        {running ? <Pause size={16} /> : <Play size={16} />}
+                        {running ? "To'xtatish" : pausedLeft != null ? 'Davom' : 'Boshlash'}
+                    </button>
+                    <button
+                        type="button" onClick={onReset} title="Qaytadan"
+                        className="p-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    >
+                        <RotateCcw size={16} />
+                    </button>
+                    <button
+                        type="button" onClick={() => setMuted(m => !m)}
+                        title={muted ? 'Ovozni yoqish' : "Ovozni o'chirish"}
+                        className={`p-2.5 rounded-xl ${muted ? 'bg-gray-100 text-gray-400' : 'bg-indigo-100 text-indigo-700'} hover:opacity-80`}
+                    >
+                        {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                    </button>
+                    <button
+                        type="button" onClick={() => setShowSettings(v => !v)} title="Sozlash"
+                        className={`p-2.5 rounded-xl ${showSettings ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    >
+                        <Settings2 size={16} />
+                    </button>
+                </div>
+
+                {showSettings && (
+                    <div className="pt-3 border-t border-gray-100 space-y-3">
+                        <div>
+                            <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1.5">
+                                O&rsquo;ylash vaqti (soniya)
+                            </label>
+                            <div className="flex gap-1.5 flex-wrap">
+                                {[30, 40, 60, 90].map(v => (
+                                    <button
+                                        key={v} type="button" onClick={() => setSettings({ mainSeconds: v })}
+                                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold ${
+                                            mainSeconds === v ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        {v}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1.5">
+                                Topshirish vaqti (soniya)
+                            </label>
+                            <div className="flex gap-1.5 flex-wrap">
+                                {[0, 5, 10, 15].map(v => (
+                                    <button
+                                        key={v} type="button" onClick={() => setSettings({ submitSeconds: v })}
+                                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold ${
+                                            submitSeconds === v ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        {v === 0 ? "Yo'q" : v}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1.5">
+                                Sanoq ovozi
+                            </label>
+                            <select
+                                value={soundId}
+                                onChange={e => { unlockAudio(); setSettings({ sound: e.target.value }); }}
+                                className="w-full px-3 py-2 rounded-lg bg-white text-gray-800 text-sm border border-gray-200"
+                            >
+                                {TIMER_SOUNDS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                            </select>
+                            {speaks && (
+                                <select
+                                    value={voiceName}
+                                    onChange={e => setSettings({ voice: e.target.value })}
+                                    className="mt-2 w-full px-3 py-2 rounded-lg bg-white text-gray-800 text-sm border border-gray-200"
+                                >
+                                    <option value="">Brauzer tanlagan ovoz</option>
+                                    {voices.map(v => <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>)}
+                                </select>
+                            )}
+                        </div>
+                        <p className="text-[11px] text-gray-400">
+                            Ovoz zalda jonli ekrandan chiqadi. Bu yerda jim turadi.
+                        </p>
+                    </div>
+                )}
             </div>
         );
     }

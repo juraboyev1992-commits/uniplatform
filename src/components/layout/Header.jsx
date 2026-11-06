@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth, ROLES, dashboardRouteFor } from '../../contexts/AuthContext';
 import CompetitionTimer from '../common/CompetitionTimer';
-import { Bell, User, LogOut, ChevronDown, Menu } from 'lucide-react';
+import { useSharedTimer, TIMER_PHASES } from '../../hooks/useSharedTimer';
+import { Bell, User, LogOut, ChevronDown, Menu, Timer as TimerIcon } from 'lucide-react';
 import { db } from '../../services/db';
 
 const formatRelativeTime = (iso) => {
@@ -13,6 +14,67 @@ const formatRelativeTime = (iso) => {
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `${hours} soat oldin`;
     return `${Math.floor(hours / 24)} kun oldin`;
+};
+
+// YUQORI QATORDAGI TAYMER.
+//
+// Tugmada "Taymer" yozuvi turadi - yalang'och raqam nima ekani
+// tushunarsiz edi. Yurib turganda tugmaning o'zida qolgan vaqt
+// ko'rinadi, ya'ni oynani ochmasdan ham bilib turasiz.
+//
+// Ochiladigan oyna - qo'ng'iroqcha bilan AYNAN bir naqsh. Alohida
+// brauzer oynasi qilinmadi: u qalqib chiquvchi oynalarni bloklaydigan
+// sozlamaga tushib qolardi va operator uni har safar qidirishi kerak
+// bo'lardi. Kerak bo'lsa keyin qo'shsa bo'ladi - taymer holati
+// oynalararo allaqachon sinxronlanadi.
+const HeaderTimer = () => {
+    const [open, setOpen] = useState(false);
+    const { shared, running } = useSharedTimer();
+    const [left, setLeft] = useState(null);
+
+    // Tugmadagi raqam. Faqat yurib turganda ko'rinadi.
+    useEffect(() => {
+        if (shared.endsAt == null) { setLeft(null); return undefined; }
+        const tick = () => setLeft(Math.max(0, Math.ceil((shared.endsAt - Date.now()) / 1000)));
+        tick();
+        const id = setInterval(tick, 250);
+        return () => clearInterval(id);
+    }, [shared.endsAt]);
+
+    const isSubmit = shared.phase === TIMER_PHASES.SUBMIT;
+    const label = left == null ? 'Taymer'
+        : left >= 60 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
+            : `${left}s`;
+
+    return (
+        <div className="relative hidden md:block">
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-colors ${
+                    isSubmit ? 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                        : running ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                            : 'text-gray-600 hover:bg-gray-100'
+                }`}
+            >
+                <TimerIcon className="w-5 h-5" />
+                <span className="tabular-nums">{label}</span>
+            </button>
+
+            {open && (
+                <>
+                    <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-20 animate-scale-in">
+                        <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+                            <TimerIcon className="w-4 h-4 text-gray-400" />
+                            <h3 className="font-semibold text-gray-900">Savol taymeri</h3>
+                        </div>
+                        <CompetitionTimer compact />
+                    </div>
+                </>
+            )}
+        </div>
+    );
 };
 
 const Header = ({ onMenuClick }) => {
@@ -110,11 +172,7 @@ const Header = ({ onMenuClick }) => {
                             katta taymer bilan bir vaqtda yuradi (brauzer kanali),
                             lekin JIM - karnay proyektor kompyuterida, ya'ni
                             jonli ekran tomonida. */}
-                        {isClubManager && (
-                            <div className="hidden md:block">
-                                <CompetitionTimer compact />
-                            </div>
-                        )}
+                        {isClubManager && <HeaderTimer />}
                         {/* Notifications */}
                         <div className="relative">
                             <button
