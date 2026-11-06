@@ -150,10 +150,27 @@ select:focus {
 }
 
 /* Utility Classes */
+/* MAZMUN EKRAN KENGLIGIDAN FOYDALANSIN.
+   Ilgari `max-width: 1400px` edi. Bu cheklov yon paneldan KEYIN
+   qo'llanardi, ya'ni 1920px ekranda: 256px panel + 1664px joy, lekin
+   mazmun 1400px da to'xtab markazga surilardi - har chetda 130px,
+   2560px monitorda esa 450px dan ortiq joy behuda ketardi. Jadvallar
+   esa aynan o'sha joyga muhtoj edi.
+   Yuqori chegara butunlay olib tashlanmadi: 3440px ultra-keng
+   monitorda matn qatori o'qib bo'lmaydigan darajada cho'zilib ketardi. */
 .container-custom {
-  max-width: 1400px;
+  width: 100%;
+  max-width: 2200px;
   margin: 0 auto;
   padding: 0 1.5rem;
+}
+
+/* Katta ekranda yon bo'shliq biroz kengroq - mazmun ekran qirrasiga
+   yopishib qolmasin. */
+@media (min-width: 1536px) {
+  .container-custom {
+    padding: 0 2rem;
+  }
 }
 
 .section-padding {
