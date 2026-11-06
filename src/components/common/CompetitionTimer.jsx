@@ -104,6 +104,15 @@ const CompetitionTimer = ({
         else setRemaining(mainSeconds);
     }, [running, pausedLeft, phase, mainSeconds]);
 
+    // OVOZ O'CHIRILSA NUTQ DARHOL TO'XTAYDI.
+    //
+    // Nutq sintezi o'z navbatiga ega: `speak()` chaqirilgan gap
+    // to'xtatilmasa oxirigacha aytiladi. Operator sanoq o'rtasida
+    // signalga o'tsa, navbatdagi son baribir aytilib qolardi.
+    useEffect(() => {
+        if (!voiceOn) stopSpeech();
+    }, [voiceOn]);
+
     // BOSHLASH SIGNALI.
     //
     // Tugma bosilishiga emas, HOLAT o'zgarishiga bog'langan. Sabab:
