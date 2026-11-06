@@ -128,14 +128,30 @@ const CompetitionTimer = ({
         else setRemaining(mainSeconds);
     }, [running, pausedLeft, phase, mainSeconds]);
 
-    // INSON OVOZIDAN CHIQQANDA NUTQ DARHOL TO'XTAYDI.
+    // NUTQ FAQAT O'YLASH VAQTIDA YASHAYDI.
     //
-    // `speechSynthesis` o'z navbatiga ega: `speak()` ga berilgan gap
-    // to'xtatilmasa oxirigacha aytiladi. Operator sanoq o'rtasida
-    // signalga o'tsa, navbatda turgan son baribir aytilib qolardi.
+    // `speechSynthesis` ikki xususiyatga ega va nuqson aynan shundan
+    // kelib chiqqan:
+    //
+    //   1. U NAVBATLI - `speak()` ga berilgan gap bekor qilinmasa
+    //      oxirigacha aytiladi.
+    //   2. U HAR OYNANING O'ZIGA tegishli - bir oynada `cancel()`
+    //      chaqirish boshqa oynadagi gapni to'xtatmaydi.
+    //
+    // Ilgari bekor qilish "asosiy vaqt tugadi" HODISASIGA bog'langan edi,
+    // u esa faqat BIRINCHI sezgan oynada ishlaydi. O'sha oyna darhol
+    // `goSubmitPhase()` chaqirib yangi holatni e'lon qilardi, qolgan
+    // oynalarda esa `endsAt` o'zgarib, eski interval `left <= 0` ni
+    // ko'rishga ulgurmay yopilardi. Natijada KARNAY TURGAN oyna
+    // `stopSpeech()` ni hech qachon chaqirmas va navbatda qolgan son
+    // javob topshirish bosqichiga sudralib o'tardi.
+    //
+    // Endi bekor qilish HOLATGA bog'langan: bosqich o'ylash vaqtidan
+    // chiqishi bilan har oyna o'z navbatini o'zi bekor qiladi, kim
+    // oldin sezgani ahamiyatsiz.
     useEffect(() => {
-        if (soundMode !== 'voice') stopSpeech();
-    }, [soundMode]);
+        if (soundMode !== 'voice' || phase !== TIMER_PHASES.MAIN) stopSpeech();
+    }, [soundMode, phase]);
 
     // BOSHLASH SIGNALI.
     //
