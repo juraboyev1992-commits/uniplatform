@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import {
     Trophy, Calendar, Users, ListChecks, Scale, UserPlus, Share2, MoreHorizontal,
-    AlertCircle, BookOpen, User, Clock, Award, Shield, Zap, RefreshCw, Maximize2,
-    Minimize2, Sun, Moon, MonitorPlay
+    Shield, Zap, RefreshCw, Maximize2, Minimize2, Sun, Moon, MonitorPlay
 } from 'lucide-react';
 import Badge from './Badge';
 import CompetitionSettingsMenu from './CompetitionSettingsMenu';
@@ -30,6 +29,27 @@ const InfoTile = ({ icon: Icon, label, value }) => (
     </div>
 );
 
+// Ball statistikasi uchun ingichka qator. Ilgari bular ham InfoTile edi va
+// sarlavhada jami O'NTA bir xil katak turardi - ko'z qayerga qarashni bilmasdi.
+const ScoreStat = ({ label, value }) => (
+    <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
+        {label}
+        <strong className="text-sm font-bold text-white tabular-nums">{value}</strong>
+    </span>
+);
+
+// Yordamchi boshqaruv tugmalari - faqat belgi, bitta guruh ichida.
+const IconButton = ({ icon: Icon, title, onClick, children }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        title={title}
+        className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/15 transition-colors"
+    >
+        {children || <Icon size={14} />}
+    </button>
+);
+
 const CompetitionPassportHero = ({
     competition,
     status,
@@ -39,8 +59,8 @@ const CompetitionPassportHero = ({
     questionsLabel,
     questionsCount,
     tieBreakLabel,
-    // Live competition stats (highest/lowest/average/active judges/progress/leader score) — moved up here
-    // from CompetitionResultsCenter.jsx's own summary-card row so they're visible on every tab, not just
+    // Live competition stats (highest/lowest/average/leader score) — moved up here from
+    // CompetitionResultsCenter.jsx's own summary-card row so they're visible on every tab, not just
     // Natijalar markazi. Optional: null before there's any leaderboard data yet (brand-new competition).
     stats,
     // Moved up from CompetitionResultsCenter.jsx's own header block (role badge, methodology/type
@@ -69,7 +89,7 @@ const CompetitionPassportHero = ({
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     return (
-        <div className="p-6 bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 rounded-3xl text-white shadow-md">
+        <div className="p-5 bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 rounded-3xl text-white shadow-md">
             <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
@@ -100,22 +120,32 @@ const CompetitionPassportHero = ({
                             </span>
                         )}
                     </div>
-                    <p className="text-xs text-indigo-200 mt-1">
-                        Musobaqa pasporti{hasFullAdminAccess() && ownerDisplayName ? ` • Egasi: ${ownerDisplayName}` : ''}
+                    {/* BITTA tavsif qatori. Ilgari bu yerda ikkita qator bor edi va
+                        ularda holat UCHINCHI marta takrorlanardi: sarlavha yonidagi
+                        yorliq ham, yashil nuqta ham, yonidagi "Faol" yozuvi ham bir
+                        xil narsani aytardi. "Musobaqa pasporti" yozuvi ham olib
+                        tashlandi - kartochkaning o'zi pasport, uni aytib turish
+                        kerak emas. */}
+                    <p className="text-xs text-indigo-200 mt-1.5 flex items-center gap-x-2 gap-y-1 flex-wrap">
+                        {scoringMethodLabel && <span className="font-semibold text-white">{scoringMethodLabel}</span>}
+                        {competitionTypeLabel && (
+                            <>
+                                <span className="text-indigo-400">·</span>
+                                <span>{competitionTypeLabel}</span>
+                            </>
+                        )}
+                        {hasFullAdminAccess() && ownerDisplayName && (
+                            <>
+                                <span className="text-indigo-400">·</span>
+                                <span>Egasi: {ownerDisplayName}</span>
+                            </>
+                        )}
                     </p>
-                    {(scoringMethodLabel || competitionTypeLabel) && (
-                        <p className="text-xs text-indigo-200 mt-1 flex items-center gap-3 flex-wrap">
-                            {scoringMethodLabel && <span>Baholash metodologiyasi: <strong className="text-white">{scoringMethodLabel}</strong></span>}
-                            {competitionTypeLabel && <span>Turi: <strong className="text-white">{competitionTypeLabel}</strong></span>}
-                            {status && (
-                                <span className="inline-flex items-center gap-1.5 font-bold text-white">
-                                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                                    {STATUS_LABELS[status]}
-                                </span>
-                            )}
-                        </p>
-                    )}
                 </div>
+                {/* Tugmalar ikki darajaga bo'lindi: kundalik ishlatiladigan uchtasi
+                    yozuvli, qolgani bitta belgi-guruhda. Ilgari sakkiztasi bir
+                    qatorda teng ko'rinishda turardi va qaysi biri asosiy ekani
+                    bilinmasdi. */}
                 <div className="flex flex-wrap items-center gap-2">
                     {onViewLiveScoring && ['ADMINISTRATOR', 'JUDGE', 'COORDINATOR'].includes(role) && (
                         <button
@@ -124,23 +154,11 @@ const CompetitionPassportHero = ({
                             className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl text-xs font-bold shadow-md hover:brightness-105 transition-all"
                         >
                             <Zap size={14} className="animate-pulse" />
-                            Hakamlik / Live Scoring
+                            Hakamlik
                         </button>
                     )}
-                    {onRefresh && (
-                        <button type="button" onClick={onRefresh} title="Natijalarni yangilash" className="flex items-center justify-center w-9 h-9 bg-white/10 hover:bg-white/20 rounded-xl transition-colors">
-                            <RefreshCw size={14} />
-                        </button>
-                    )}
-                    {onToggleFullscreen && (
-                        <button type="button" onClick={onToggleFullscreen} title="Butun ekran" className="flex items-center justify-center w-9 h-9 bg-white/10 hover:bg-white/20 rounded-xl transition-colors">
-                            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                        </button>
-                    )}
-                    {/* JONLI EKRAN - zaldagi proyektor uchun. Ilgari yozuvsiz,
-                        36px li Trophy ikonkasi edi: qatordagi ikkinchi kubok
-                        belgisi bo'lgani uchun nima ekani bilinmasdi va hech kim
-                        bosmasdi. Endi yonidagi "Hakamlik" tugmasi kabi yozuvli. */}
+                    {/* JONLI EKRAN - zaldagi proyektor uchun. Yozuvsiz qoldirib
+                        bo'lmaydi: yonidagi kubok belgisi bilan adashtiriladi. */}
                     {onOpenLiveScreen && (
                         <button
                             type="button"
@@ -152,11 +170,6 @@ const CompetitionPassportHero = ({
                             Jonli ekran
                         </button>
                     )}
-                    {onToggleTheme && (
-                        <button type="button" onClick={onToggleTheme} title={darkMode ? 'Kunduzgi rejim' : 'Tungi rejim'} className="flex items-center justify-center w-9 h-9 bg-white/10 hover:bg-white/20 rounded-xl transition-colors">
-                            {darkMode ? <Sun size={14} className="text-amber-300" /> : <Moon size={14} />}
-                        </button>
-                    )}
                     <button
                         type="button"
                         onClick={onAddTeam}
@@ -165,55 +178,71 @@ const CompetitionPassportHero = ({
                         <UserPlus size={14} />
                         Jamoa qo'shish
                     </button>
-                    <button
-                        type="button"
-                        onClick={onShare}
-                        className="flex items-center gap-1.5 px-3.5 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold transition-colors"
-                    >
-                        <Share2 size={14} />
-                        Ulashish
-                    </button>
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => setIsMenuOpen(v => !v)}
-                            className="flex items-center justify-center w-9 h-9 bg-white/10 hover:bg-white/20 rounded-xl transition-colors"
-                            title="Sozlamalar — Vakolatlar, Hakamlar, Raundlar boshqaruvi"
-                        >
-                            <MoreHorizontal size={16} />
-                        </button>
-                        {isMenuOpen && (
-                            <CompetitionSettingsMenu
-                                competition={competition}
-                                hasFullAdminAccess={hasFullAdminAccess}
-                                canManageGroups={canManageGroups}
-                                canEditBasics={canEditBasics}
-                                onSelectSection={onSelectSettingsSection}
-                                onFinish={onFinishTournament}
-                                onDelete={onDeleteCompetition}
-                                onClose={() => setIsMenuOpen(false)}
-                            />
+
+                    <div className="flex items-center gap-0.5 bg-white/10 rounded-xl p-0.5">
+                        {onRefresh && (
+                            <IconButton icon={RefreshCw} title="Natijalarni yangilash" onClick={onRefresh} />
                         )}
+                        {onToggleFullscreen && (
+                            <IconButton title="Butun ekran" onClick={onToggleFullscreen}>
+                                {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                            </IconButton>
+                        )}
+                        {onToggleTheme && (
+                            <IconButton title={darkMode ? 'Kunduzgi rejim' : 'Tungi rejim'} onClick={onToggleTheme}>
+                                {darkMode ? <Sun size={14} className="text-amber-300" /> : <Moon size={14} />}
+                            </IconButton>
+                        )}
+                        <IconButton icon={Share2} title="Ulashish — ochiq havola" onClick={onShare} />
+                        <div className="relative">
+                            <IconButton
+                                icon={MoreHorizontal}
+                                title="Sozlamalar — Vakolatlar, Hakamlar, Raundlar boshqaruvi"
+                                onClick={() => setIsMenuOpen(v => !v)}
+                            />
+                            {isMenuOpen && (
+                                <CompetitionSettingsMenu
+                                    competition={competition}
+                                    hasFullAdminAccess={hasFullAdminAccess}
+                                    canManageGroups={canManageGroups}
+                                    canEditBasics={canEditBasics}
+                                    onSelectSection={onSelectSettingsSection}
+                                    onFinish={onFinishTournament}
+                                    onDelete={onDeleteCompetition}
+                                    onClose={() => setIsMenuOpen(false)}
+                                />
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div className="flex flex-wrap gap-3 mt-5">
+            {/* PASPORT MA'LUMOTI - musobaqaning o'zgarmas hujjat qatori.
+                //
+                Ilgari bu yerda o'nta bir xil katak turardi va uchtasi ostidagi
+                "Asosiy" bo'limida yana qaytarilardi. "Faol hakamlar" esa ikki
+                joyda IKKI XIL raqam ko'rsatardi: shu yerda baho qo'ygan hakamlar
+                soni, kartochkada ro'yxatdagilardan nechtasi faol ekani. Endi u
+                faqat kartochkada - maxraji bilan, ya'ni tushunarli shaklda.
+                "Progress %" ham olib tashlandi: yonidagi "1 / 24" ayni o'sha
+                narsa, ostida esa jarayon chizig'i turibdi. */}
+            <div className="flex flex-wrap gap-2.5 mt-4">
                 <InfoTile icon={Calendar} label="Sana" value={dateLabel} />
                 <InfoTile icon={Users} label="Ishtirokchilar" value={participantCount} />
                 <InfoTile icon={ListChecks} label={questionsLabel} value={stats ? stats.progressLabel : questionsCount} />
                 <InfoTile icon={Scale} label="Tie-break" value={tieBreakLabel} />
-                {stats && (
-                    <>
-                        <InfoTile icon={Trophy} label="Eng yuqori ball" value={stats.highest} />
-                        <InfoTile icon={AlertCircle} label="Eng past ball" value={stats.lowest} />
-                        <InfoTile icon={BookOpen} label="O'rtacha ball" value={stats.average} />
-                        <InfoTile icon={User} label="Faol hakamlar" value={stats.activeJudges} />
-                        <InfoTile icon={Clock} label="Progress" value={`${stats.progressPercent}%`} />
-                        <InfoTile icon={Award} label="Yetakchi balli" value={stats.leaderScore} />
-                    </>
-                )}
             </div>
+
+            {/* Ball statistikasi - sarlavhaning mavzusi emas, shuning uchun katak
+                emas, ingichka qator. Reyting/Natijalar sahifasida to'liq ko'rinadi. */}
+            {stats && (
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 mt-3 pt-3 border-t border-white/15 text-xs text-indigo-200">
+                    <ScoreStat label="Eng yuqori" value={stats.highest} />
+                    <ScoreStat label="O'rtacha" value={stats.average} />
+                    <ScoreStat label="Eng past" value={stats.lowest} />
+                    <ScoreStat label="Yetakchi balli" value={stats.leaderScore} />
+                </div>
+            )}
         </div>
     );
 };

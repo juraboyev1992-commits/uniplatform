@@ -35,7 +35,7 @@ const CompetitionWorkspacePage = () => {
     );
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             {/* Faqat NAVIGATSIYA qatori.
                 //
                 Ilgari bu yerda katta sarlavha, holat yorlig'i va sana ham turardi -
@@ -48,7 +48,7 @@ const CompetitionWorkspacePage = () => {
                 Endi bu qator faqat "qayerdaman va qanday qaytaman" degan savolga
                 javob beradi. Musobaqaning O'ZI haqidagi hamma narsa pasportda.
                 Klub va joy shu yerda qoladi - pasportda ular yo'q. */}
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-white px-4 py-3 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-white px-4 py-2.5 rounded-2xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-3 min-w-0">
                     <Button
                         variant="outline"
@@ -59,17 +59,15 @@ const CompetitionWorkspacePage = () => {
                     >
                         Orqaga
                     </Button>
-                    <button
-                        type="button"
-                        onClick={handleBackToCompetitions}
-                        className="flex items-center gap-1 text-xs font-semibold text-gray-400 hover:text-indigo-600 transition-colors min-w-0"
-                    >
-                        Musobaqalar
+                    {/* Yo'lchi qatori endi BOSILMAYDI. Ilgari u ham, yonidagi
+                        "Orqaga" tugmasi ham aynan bir xil `handleBackToCompetitions`
+                        ni chaqirardi: bitta amal uchun ikkita boshqaruv. Musobaqa
+                        nomi ham bu yerdan olib tashlandi - u darhol ostidagi
+                        pasport sarlavhasida katta harflar bilan turibdi. */}
+                    <span className="flex items-center gap-1 text-xs font-semibold text-gray-400 min-w-0">
                         <ChevronRight size={12} className="shrink-0" />
-                        <span className="text-gray-600 truncate">
-                            {competition ? competition.name : 'Musobaqa'}
-                        </span>
-                    </button>
+                        Musobaqalar
+                    </span>
                 </div>
 
                 {competition && (club || competition.location) && (

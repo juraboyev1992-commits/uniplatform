@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Trophy, CheckCircle2, UserCheck, Crown } from 'lucide-react';
+import { UserCheck, Crown } from 'lucide-react';
 import Card from './Card';
 import ProgressBar from './ProgressBar';
 import { StatCard } from './RankingsSharedUI';
@@ -52,28 +52,22 @@ const CompetitionOverviewTab = ({ competition, scoresData, leaderboardData }) =>
     const roundProgressPct = Math.round((completedRounds / (totalRounds || 1)) * 100);
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-5 space-y-4">
             {/* Name/status/trophy/participant-count/round-count already shown in the Passport hero above
                 every tab, and "Baholashni boshlash"/"Natijalar markaziga o'tish" shortcuts were dropped
                 too — "Natija kiritish" and "Natijalar markazi" already exist as their own top-level tabs,
                 so a second way to reach them here was redundant navigation, not a shortcut. */}
 
-            {/* Stat-card row — only stats the Passport hero doesn't already show (Turi/Yakunlangan
-                raundlar progress/Faol hakamlar/Yetakchi); Holati and Ishtirokchilar dropped since the
-                hero's status badge and "Ishtirokchilar" info tile already cover those. */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard
-                    icon={Trophy}
-                    label="Turi"
-                    value={competition.type === 'team' ? 'Jamoaviy' : 'Yakka'}
-                    accent="indigo"
-                />
-                <StatCard
-                    icon={CheckCircle2}
-                    label={roundsLabel}
-                    value={`${completedRounds}/${totalRounds}`}
-                    accent="emerald"
-                />
+            {/* Faqat pasport sarlavhasida YO'Q ko'rsatkichlar qoldi.
+                //
+                "Turi" ham shu yerda edi - sarlavhadagi tavsif qatorida aynan
+                o'sha so'z turibdi, shuning uchun olib tashlandi. "Faol hakamlar"
+                esa aksincha: u sarlavhadan olib tashlanib shu yerda qoldirildi,
+                chunki bu yerdagi shakl maxrajli ("0/4" - ro'yxatda nechta hakam
+                bor va nechtasi baho qo'ygan), sarlavhadagisi esa maxrajsiz
+                boshqa raqam ko'rsatardi. Bitta ko'rsatkich ikki joyda ikki xil
+                hisoblanmasligi kerak. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <StatCard
                     icon={UserCheck}
                     label="Faol hakamlar"
@@ -90,7 +84,12 @@ const CompetitionOverviewTab = ({ competition, scoresData, leaderboardData }) =>
 
             {/* Progress */}
             <Card className="p-5 border-none bg-white/80">
-                <h4 className="font-bold text-gray-900 text-sm mb-4">Musobaqa Jarayoni</h4>
+                {/* Raundlar ko'rsatkichi ilgari ikki marta turardi: tepada
+                    "Yakunlangan raundlar 0/24" kartochkasi, bu yerda esa aynan
+                    o'sha "0/24" chiziq bilan. Kartochka olib tashlandi - chiziq
+                    ko'proq narsa aytadi (nisbatni ko'rsatadi), kartochka esa
+                    faqat raqamni takrorlardi. */}
+                <h4 className="font-bold text-gray-900 text-sm mb-4">Musobaqa jarayoni</h4>
                 <div className="space-y-4">
                     <div>
                         <div className="flex justify-between text-xs font-semibold text-gray-500 mb-1.5">
@@ -111,28 +110,21 @@ const CompetitionOverviewTab = ({ competition, scoresData, leaderboardData }) =>
                 </div>
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="p-5 border-none bg-slate-50">
-                    <h4 className="font-bold text-gray-900 text-sm mb-3">Musobaqa Turi va Formati</h4>
-                    <p className="text-xs text-gray-500 leading-relaxed">
-                        {competition.type === 'team' ? 'Jamoaviy musobaqa formatida tashkil etilgan.' : 'Yakka tartibda har bir talaba bo\'yicha alohida baholanadi.'}
-                    </p>
-                </Card>
-                <Card className="p-5 border-none bg-slate-50">
-                    <h4 className="font-bold text-gray-900 text-sm mb-3">Baholash Usuliyati</h4>
-                    <p className="text-xs text-gray-500 leading-relaxed font-semibold text-indigo-600 uppercase">
-                        {competition.scoringMethod.replace('_', ' ')}
-                    </p>
-                </Card>
-                <Card className="p-5 border-none bg-slate-50">
-                    <h4 className="font-bold text-gray-900 text-sm mb-3">Tartib va Audit Qoidalari</h4>
-                    <ul className="text-xs text-gray-500 list-disc list-inside space-y-1">
-                        <li>Har bir raund natijasi saqlanishi bilan audit jurnaliga yoziladi.</li>
-                        <li>Natijalar real-vaqt rejimida Natijalar Markazida aks etadi.</li>
-                        <li>Hakamlar bahosi avtomatik tarzda tekshiriladi.</li>
-                    </ul>
-                </Card>
-            </div>
+            {/* BU YERDA UCHTA KARTOCHKA BOR EDI - uchovi ham olib tashlandi.
+                //
+                "Musobaqa Turi va Formati" - "Jamoaviy musobaqa formatida tashkil
+                etilgan" degan jumla edi: yonidagi "Jamoaviy" so'zini qayta
+                aytishdan boshqa ish qilmasdi.
+                "Baholash Usuliyati" - `scoringMethod` ni xom holda, inglizcha
+                ko'rsatardi ("CORRECT ANSWER"). To'g'ri, o'zbekcha nomi pasport
+                sarlavhasida allaqachon bor.
+                "Tartib va Audit Qoidalari" - har bir musobaqada bir xil turadigan
+                uchta jumla. Bu musobaqa haqida hech narsa aytmaydi; o'rni -
+                yo'riqnoma, ish maydoni emas.
+                //
+                Uchovi joy egallab, foydalanuvchini "bu yerda nimadir bor" deb
+                o'qishga majbur qilardi. Yangi ma'lumot qo'shilsa, u musobaqaning
+                O'ZIDAN kelishi kerak, andozadan emas. */}
         </div>
     );
 };
