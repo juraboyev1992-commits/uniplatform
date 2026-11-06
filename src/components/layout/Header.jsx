@@ -70,6 +70,18 @@ const HeaderTimer = () => {
                             <h3 className="font-semibold text-gray-900">Savol taymeri</h3>
                         </div>
                         <CompetitionTimer compact />
+                        {/* Alohida oyna - ikkinchi monitorga chiqarish uchun.
+                            Yangi oyna shu taymer bilan o'zi sinxronlanadi. */}
+                        <div className="px-4 pb-3">
+                            <button
+                                type="button"
+                                onClick={() => window.open('/timer', 'uniplatform-timer',
+                                    'width=720,height=560')}
+                                className="w-full px-3 py-2 rounded-lg bg-gray-100 text-gray-600 text-xs font-bold hover:bg-gray-200"
+                            >
+                                Alohida oynada ochish
+                            </button>
+                        </div>
                     </div>
                 </>
             )}

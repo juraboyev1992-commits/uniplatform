@@ -61,6 +61,7 @@ const ClubsDirectoryPage = lazy(() => import('./components/clubs/ClubsDirectoryP
 const ClubProfilePage = lazy(() => import('./components/clubs/ClubProfilePage'));
 const TeamProfilePage = lazy(() => import('./components/clubs/TeamProfilePage'));
 const CompetitionLiveScreenPage = lazy(() => import('./pages/public/CompetitionLiveScreenPage'));
+const TimerPage = lazy(() => import('./pages/public/TimerPage'));
 const PublicActivityPage = lazy(() => import('./pages/public/PublicActivityPage'));
 const DocumentVerifyPage = lazy(() => import('./pages/public/DocumentVerifyPage'));
 const ClubVerifyPage = lazy(() => import('./pages/public/ClubVerifyPage'));
@@ -178,6 +179,9 @@ const AppRouter = () => {
             {/* Public Routes */}
             {/* "Live ekran" public view (spec §11) — no auth, read-only, meant for a projector tab */}
             <Route path="/live/:competitionId" element={<CompetitionLiveScreenPage />} />
+            {/* Alohida taymer oynasi. Kirish talab qilinmaydi - sahifada
+                hech qanday ma'lumot yo'q, faqat raqam. */}
+            <Route path="/timer" element={<TimerPage />} />
             {/* Public musobaqa/tadbir info+registration page — the "Ulashish" share link's real
                 destination (see CompetitionPassportHero.jsx's onShare). No auth required to VIEW; an
                 anonymous visitor sees a "Kirish/Ro'yxatdan o'tish" CTA instead of the registration panel

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Play, Pause, RotateCcw, Settings2, Volume2, VolumeX } from 'lucide-react';
+import { Play, Pause, RotateCcw, Settings2, Volume2, VolumeX, Keyboard } from 'lucide-react';
 import {
     TIMER_SOUNDS, getTimerSound, playTick, playEnd, unlockAudio,
     speechAvailable, listVoices, speakNumber, stopSpeech,
@@ -61,6 +61,7 @@ const CompetitionTimer = ({
     // Ixcham ko'rinish JIM - izohi fayl boshida.
     const [muted, setMuted] = useState(compact);
     const [showSettings, setShowSettings] = useState(false);
+    const [showKeys, setShowKeys] = useState(false);
     const [voices, setVoices] = useState([]);
 
     const [remaining, setRemaining] = useState(defaultSeconds);
@@ -128,18 +129,30 @@ const CompetitionTimer = ({
     // Probel - boshlash/to'xtatish. FAQAT to'liq ko'rinishda: ixcham
     // nusxa har sahifada turadi va u yerda probel sahifani aylantirish
     // uchun kerak, taymer uchun emas.
+    // KLAVIATURA. Zalda o'yin tez ketadi - sichqonchani qidirish vaqt
+    // yeydi. FAQAT to'liq ko'rinishda: ixcham nusxa har sahifada turadi
+    // va u yerda bu tugmalar boshqa ishni buzardi.
     useEffect(() => {
         if (compact) return undefined;
         const onKey = (e) => {
-            if (e.code !== 'Space') return;
             const t = e.target;
             if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
-            e.preventDefault();
-            if (running) pause(); else { unlockAudio(); start(); }
+            if (e.ctrlKey || e.altKey || e.metaKey) return;
+            const k = e.key.toLowerCase();
+
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (running) pause(); else { unlockAudio(); start(); }
+            } else if (e.code === 'Enter') {
+                e.preventDefault();
+                stopSpeech(); endedRef.current = null; spokenRef.current = null; reset();
+            } else if (k === 'k') { setShowKeys(v => !v); }
+            else if (k === 'm') { setShowSettings(v => !v); }
+            else if (e.code === 'Escape') { setShowKeys(false); setShowSettings(false); }
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [compact, running, start, pause]);
+    }, [compact, running, start, pause, reset]);
 
     const onStart = () => { unlockAudio(); start(); };
     const onReset = () => { stopSpeech(); endedRef.current = null; spokenRef.current = null; reset(); };
@@ -333,7 +346,15 @@ const CompetitionTimer = ({
                         {muted ? <VolumeX size={22} /> : <Volume2 size={22} />}
                     </button>
                     <button
-                        type="button" onClick={() => setShowSettings(s => !s)} title="Sozlash"
+                        type="button" onClick={() => setShowKeys(v => !v)} title="Klaviatura yorliqlari (K)"
+                        className={`flex items-center justify-center p-3.5 rounded-2xl ${
+                            showKeys ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        }`}
+                    >
+                        <Keyboard size={22} />
+                    </button>
+                    <button
+                        type="button" onClick={() => setShowSettings(s => !s)} title="Sozlash (M)"
                         className={`flex items-center justify-center p-3.5 rounded-2xl ${
                             showSettings ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                         }`}
@@ -342,6 +363,25 @@ const CompetitionTimer = ({
                     </button>
                 </div>
             </div>
+
+            {showKeys && (
+                <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
+                    {[
+                        ["Boshlash / to’xtatish", 'SPACE'],
+                        ['Qaytadan', 'ENTER'],
+                        ['Sozlamalar', 'M'],
+                        ["Shu ro’yxat", 'K'],
+                        ['Oynalarni yopish', 'ESC'],
+                    ].map(([what, key]) => (
+                        <div key={key} className="flex items-center justify-between gap-3 py-1.5">
+                            <span className="text-sm text-slate-400">{what}</span>
+                            <kbd className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-xs text-slate-300">
+                                {key}
+                            </kbd>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {showSettings && (
                 <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
