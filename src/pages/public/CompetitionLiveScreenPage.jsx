@@ -419,6 +419,7 @@ const CompetitionLiveScreenPage = () => {
                         defaultSound={competition.timerSound || 'beep'}
                         defaultVoice={competition.timerVoice || ''}
                         onSettingsChange={saveTimerSettings}
+                        seedSettings
                     />
                 </div>
             )}

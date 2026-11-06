@@ -74,6 +74,15 @@ export const useSharedTimer = ({
     signalSound = 'beep',
     voiceUzbek = false,
     voiceName = '',
+    // VAKOLAT. Faqat HAQIQIY sozlamasi bor nusxa urug' qo'yadi.
+    //
+    // Header ichidagi taymer va alohida `/timer` oynasi hech qanday
+    // sozlama olmaydi - ularda yuqoridagi qiymatlar tanlov emas, shunchaki
+    // o'rin to'ldiruvchi. Ilgari ular ham urug' qo'yardi va natijada HAR
+    // OYNA O'Z qiymatida qolardi: operator panelida "Signal" turardi,
+    // karnay turgan jonli ekranda esa bazadan kelgan "voice". Zalda
+    // inson ovozi eshitilar, panelda esa signal tanlangan ko'rinardi.
+    seed = false,
 } = {}) => {
     // Umumiy holat - ikkala oynada bir xil turadi.
     const [shared, setShared] = useState(() => localState || {
@@ -115,12 +124,13 @@ export const useSharedTimer = ({
             mainSeconds, submitSeconds, warnAt,
             soundMode, signalSound, voiceUzbek, voiceName,
         };
+        if (!seed) return;
         const sig = JSON.stringify(incoming);
         if (seededSig === sig) return;
         seededSig = sig;
         const cur = sharedRef.current;
         if (cur.phase === TIMER_PHASES.IDLE) pushLocal({ ...cur, ...incoming });
-    }, [mainSeconds, submitSeconds, warnAt, soundMode, signalSound, voiceUzbek, voiceName]);
+    }, [seed, mainSeconds, submitSeconds, warnAt, soundMode, signalSound, voiceUzbek, voiceName]);
 
     const publish = useCallback((next) => {
         pushLocal(next);                       // shu oynadagi hamma taymer
@@ -148,11 +158,16 @@ export const useSharedTimer = ({
                 // Boshqa oynadan kelgan holat - shu oynadagi hammaga tarqatiladi.
                 pushLocal(msg.state);
             } else if (msg.kind === 'whoHasState') {
-                // Yangi ochilgan oyna so'rayapti - yurib turgan bo'lsa javob beramiz.
-                const cur = sharedRef.current;
-                if (cur.phase !== TIMER_PHASES.IDLE) {
-                    try { ch.postMessage({ kind: 'state', state: cur }); } catch { /* yopilgan */ }
-                }
+                // Yangi ochilgan oyna so'rayapti - HAR DOIM javob beramiz.
+                //
+                // Ilgari javob faqat taymer YURIB TURGANDA berilardi. Oqibati:
+                // bo'sh turganda yangi oyna o'z qiymatida qolar va ikki oyna
+                // boshqa-boshqa sozlama bilan ishlardi - ovoz rejimi ham shu
+                // yo'l bilan ajralib ketgan edi. Sozlama butun brauzerda bitta
+                // bo'lishi kerak, taymer yurgan-yurmaganidan qat'i nazar.
+                try {
+                    ch.postMessage({ kind: 'state', state: sharedRef.current });
+                } catch { /* yopilgan */ }
             }
         };
         // Ochilganda joriy holatni so'raymiz - o'rtada qo'shilgan oyna

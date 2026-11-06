@@ -77,6 +77,11 @@ const CompetitionTimer = ({
     defaultVoice = '',
     onSettingsChange = null,
     compact = false,
+    // Bu nusxa musobaqaning HAQIQIY sozlamasini olganmi. Faqat jonli
+    // ekran `true` beradi - sozlama o'sha musobaqaga tegishli. Header
+    // ichidagi va alohida oynadagi nusxalar sozlamani BOSHQARADI, lekin
+    // uni o'rnatmaydi: ular joriy holatni qabul qilib ishlaydi.
+    seedSettings = false,
 }) => {
     const legacy = {
         soundMode: legacyToMode(defaultSound),
@@ -92,6 +97,7 @@ const CompetitionTimer = ({
         submitSeconds: defaultSubmitSeconds,
         warnAt: defaultWarnAt,
         ...legacy,
+        seed: seedSettings,
     });
 
     // Ixcham ko'rinish JIM - izohi fayl boshida.
