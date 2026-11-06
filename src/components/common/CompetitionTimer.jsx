@@ -181,17 +181,31 @@ const CompetitionTimer = ({
         if (next.mainSeconds != null || next.submitSeconds != null || next.warnAt != null) {
             applySettings(next);
         }
-        if (next.signalOn != null) setSignalOn(next.signalOn);
+        // SIGNAL VA OVOZ BIR-BIRINI O'CHIRADI. Ikkalasi birga chalinsa
+        // zalda ular ustma-ust tushib, sonni eshitib bo'lmasdi. Shuning
+        // uchun biri yoqilsa ikkinchisi avtomatik o'chadi - operator
+        // ikkinchi tugmani qidirib o'tirmasin. Ikkalasini o'chirib
+        // qo'yish mumkin: bu "ovozsiz" degani.
+        if (next.signalOn != null) {
+            setSignalOn(next.signalOn);
+            if (next.signalOn) setVoiceOn(false);
+        }
         if (next.signalSound != null) setSignalSound(next.signalSound);
-        if (next.voiceOn != null) setVoiceOn(next.voiceOn);
+        if (next.voiceOn != null) {
+            setVoiceOn(next.voiceOn);
+            if (next.voiceOn) setSignalOn(false);
+        }
         if (next.voiceUzbek != null) setVoiceUzbek(next.voiceUzbek);
         if (next.voice != null) setVoiceName(next.voice);
 
         if (onSettingsChange) {
             // Baza maydoni bitta `timerSound` - eski musobaqalar bilan
             // mos qolishi uchun ikki kalit o'sha shaklga qaytariladi.
-            const sOn = next.signalOn ?? signalOn;
-            const vOn = next.voiceOn ?? voiceOn;
+            // Bir-birini o'chirish saqlanadigan qiymatda ham aks etsin.
+            const sOn = next.signalOn != null ? next.signalOn
+                : (next.voiceOn ? false : signalOn);
+            const vOn = next.voiceOn != null ? next.voiceOn
+                : (next.signalOn ? false : voiceOn);
             const vUz = next.voiceUzbek ?? voiceUzbek;
             const sSound = next.signalSound ?? signalSound;
             const legacy = vOn ? (vUz ? 'voice_uz' : 'voice') : (sOn ? sSound : 'silent');
@@ -617,7 +631,8 @@ const CompetitionTimer = ({
                                 </button>
                             </div>
                             <p className="text-[11px] text-slate-500 mb-2">
-                                Qolgan sonni ovoz bilan aytadi
+                                Qolgan sonni ovoz bilan aytadi. Yoqilsa signal o&rsquo;chadi,
+                                lekin vaqt tugaganda baribir tovush chalinadi.
                             </p>
                             {voiceOn && (
                                 <>
