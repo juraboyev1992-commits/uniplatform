@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Play, Pause, RotateCcw, Settings2, Volume2, VolumeX, Keyboard } from 'lucide-react';
 import {
-    SIGNAL_SOUNDS, playTick, playEnd, unlockAudio,
+    SIGNAL_SOUNDS, playTick, playEnd, playBegin, unlockAudio,
     speechAvailable, listVoices, speakNumber, stopSpeech,
 } from '../../utils/timerSounds';
 import { useSharedTimer, TIMER_PHASES } from '../../hooks/useSharedTimer';
@@ -76,6 +76,7 @@ const CompetitionTimer = ({
 
     const [remaining, setRemaining] = useState(defaultSeconds);
     const spokenRef = useRef(null);
+    const begunRef = useRef(null);
     const endedRef = useRef(null);
 
     useEffect(() => {
@@ -105,6 +106,24 @@ const CompetitionTimer = ({
         else if (phase === TIMER_PHASES.DONE) setRemaining(0);
         else setRemaining(mainSeconds);
     }, [running, pausedLeft, phase, mainSeconds]);
+
+    // BOSHLASH SIGNALI.
+    //
+    // Tugma bosilishiga emas, HOLAT o'zgarishiga bog'langan. Sabab:
+    // operator yuqori qatordagi paneldan boshlashi mumkin, u esa jim -
+    // bosish hodisasiga bog'lasak, zaldagi jonli ekran signal
+    // chalmay qolardi. Holatga bog'lansa, ovozi yoqilgan har qanday
+    // oyna chaladi.
+    //
+    // Faqat ASOSIY bosqich boshlanganda. Topshirish bosqichi o'zi
+    // asosiy vaqt tugagan signalidan keyin keladi - u yerda yana
+    // signal berish ortiqcha bo'lardi.
+    useEffect(() => {
+        if (endsAt == null || phase !== TIMER_PHASES.MAIN) return;
+        if (begunRef.current === endsAt) return;
+        begunRef.current = endsAt;
+        if (!muted && anySound) playBegin(signalSound);
+    }, [endsAt, phase, muted, anySound, signalSound]);
 
     // Sanoq.
     useEffect(() => {
@@ -175,7 +194,11 @@ const CompetitionTimer = ({
     }, [compact, running, start, pause, reset]);
 
     const onStart = () => { unlockAudio(); start(); };
-    const onReset = () => { stopSpeech(); endedRef.current = null; spokenRef.current = null; reset(); };
+    const onReset = () => {
+        stopSpeech();
+        endedRef.current = null; spokenRef.current = null; begunRef.current = null;
+        reset();
+    };
 
     const setSettings = (next) => {
         if (next.mainSeconds != null || next.submitSeconds != null || next.warnAt != null) {

@@ -18,24 +18,28 @@ export const TIMER_SOUNDS = [
         id: 'beep',
         label: 'Yumshoq signal',
         tick: { freq: 880, type: 'sine', ms: 110 },
+        begin: { freq: 1046, type: 'sine', ms: 260 },
         end: { freq: 440, type: 'sine', ms: 900 },
     },
     {
         id: 'sharp',
         label: 'Keskin signal',
         tick: { freq: 1200, type: 'square', ms: 70 },
+        begin: { freq: 1400, type: 'square', ms: 200 },
         end: { freq: 600, type: 'square', ms: 800 },
     },
     {
         id: 'bell',
         label: "Qo'ng'iroq",
         tick: { freq: 1568, type: 'triangle', ms: 160 },
+        begin: { freq: 2093, type: 'triangle', ms: 300 },
         end: { freq: 784, type: 'triangle', ms: 1200 },
     },
     {
         id: 'metronome',
         label: 'Metronom',
         tick: { freq: 300, type: 'square', ms: 45 },
+        begin: { freq: 520, type: 'square', ms: 180 },
         end: { freq: 180, type: 'square', ms: 700 },
     },
     {
@@ -43,6 +47,7 @@ export const TIMER_SOUNDS = [
         label: 'Odam ovozi - raqam',
         // Signal o'rniga son aytiladi - pastdagi `speakNumber`.
         tick: null,
+        begin: { freq: 1046, type: 'sine', ms: 260 },
         end: { freq: 440, type: 'sine', ms: 900 },
         speaks: true,
     },
@@ -120,6 +125,7 @@ const play = (spec, volume) => {
 };
 
 export const playTick = (soundId, volume = 0.35) => play(getTimerSound(soundId).tick, volume);
+export const playBegin = (soundId, volume = 0.45) => play(getTimerSound(soundId).begin, volume);
 export const playEnd = (soundId, volume = 0.5) => play(getTimerSound(soundId).end, volume);
 
 
