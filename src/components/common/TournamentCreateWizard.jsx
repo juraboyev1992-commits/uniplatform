@@ -290,15 +290,31 @@ const TournamentCreateWizard = ({ contextType = null, contextId = null, onCreate
         && ['criteria_based', 'single_score', 'correct_answer', 'quiz_mixed'].includes(resolvedScoringEngine)
     ), [selectedPreset, data.type, resolvedScoringEngine]);
 
+    // Yaratilayotgan musobaqaning barg birligi - buildCompetitionPayload dagi
+    // `freeStructureLeafLabel`/`stageLeafLabel` bilan AYNI mantiq, faqat render
+    // paytida. Davomat variantlari ro'yxati shunga qarab qisqaradi: barg savol
+    // bo'lsa "Har raund/savol uchun" umuman taklif qilinmaydi.
+    const attendanceLeafLabel = useMemo(() => {
+        if (data.useFreeStructure) {
+            const allRaundlar = (data.structure?.bosqichlar || [])
+                .flatMap(b => (b.turlar || []).flatMap(t => t.raundlar || []));
+            if (allRaundlar.length > 0) {
+                return allRaundlar.every(r => (r.savolCount || 1) === 1) ? 'raund' : 'savol';
+            }
+        }
+        if (selectedPreset?.defaults?.stageLeafLabel) return selectedPreset.defaults.stageLeafLabel;
+        // correct_answer da barg birligi Raund-guruh (bir nechta savol), savol emas.
+        return resolvedScoringEngine === 'quiz_mixed' ? 'savol' : 'raund';
+    }, [data.useFreeStructure, data.structure, selectedPreset, resolvedScoringEngine]);
+
     // Dvigatel almashganda shu shaklga mos sukut qo'yiladi - lekin admin o'zi
     // tanlagan bo'lsa, tanlovi ustun turadi.
     useEffect(() => {
         if (!isAttendanceGranularityRelevant || data.attendanceGranularityTouched) return;
-        const leafLabel = selectedPreset?.defaults?.stageLeafLabel;
-        const next = getDefaultAttendanceGranularity(resolvedScoringEngine, leafLabel);
+        const next = getDefaultAttendanceGranularity(resolvedScoringEngine, attendanceLeafLabel);
         if (next !== data.attendanceGranularity) updateData({ attendanceGranularity: next });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAttendanceGranularityRelevant, resolvedScoringEngine, data.attendanceGranularityTouched]);
+    }, [isAttendanceGranularityRelevant, resolvedScoringEngine, attendanceLeafLabel, data.attendanceGranularityTouched]);
 
     // Preview of this competition's real Tur/stage boundaries, BEFORE creation — mirrors exactly the
     // same two sources buildCompetitionPayload's isQuizMixed branch reads (compiled free structure, or
@@ -822,6 +838,7 @@ const TournamentCreateWizard = ({ contextType = null, contextId = null, onCreate
                         data={data}
                         onChange={updateData}
                         showAttendanceGranularity={isAttendanceGranularityRelevant}
+                        attendanceLeafLabel={attendanceLeafLabel}
                         isCorrectAnswer={selectedPreset?.scoringEngine === 'correct_answer'}
                         turCount={data.format === 'cup' ? data.cupTurs.length : (Number(data.leagueTours) || 1)}
                         isQuizMixed={isQuizMixedPreset}

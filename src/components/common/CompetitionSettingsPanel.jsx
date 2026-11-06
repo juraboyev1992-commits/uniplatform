@@ -1,6 +1,6 @@
 import React from 'react';
 import { db } from '../../services/db';
-import { ATTENDANCE_GRANULARITY_OPTIONS } from '../../config/competitionEngines';
+import { getAttendanceGranularityOptions, getAttendanceUnitPlan, getEffectiveAttendanceGranularity } from '../../config/competitionEngines';
 import CompetitionJudgesTab from './CompetitionJudgesTab';
 import CompetitionDelegationDrawer from './CompetitionDelegationDrawer';
 import CompetitionRoundsTab from './CompetitionRoundsTab';
@@ -54,18 +54,20 @@ const CompetitionSettingsPanel = ({
                 <div>
                     <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Davomat granulligi</label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {ATTENDANCE_GRANULARITY_OPTIONS.map(opt => (
+                        {getAttendanceGranularityOptions(
+                            getAttendanceUnitPlan(competition).leafLabel === 'Savol' ? 'savol' : 'raund'
+                        ).map(opt => (
                             <button
                                 key={opt.id}
                                 type="button"
                                 title={opt.description}
                                 onClick={async () => {
-                                    if ((competition.attendanceGranularity || 'per_round') === opt.id) return;
+                                    if (getEffectiveAttendanceGranularity(competition) === opt.id) return;
                                     await db.updateCompetition(competition.id, { attendanceGranularity: opt.id });
                                     onCompetitionUpdated?.();
                                 }}
                                 className={`px-3 py-2.5 rounded-xl text-xs font-bold border text-center transition-all ${
-                                    (competition.attendanceGranularity || 'per_round') === opt.id
+                                    getEffectiveAttendanceGranularity(competition) === opt.id
                                         ? 'border-indigo-600 bg-indigo-600 text-white'
                                         : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                                 }`}

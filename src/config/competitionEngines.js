@@ -16,8 +16,26 @@
 // beradi (demak qulflar va saqlangan yozuvlar o'zgarmaydi), lekin Tur bo'yicha
 // guruhlab va nomlab.
 
+// SAVOL UCHUN DAVOMAT - MAVJUD BO'LMAGAN HOLAT.
+//
+// "37-savolda hozir edi, 38-savolda yo'q edi" degan gap yo'q: savollar bir
+// majlisda ketma-ket o'qiladi. Shuning uchun savol-barg musobaqalarida
+// 'per_round' saqlangan bo'lsa ham, u Tur sifatida o'qiladi va tanlov
+// ro'yxatidan ham olib tashlanadi (pastdagi `getAttendanceGranularityOptions`).
+// Oldin bu variant taklif qilinardi va 100 savolli turnirda 100 marta
+// belgilash degani edi.
+//
+// DIQQAT: shu rejimda ilgari yozilgan davomat '1','2',... birliklarida qolgan
+// va endi ko'rinmaydi (o'chmagan). Davomat bo'limi bunday yozuvlarni topsa
+// shu haqda ogohlantiradi - jimgina yashirmaydi.
+export const getEffectiveAttendanceGranularity = (competition) => {
+    const stored = competition?.attendanceGranularity || 'per_round';
+    if (stored !== 'per_round') return stored;
+    return getAttendanceUnitPlan(competition).leafLabel === 'Savol' ? 'per_tur' : 'per_round';
+};
+
 export const resolveAttendanceLeafUnitId = (competition, roundIndex, turScheduleRows = []) => {
-    const granularity = competition.attendanceGranularity || 'per_round';
+    const granularity = getEffectiveAttendanceGranularity(competition);
     if (granularity === 'whole_competition') return 'whole';
     // HAR TUR UCHUN. Savol-barg musobaqalarida (Zakovat, 25-savol ko'rinishi)
     // 'per_round' har bir SAVOL uchun alohida davomat degani edi - 100 savolli
@@ -1142,6 +1160,14 @@ export const ATTENDANCE_GRANULARITY_OPTIONS = [
 // ega emas, shuning uchun ularda sukut bo'yicha Tur olinadi. Raund-barg
 // musobaqalarida (criteria_based, single_score, UniQuiz) esa raund real
 // bosqich, u yerda avvalgi sukut o'z kuchida qoladi.
+// Shu musobaqa shaklida ma'noga ega variantlar. `leafLabel` - 'savol' bo'lsa
+// "Har raund/savol uchun" umuman taklif qilinmaydi.
+export const getAttendanceGranularityOptions = (leafLabel) => (
+    leafLabel === 'savol'
+        ? ATTENDANCE_GRANULARITY_OPTIONS.filter(o => o.id !== 'per_round')
+        : ATTENDANCE_GRANULARITY_OPTIONS
+);
+
 export const getDefaultAttendanceGranularity = (scoringEngine, leafLabel) => (
     ['correct_answer', 'quiz_mixed'].includes(scoringEngine) && leafLabel !== 'raund'
         ? 'per_tur'
@@ -1157,7 +1183,7 @@ export const getDefaultAttendanceGranularity = (scoringEngine, leafLabel) => (
 // 1-savol tugashi bilan butun Turning davomati yopilib qolardi. Qulf faqat
 // chelakdagi oxirgi birlik yakunlanganda tushishi kerak.
 export const isLastUnitOfAttendanceLeaf = (competition, unitIndex) => {
-    const granularity = competition.attendanceGranularity || 'per_round';
+    const granularity = getEffectiveAttendanceGranularity(competition);
     if (granularity === 'per_round') return true;
     const plan = getAttendanceUnitPlan(competition);
     const idx = Number(unitIndex);

@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Users } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import Badge from './Badge';
 import { db } from '../../services/db';
-import { resolveAttendanceLeafUnitId, getAttendanceUnitPlan } from '../../config/competitionEngines';
+import { resolveAttendanceLeafUnitId, getAttendanceUnitPlan, getEffectiveAttendanceGranularity } from '../../config/competitionEngines';
 import ActivityAttendancePanel from './ActivityAttendancePanel';
 
 // The generic "Davomat" tab (TournamentScoring.jsx's 'davomat' tab) for every TEAM-type competition that
@@ -35,7 +35,9 @@ const CriteriaRoundAttendanceTab = ({ competition, canManageAttendance, hasFullA
     const refresh = () => setVersion(v => v + 1);
 
     const plan = useMemo(() => getAttendanceUnitPlan(competition), [competition]);
-    const granularity = competition.attendanceGranularity || 'per_round';
+    // Saqlangan qiymat emas, AMALDAGI rejim: savol-barg musobaqasida
+    // 'per_round' Tur sifatida o'qiladi (savol uchun davomat mavjud holat emas).
+    const granularity = getEffectiveAttendanceGranularity(competition);
     const totalUnits = plan.groups.reduce((n, g) => n + g.units.length, 0);
     // Ikki darajali tanlov, rejimga qarab:
     //   "Butun turnir uchun" - hech qanday tanlov, davomat bitta.
@@ -91,6 +93,23 @@ const CriteriaRoundAttendanceTab = ({ competition, canManageAttendance, hasFullA
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
         [competition.id, leafUnitId, version]
     );
+
+    // BOSHQA REJIMDA YOZILGAN DAVOMAT.
+    //
+    // Davomat birligi rejimga bog'liq ('5' / 'tur:1' / 'whole'), shuning uchun
+    // rejim o'zgarsa avvalgi yozuvlar o'chmaydi, lekin EKRANDA KO'RINMAY
+    // QOLADI. Buni jimgina qilib bo'lmaydi - belgilangan davomat yo'qolgandek
+    // tuyuladi. Shuning uchun shunday yozuv topilsa, ogohlantirish chiqadi.
+    const strandedCount = useMemo(() => {
+        const liveIds = new Set(
+            plan.groups.flatMap(g => g.units.map(
+                u => String(resolveAttendanceLeafUnitId(competition, u.index, turSchedule))
+            ))
+        );
+        const rows = db.getActivityAttendanceForActivity(competition.id, 'competition')
+            .filter(a => a.leafUnitType === 'criteria_round' && !liveIds.has(String(a.leafUnitId)));
+        return new Set(rows.map(a => String(a.leafUnitId))).size;
+    }, [competition, plan, turSchedule, version]);
 
     const teamName = (id) => competition.participants.find(p => p.id === id)?.name || id;
 
@@ -215,6 +234,17 @@ const CriteriaRoundAttendanceTab = ({ competition, canManageAttendance, hasFullA
                             </span>
                         </div>
                     )}
+                </div>
+            )}
+
+            {strandedCount > 0 && (
+                <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
+                    <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                        Boshqa davomat rejimida belgilangan <strong>{strandedCount}</strong> ta bosqich
+                        yozuvi bor. Ular o'chmagan, lekin joriy rejimda ko'rinmaydi — ko'rish uchun
+                        Musobaqa sozlamalaridan avvalgi rejimni qaytaring.
+                    </p>
                 </div>
             )}
 

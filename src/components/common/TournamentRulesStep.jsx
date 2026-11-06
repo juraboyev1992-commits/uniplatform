@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Info } from 'lucide-react';
-import { SCORING_MODES, TIEBREAK_PRIMARY_LABELS, TIEBREAK_FALLBACK_LABELS, ATTENDANCE_GRANULARITY_OPTIONS } from '../../config/competitionEngines';
+import { SCORING_MODES, TIEBREAK_PRIMARY_LABELS, TIEBREAK_FALLBACK_LABELS, getAttendanceGranularityOptions } from '../../config/competitionEngines';
 import { db } from '../../services/db';
 
 const inputClass = "w-full px-4 py-3 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm";
@@ -40,7 +40,7 @@ const Toggle = ({ checked, onChange, label }) => (
 // canonical "Ro'yxatdan o'tish" block, correctly gated to team-type activities only) — a second, ungated
 // copy used to live here too (shown even for individual competitions) and has been removed; both wrote
 // the same data.teamMinSize/teamMaxSize fields, so nothing about that data is lost.
-const TournamentRulesStep = ({ data, onChange, showAttendanceGranularity = false, isCorrectAnswer = false, turCount = 1, isQuizMixed = false, isMatchEngine = false, advancementStages = [] }) => {
+const TournamentRulesStep = ({ data, onChange, showAttendanceGranularity = false, attendanceLeafLabel = 'raund', isCorrectAnswer = false, turCount = 1, isQuizMixed = false, isMatchEngine = false, advancementStages = [] }) => {
     const setRestriction = (patch) => onChange({ restrictions: { ...data.restrictions, ...patch } });
     const toggleInList = (key, value) => {
         const list = data.restrictions[key];
@@ -497,7 +497,7 @@ const TournamentRulesStep = ({ data, onChange, showAttendanceGranularity = false
                         savolli turnirda "Har raund/savol uchun" 100 marta belgilash degani.
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 max-w-2xl">
-                        {ATTENDANCE_GRANULARITY_OPTIONS.map(opt => (
+                        {getAttendanceGranularityOptions(attendanceLeafLabel).map(opt => (
                             <button
                                 key={opt.id}
                                 type="button"
