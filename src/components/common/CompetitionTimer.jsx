@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Play, Pause, RotateCcw, Settings2, Volume2, VolumeX, Keyboard } from 'lucide-react';
 import {
-    TIMER_SOUNDS, getTimerSound, playTick, playEnd, unlockAudio,
+    SIGNAL_SOUNDS, playTick, playEnd, unlockAudio,
     speechAvailable, listVoices, speakNumber, stopSpeech,
 } from '../../utils/timerSounds';
 import { useSharedTimer, TIMER_PHASES } from '../../hooks/useSharedTimer';
@@ -56,7 +56,17 @@ const CompetitionTimer = ({
         warnAt: defaultWarnAt,
     });
 
-    const [soundId, setSoundId] = useState(defaultSound);
+    // ESKI SOZLAMANI O'QISH. Avval hammasi bitta `timerSound` maydonida
+    // edi ('beep' | 'voice' | 'voice_uz' | 'silent'). Saqlangan
+    // musobaqalar buzilmasligi uchun eski qiymat yangi ikki kalitga
+    // o'giriladi.
+    const [signalOn, setSignalOn] = useState(
+        () => !['voice', 'voice_uz', 'silent'].includes(defaultSound));
+    const [signalSound, setSignalSound] = useState(
+        () => (SIGNAL_SOUNDS.some(x => x.id === defaultSound) ? defaultSound : 'beep'));
+    const [voiceOn, setVoiceOn] = useState(
+        () => ['voice', 'voice_uz'].includes(defaultSound));
+    const [voiceUzbek, setVoiceUzbek] = useState(() => defaultSound === 'voice_uz');
     const [voiceName, setVoiceName] = useState(defaultVoice);
     // Ixcham ko'rinish JIM - izohi fayl boshida.
     const [muted, setMuted] = useState(compact);
@@ -68,7 +78,12 @@ const CompetitionTimer = ({
     const spokenRef = useRef(null);
     const endedRef = useRef(null);
 
-    useEffect(() => { setSoundId(defaultSound); }, [defaultSound]);
+    useEffect(() => {
+        setSignalOn(!['voice', 'voice_uz', 'silent'].includes(defaultSound));
+        setSignalSound(SIGNAL_SOUNDS.some(x => x.id === defaultSound) ? defaultSound : 'beep');
+        setVoiceOn(['voice', 'voice_uz'].includes(defaultSound));
+        setVoiceUzbek(defaultSound === 'voice_uz');
+    }, [defaultSound]);
     useEffect(() => { setVoiceName(defaultVoice); }, [defaultVoice]);
 
     // Ovoz ro'yxati brauzerda kechikib yuklanadi.
@@ -81,9 +96,7 @@ const CompetitionTimer = ({
     }, []);
 
     const { phase, endsAt, pausedLeft, mainSeconds, submitSeconds, warnAt, runId } = shared;
-    const sound = getTimerSound(soundId);
-    const speaks = sound.speaks;
-    const uzbek = !!sound.uzbek;
+    const anySound = signalOn || voiceOn;
 
     // Yurmayotganda ko'rsatiladigan raqam.
     useEffect(() => {
@@ -105,7 +118,10 @@ const CompetitionTimer = ({
                 const key = `${runId}:${phase}`;
                 if (endedRef.current !== key) {
                     endedRef.current = key;
-                    if (!muted) { stopSpeech(); playEnd(soundId); }
+                    // YAKUNIY SIGNAL har doim chalinadi - signal o'chirilgan
+                    // bo'lsa ham. Vaqt tugaganini zal eshitmay qolsa, butun
+                    // taymerning ma'nosi yo'qoladi.
+                    if (!muted && anySound) { stopSpeech(); playEnd(signalSound); }
                     if (phase === TIMER_PHASES.MAIN) goSubmitPhase();
                     else finish();
                 }
@@ -120,13 +136,15 @@ const CompetitionTimer = ({
             if (inWarn && whole > 0 && spokenRef.current !== `${runId}:${phase}:${whole}`) {
                 spokenRef.current = `${runId}:${phase}:${whole}`;
                 if (!muted) {
-                    if (speaks) speakNumber(whole, voiceName, { uzbek });
-                    else playTick(soundId);
+                    // Ikkalasi MUSTAQIL: birga ham, alohida ham ishlaydi.
+                    if (signalOn) playTick(signalSound);
+                    if (voiceOn) speakNumber(whole, voiceName, { uzbek: voiceUzbek });
                 }
             }
         }, TICK_MS);
         return () => clearInterval(id);
-    }, [endsAt, phase, runId, warnAt, soundId, voiceName, speaks, uzbek, muted, goSubmitPhase, finish]);
+    }, [endsAt, phase, runId, warnAt, signalOn, signalSound, voiceOn, voiceUzbek, voiceName,
+        anySound, muted, goSubmitPhase, finish]);
 
     // Probel - boshlash/to'xtatish. FAQAT to'liq ko'rinishda: ixcham
     // nusxa har sahifada turadi va u yerda probel sahifani aylantirish
@@ -163,14 +181,25 @@ const CompetitionTimer = ({
         if (next.mainSeconds != null || next.submitSeconds != null || next.warnAt != null) {
             applySettings(next);
         }
-        if (next.sound != null) setSoundId(next.sound);
+        if (next.signalOn != null) setSignalOn(next.signalOn);
+        if (next.signalSound != null) setSignalSound(next.signalSound);
+        if (next.voiceOn != null) setVoiceOn(next.voiceOn);
+        if (next.voiceUzbek != null) setVoiceUzbek(next.voiceUzbek);
         if (next.voice != null) setVoiceName(next.voice);
+
         if (onSettingsChange) {
+            // Baza maydoni bitta `timerSound` - eski musobaqalar bilan
+            // mos qolishi uchun ikki kalit o'sha shaklga qaytariladi.
+            const sOn = next.signalOn ?? signalOn;
+            const vOn = next.voiceOn ?? voiceOn;
+            const vUz = next.voiceUzbek ?? voiceUzbek;
+            const sSound = next.signalSound ?? signalSound;
+            const legacy = vOn ? (vUz ? 'voice_uz' : 'voice') : (sOn ? sSound : 'silent');
             onSettingsChange({
                 seconds: next.mainSeconds ?? mainSeconds,
                 submitSeconds: next.submitSeconds ?? submitSeconds,
                 warnAt: next.warnAt ?? warnAt,
-                sound: next.sound ?? soundId,
+                sound: legacy,
                 voice: next.voice ?? voiceName,
             });
         }
@@ -274,26 +303,69 @@ const CompetitionTimer = ({
                                 ))}
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1.5">
-                                Sanoq ovozi
-                            </label>
-                            <select
-                                value={soundId}
-                                onChange={e => { unlockAudio(); setSettings({ sound: e.target.value }); }}
-                                className="w-full px-3 py-2 rounded-lg bg-white text-gray-800 text-sm border border-gray-200"
-                            >
-                                {TIMER_SOUNDS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-                            </select>
-                            {speaks && (
-                                <select
-                                    value={voiceName}
-                                    onChange={e => setSettings({ voice: e.target.value })}
-                                    className="mt-2 w-full px-3 py-2 rounded-lg bg-white text-gray-800 text-sm border border-gray-200"
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="text-sm font-bold text-gray-700">Signal</span>
+                                <button
+                                    type="button" aria-label="Signal"
+                                    onClick={() => { unlockAudio(); setSettings({ signalOn: !signalOn }); }}
+                                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                                        signalOn ? 'bg-indigo-600' : 'bg-gray-300'
+                                    }`}
                                 >
-                                    <option value="">Brauzer tanlagan ovoz</option>
-                                    {voices.map(v => <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>)}
+                                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${
+                                        signalOn ? 'left-[1.375rem]' : 'left-0.5'
+                                    }`} />
+                                </button>
+                            </div>
+                            {signalOn && (
+                                <select
+                                    value={signalSound}
+                                    onChange={e => { unlockAudio(); setSettings({ signalSound: e.target.value }); }}
+                                    className="w-full px-3 py-2 rounded-lg bg-white text-gray-800 text-sm border border-gray-200"
+                                >
+                                    {SIGNAL_SOUNDS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
                                 </select>
+                            )}
+
+                            <div className="flex items-center justify-between gap-2 pt-1">
+                                <span className="text-sm font-bold text-gray-700">Inson ovozi</span>
+                                <button
+                                    type="button" aria-label="Inson ovozi"
+                                    onClick={() => { unlockAudio(); setSettings({ voiceOn: !voiceOn }); }}
+                                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                                        voiceOn ? 'bg-indigo-600' : 'bg-gray-300'
+                                    }`}
+                                >
+                                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${
+                                        voiceOn ? 'left-[1.375rem]' : 'left-0.5'
+                                    }`} />
+                                </button>
+                            </div>
+                            {voiceOn && (
+                                <>
+                                    <div className="flex gap-1.5">
+                                        {[[false, 'Raqam'], [true, "O'zbekcha"]].map(([uz, lbl]) => (
+                                            <button
+                                                key={lbl} type="button"
+                                                onClick={() => setSettings({ voiceUzbek: uz })}
+                                                className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-bold ${
+                                                    voiceUzbek === uz ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                }`}
+                                            >
+                                                {lbl}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <select
+                                        value={voiceName}
+                                        onChange={e => setSettings({ voice: e.target.value })}
+                                        className="w-full px-3 py-2 rounded-lg bg-white text-gray-800 text-sm border border-gray-200"
+                                    >
+                                        <option value="">Brauzer tanlagan ovoz</option>
+                                        {voices.map(v => <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>)}
+                                    </select>
+                                </>
                             )}
                         </div>
                         <p className="text-[11px] text-gray-400">
@@ -495,25 +567,77 @@ const CompetitionTimer = ({
                         <p className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">
                             3. Ovoz
                         </p>
+                        {/* SIGNAL va OVOZ - MUSTAQIL. Ilgari ular bitta
+                            ro'yxatda edi va biri tanlansa ikkinchisi
+                            o'chardi. Amalda esa ikkalasi birga kerak
+                            bo'ladi: qisqa signal soniyani aniq belgilaydi,
+                            ovoz esa qolgan sonni aytadi. */}
                         <div>
-                            <span className="block text-sm font-bold text-slate-200 mb-1">Sanoq ovozi</span>
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                                <span className="text-sm font-bold text-slate-200">Signal</span>
+                                <button
+                                    type="button" aria-label="Signal"
+                                    onClick={() => { unlockAudio(); setSettings({ signalOn: !signalOn }); }}
+                                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                                        signalOn ? 'bg-indigo-500' : 'bg-slate-700'
+                                    }`}
+                                >
+                                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${
+                                        signalOn ? 'left-[1.375rem]' : 'left-0.5'
+                                    }`} />
+                                </button>
+                            </div>
                             <p className="text-[11px] text-slate-500 mb-2">
-                                Zalda jonli ekran orqali eshitiladi
+                                Elektron tovush. Vaqt tugaganda har doim chalinadi.
                             </p>
-                            <select
-                                value={soundId}
-                                onChange={e => { unlockAudio(); setSettings({ sound: e.target.value }); }}
-                                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-sm border border-slate-700"
-                            >
-                                {TIMER_SOUNDS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-                            </select>
+                            {signalOn && (
+                                <select
+                                    value={signalSound}
+                                    onChange={e => { unlockAudio(); setSettings({ signalSound: e.target.value }); }}
+                                    className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-sm border border-slate-700"
+                                >
+                                    {SIGNAL_SOUNDS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                                </select>
+                            )}
+                        </div>
 
-                            {speaks && (
+                        <div>
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                                <span className="text-sm font-bold text-slate-200">Inson ovozi</span>
+                                <button
+                                    type="button" aria-label="Inson ovozi"
+                                    onClick={() => { unlockAudio(); setSettings({ voiceOn: !voiceOn }); }}
+                                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                                        voiceOn ? 'bg-indigo-500' : 'bg-slate-700'
+                                    }`}
+                                >
+                                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${
+                                        voiceOn ? 'left-[1.375rem]' : 'left-0.5'
+                                    }`} />
+                                </button>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mb-2">
+                                Qolgan sonni ovoz bilan aytadi
+                            </p>
+                            {voiceOn && (
                                 <>
+                                    <div className="flex gap-1.5 mb-2">
+                                        {[[false, 'Raqam'], [true, "O'zbekcha"]].map(([uz, lbl]) => (
+                                            <button
+                                                key={lbl} type="button"
+                                                onClick={() => setSettings({ voiceUzbek: uz })}
+                                                className={`flex-1 px-3 py-2 rounded-xl text-sm font-bold ${
+                                                    voiceUzbek === uz ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                                }`}
+                                            >
+                                                {lbl}
+                                            </button>
+                                        ))}
+                                    </div>
                                     <select
                                         value={voiceName}
                                         onChange={e => setSettings({ voice: e.target.value })}
-                                        className="mt-2 w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-sm border border-slate-700"
+                                        className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-sm border border-slate-700"
                                     >
                                         <option value="">Brauzer tanlagan ovoz</option>
                                         {voices.map(v => (
@@ -521,27 +645,27 @@ const CompetitionTimer = ({
                                         ))}
                                     </select>
                                     {/* Brauzerlarda o'zbek ovozi yo'q - buni oldindan
-                                        aytamiz, aks holda odam ro'yxatdan uni qidirib
-                                        vaqt yo'qotadi. */}
+                                        aytamiz, aks holda odam uni qidirib vaqt yo'qotadi. */}
                                     <p className="text-[11px] text-slate-500 mt-1.5">
-                                        {uzbek
+                                        {voiceUzbek
                                             ? "Brauzerda o'zbek ovozi yo'q. TURKCHA ovozni tanlang - u eng yaqin eshitiladi, ruscha ham bo'ladi."
                                             : 'Raqam aytiladi, tanlangan ovoz tilida.'}
                                     </p>
                                 </>
                             )}
-
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    unlockAudio();
-                                    if (speaks) speakNumber(3, voiceName, { uzbek }); else playTick(soundId);
-                                }}
-                                className="mt-2 w-full px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-bold hover:bg-slate-700"
-                            >
-                                Eshitib ko&rsquo;rish
-                            </button>
                         </div>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                unlockAudio();
+                                if (signalOn) playTick(signalSound);
+                                if (voiceOn) speakNumber(3, voiceName, { uzbek: voiceUzbek });
+                            }}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-bold hover:bg-slate-700"
+                        >
+                            Eshitib ko&rsquo;rish
+                        </button>
                     </div>
                 </div>
             )}

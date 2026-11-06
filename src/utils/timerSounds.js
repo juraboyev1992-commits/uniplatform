@@ -65,6 +65,13 @@ export const TIMER_SOUNDS = [
 export const getTimerSound = (id) =>
     TIMER_SOUNDS.find(s => s.id === id) || TIMER_SOUNDS[0];
 
+// SIGNAL va OVOZ endi MUSTAQIL. Ilgari ular bitta ro'yxatda turardi va
+// biri tanlansa ikkinchisi o'chardi - amalda esa ikkalasi birga kerak
+// bo'ladi: qisqa signal soniyani aniq belgilaydi, ovoz esa qolgan
+// sonni aytadi. Shuning uchun bu ro'yxat faqat SIGNAL tovushlari;
+// odam ovozi alohida yoqiladi.
+export const SIGNAL_SOUNDS = TIMER_SOUNDS.filter(x => !x.speaks && x.id !== 'silent');
+
 let ctx = null;
 
 const audioContext = () => {
