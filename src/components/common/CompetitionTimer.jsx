@@ -386,121 +386,165 @@ const CompetitionTimer = ({
             )}
 
             {showSettings && (
-                <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">
-                            O&rsquo;ylash vaqti (soniya)
-                        </label>
-                        <div className="flex gap-1.5 flex-wrap">
-                            {[30, 40, 60, 90].map(v => (
-                                <button
-                                    key={v} type="button" onClick={() => setSettings({ mainSeconds: v })}
-                                    className={`px-3 py-2 rounded-xl text-sm font-bold ${
-                                        mainSeconds === v ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                                    }`}
-                                >
-                                    {v}
-                                </button>
-                            ))}
-                        </div>
-                        <input
-                            type="number" min={5} max={3600} value={mainSeconds}
-                            onChange={e => setSettings({ mainSeconds: Math.max(5, Math.min(3600, Number(e.target.value) || 5)) })}
-                            className="mt-2 w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-sm border border-slate-700"
-                        />
-                    </div>
+                <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Har sozlama ostida BIR QATORLIK IZOH turadi. Ilgari
+                        faqat raqamlar bor edi va ularning nima qilishi
+                        tushunarsiz edi - operator sinab ko'rib bilishga
+                        majbur bo'lardi. */}
 
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">
-                            Topshirish vaqti (soniya)
-                        </label>
-                        <div className="flex gap-1.5 flex-wrap">
-                            {[0, 5, 10, 15].map(v => (
-                                <button
-                                    key={v} type="button" onClick={() => setSettings({ submitSeconds: v })}
-                                    className={`px-3 py-2 rounded-xl text-sm font-bold ${
-                                        submitSeconds === v ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                                    }`}
-                                >
-                                    {v === 0 ? "Yo'q" : v}
-                                </button>
-                            ))}
-                        </div>
-                        <p className="text-[11px] text-slate-500 mt-2">
-                            Asosiy vaqt tugagach o&rsquo;zi boshlanadi va butun davomida sanaladi.
+                    <div className="space-y-4">
+                        <p className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">
+                            1. Vaqt
                         </p>
-                    </div>
 
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">
-                            Sanash qachondan
-                        </label>
-                        <div className="flex gap-1.5 flex-wrap">
-                            {[5, 10, 15, 20].map(v => (
+                        <div>
+                            <div className="flex items-baseline justify-between gap-2 mb-1">
+                                <span className="text-sm font-bold text-slate-200">O&rsquo;ylash vaqti</span>
+                                <span className="text-xs text-slate-500 tabular-nums">{mainSeconds}s</span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mb-2">
+                                Savol o&rsquo;qilgandan keyin beriladigan vaqt
+                            </p>
+                            <div className="flex gap-1.5 flex-wrap">
+                                {[30, 40, 60, 90].map(v => (
+                                    <button
+                                        key={v} type="button" onClick={() => setSettings({ mainSeconds: v })}
+                                        className={`px-3 py-2 rounded-xl text-sm font-bold ${
+                                            mainSeconds === v ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                        }`}
+                                    >
+                                        {v}
+                                    </button>
+                                ))}
+                                <input
+                                    type="number" min={5} max={3600} value={mainSeconds}
+                                    onChange={e => setSettings({ mainSeconds: Math.max(5, Math.min(3600, Number(e.target.value) || 5)) })}
+                                    className="w-20 px-2 py-2 rounded-xl bg-slate-800 text-white text-sm border border-slate-700"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                                <span className="text-sm font-bold text-slate-200">Javob yozish vaqti</span>
+                                {/* Yoqish/o'chirish - bu ikkilik tanlov, raqam emas. */}
                                 <button
-                                    key={v} type="button" onClick={() => setSettings({ warnAt: v })}
-                                    className={`px-3 py-2 rounded-xl text-sm font-bold ${
-                                        warnAt === v ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                    type="button"
+                                    onClick={() => setSettings({ submitSeconds: submitSeconds > 0 ? 0 : 10 })}
+                                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                                        submitSeconds > 0 ? 'bg-indigo-500' : 'bg-slate-700'
                                     }`}
+                                    aria-label="Javob yozish vaqti"
                                 >
-                                    {v}
+                                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${
+                                        submitSeconds > 0 ? 'left-[1.375rem]' : 'left-0.5'
+                                    }`} />
                                 </button>
-                            ))}
+                            </div>
+                            <p className="text-[11px] text-slate-500 mb-2">
+                                Asosiy vaqt tugagach qo&rsquo;shimcha vaqt beriladi
+                            </p>
+                            {submitSeconds > 0 && (
+                                <div className="flex gap-1.5 flex-wrap">
+                                    {[5, 10, 15, 20].map(v => (
+                                        <button
+                                            key={v} type="button" onClick={() => setSettings({ submitSeconds: v })}
+                                            className={`px-3 py-2 rounded-xl text-sm font-bold ${
+                                                submitSeconds === v ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                            }`}
+                                        >
+                                            {v}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">
-                            Sanoq ovozi
-                        </label>
-                        <select
-                            value={soundId}
-                            onChange={e => { unlockAudio(); setSettings({ sound: e.target.value }); }}
-                            className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-sm border border-slate-700"
-                        >
-                            {TIMER_SOUNDS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                        </select>
+                    <div className="space-y-4">
+                        <p className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">
+                            2. Sanoq
+                        </p>
+                        <div>
+                            <div className="flex items-baseline justify-between gap-2 mb-1">
+                                <span className="text-sm font-bold text-slate-200">Oxirgi soniyalar</span>
+                                <span className="text-xs text-slate-500 tabular-nums">{warnAt}s</span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mb-2">
+                                Shu soniya qolganda har soniyada ogohlantiriladi
+                            </p>
+                            <div className="flex gap-1.5 flex-wrap">
+                                {[5, 10, 15, 20].map(v => (
+                                    <button
+                                        key={v} type="button" onClick={() => setSettings({ warnAt: v })}
+                                        className={`px-3 py-2 rounded-xl text-sm font-bold ${
+                                            warnAt === v ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                        }`}
+                                    >
+                                        {v}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-2">
+                                Javob yozish vaqti esa butun davomida sanaladi.
+                            </p>
+                        </div>
+                    </div>
 
-                        {speaks && (
-                            <>
-                                <select
-                                    value={voiceName}
-                                    onChange={e => setSettings({ voice: e.target.value })}
-                                    className="mt-2 w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-sm border border-slate-700"
-                                >
-                                    <option value="">Brauzer tanlagan ovoz</option>
-                                    {voices.map(v => (
-                                        <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>
-                                    ))}
-                                </select>
-                                {/* O'zbekcha ovoz brauzerlarda deyarli yo'q - shuning uchun
-                                    SO'Z emas, RAQAM aytiladi va uni har ovoz o'z tilida
-                                    to'g'ri o'qiydi. Buni oldindan aytib qo'yamiz. */}
-                                {/* Brauzerlarda o'zbekcha ovoz yo'q - buni
-                                    oldindan aytamiz, aks holda odam ro'yxatdan
-                                    uni qidirib vaqt yo'qotadi. */}
-                                <p className="text-[11px] text-slate-500 mt-1.5">
-                                    {uzbek
-                                        ? "O'zbekcha so'z aytiladi. Brauzerda o'zbek ovozi yo'q, shuning uchun TURKCHA ovozni tanlang - u eng yaqin eshitiladi. Ruscha ham bo'ladi."
-                                        : 'Raqam aytiladi, ovoz tilida.'}
-                                </p>
-                            </>
-                        )}
+                    <div className="space-y-4">
+                        <p className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">
+                            3. Ovoz
+                        </p>
+                        <div>
+                            <span className="block text-sm font-bold text-slate-200 mb-1">Sanoq ovozi</span>
+                            <p className="text-[11px] text-slate-500 mb-2">
+                                Zalda jonli ekran orqali eshitiladi
+                            </p>
+                            <select
+                                value={soundId}
+                                onChange={e => { unlockAudio(); setSettings({ sound: e.target.value }); }}
+                                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-sm border border-slate-700"
+                            >
+                                {TIMER_SOUNDS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                            </select>
 
-                        <button
-                            type="button"
-                            onClick={() => {
-                                unlockAudio();
-                                if (speaks) speakNumber(3, voiceName, { uzbek }); else playTick(soundId);
-                            }}
-                            className="mt-2 w-full px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-bold hover:bg-slate-700"
-                        >
-                            Eshitib ko&rsquo;rish
-                        </button>
+                            {speaks && (
+                                <>
+                                    <select
+                                        value={voiceName}
+                                        onChange={e => setSettings({ voice: e.target.value })}
+                                        className="mt-2 w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-sm border border-slate-700"
+                                    >
+                                        <option value="">Brauzer tanlagan ovoz</option>
+                                        {voices.map(v => (
+                                            <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>
+                                        ))}
+                                    </select>
+                                    {/* Brauzerlarda o'zbek ovozi yo'q - buni oldindan
+                                        aytamiz, aks holda odam ro'yxatdan uni qidirib
+                                        vaqt yo'qotadi. */}
+                                    <p className="text-[11px] text-slate-500 mt-1.5">
+                                        {uzbek
+                                            ? "Brauzerda o'zbek ovozi yo'q. TURKCHA ovozni tanlang - u eng yaqin eshitiladi, ruscha ham bo'ladi."
+                                            : 'Raqam aytiladi, tanlangan ovoz tilida.'}
+                                    </p>
+                                </>
+                            )}
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    unlockAudio();
+                                    if (speaks) speakNumber(3, voiceName, { uzbek }); else playTick(soundId);
+                                }}
+                                className="mt-2 w-full px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-bold hover:bg-slate-700"
+                            >
+                                Eshitib ko&rsquo;rish
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
-
             {!showSettings && (
                 <p className="mt-3 text-sm text-slate-500">
                     Oxirgi {warnAt} soniyada sanaladi
