@@ -81,7 +81,9 @@ const CompetitionTimer = ({
     }, []);
 
     const { phase, endsAt, pausedLeft, mainSeconds, submitSeconds, warnAt, runId } = shared;
-    const speaks = getTimerSound(soundId).speaks;
+    const sound = getTimerSound(soundId);
+    const speaks = sound.speaks;
+    const uzbek = !!sound.uzbek;
 
     // Yurmayotganda ko'rsatiladigan raqam.
     useEffect(() => {
@@ -118,13 +120,13 @@ const CompetitionTimer = ({
             if (inWarn && whole > 0 && spokenRef.current !== `${runId}:${phase}:${whole}`) {
                 spokenRef.current = `${runId}:${phase}:${whole}`;
                 if (!muted) {
-                    if (speaks) speakNumber(whole, voiceName);
+                    if (speaks) speakNumber(whole, voiceName, { uzbek });
                     else playTick(soundId);
                 }
             }
         }, TICK_MS);
         return () => clearInterval(id);
-    }, [endsAt, phase, runId, warnAt, soundId, voiceName, speaks, muted, goSubmitPhase, finish]);
+    }, [endsAt, phase, runId, warnAt, soundId, voiceName, speaks, uzbek, muted, goSubmitPhase, finish]);
 
     // Probel - boshlash/to'xtatish. FAQAT to'liq ko'rinishda: ixcham
     // nusxa har sahifada turadi va u yerda probel sahifani aylantirish
@@ -474,9 +476,13 @@ const CompetitionTimer = ({
                                 {/* O'zbekcha ovoz brauzerlarda deyarli yo'q - shuning uchun
                                     SO'Z emas, RAQAM aytiladi va uni har ovoz o'z tilida
                                     to'g'ri o'qiydi. Buni oldindan aytib qo'yamiz. */}
+                                {/* Brauzerlarda o'zbekcha ovoz yo'q - buni
+                                    oldindan aytamiz, aks holda odam ro'yxatdan
+                                    uni qidirib vaqt yo'qotadi. */}
                                 <p className="text-[11px] text-slate-500 mt-1.5">
-                                    Raqam aytiladi, ovoz tilida. O&rsquo;zbekcha ovoz
-                                    kompyuteringizda bo&rsquo;lsa ro&rsquo;yxatda chiqadi.
+                                    {uzbek
+                                        ? "O'zbekcha so'z aytiladi. Brauzerda o'zbek ovozi yo'q, shuning uchun TURKCHA ovozni tanlang - u eng yaqin eshitiladi. Ruscha ham bo'ladi."
+                                        : 'Raqam aytiladi, ovoz tilida.'}
                                 </p>
                             </>
                         )}
@@ -485,7 +491,7 @@ const CompetitionTimer = ({
                             type="button"
                             onClick={() => {
                                 unlockAudio();
-                                if (speaks) speakNumber(3, voiceName); else playTick(soundId);
+                                if (speaks) speakNumber(3, voiceName, { uzbek }); else playTick(soundId);
                             }}
                             className="mt-2 w-full px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-bold hover:bg-slate-700"
                         >

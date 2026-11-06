@@ -40,11 +40,19 @@ export const TIMER_SOUNDS = [
     },
     {
         id: 'voice',
-        label: 'Odam ovozi (sonni aytadi)',
+        label: 'Odam ovozi - raqam',
         // Signal o'rniga son aytiladi - pastdagi `speakNumber`.
         tick: null,
         end: { freq: 440, type: 'sine', ms: 900 },
         speaks: true,
+    },
+    {
+        id: 'voice_uz',
+        label: "Odam ovozi - o'zbekcha",
+        tick: null,
+        end: { freq: 440, type: 'sine', ms: 900 },
+        speaks: true,
+        uzbek: true,
     },
     {
         id: 'silent',
@@ -132,12 +140,13 @@ export const listVoices = () => {
 // Sanoq tez ketadi (har soniyada bitta), shuning uchun oldingisi
 // tugamagan bo'lsa to'xtatiladi - aks holda ovozlar ustma-ust tushib,
 // raqamlar kechikib ketardi.
-export const speakNumber = (n, voiceName = null, { rate = 1.25 } = {}) => {
+export const speakNumber = (n, voiceName = null, { rate = 1.25, uzbek = false } = {}) => {
     if (!speechAvailable()) return false;
     try {
         const synth = window.speechSynthesis;
         synth.cancel();
-        const u = new window.SpeechSynthesisUtterance(String(n));
+        // `uzbek` bo'lsa raqam emas, o'zbekcha SO'Z aytiladi.
+        const u = new window.SpeechSynthesisUtterance(uzbek ? uzbekNumber(n) : String(n));
         u.rate = rate;
         if (voiceName) {
             const v = listVoices().find(x => x.name === voiceName);
@@ -153,4 +162,40 @@ export const speakNumber = (n, voiceName = null, { rate = 1.25 } = {}) => {
 export const stopSpeech = () => {
     if (!speechAvailable()) return;
     try { window.speechSynthesis.cancel(); } catch { /* e'tiborsiz */ }
+};
+
+
+// ---------------------------------------------------------------------------
+// O'ZBEKCHA SANOQ
+//
+// Brauzerlarda o'zbekcha ovoz YO'Q - bu tekshirilgan, taxmin emas.
+// Shuning uchun ovozni yarata olmaymiz, lekin o'rnatilgan ovozga
+// O'ZBEKCHA SO'ZNI berishimiz mumkin: u so'zni o'z qoidasi bo'yicha
+// o'qiydi.
+//
+// Natija qaysi ovoz tanlanganiga bog'liq:
+//   turkcha  - eng yaqin ("bir, ikki, uch, besh" turkchada deyarli
+//              bir xil), zalda o'zbekcha eshitiladi;
+//   ruscha   - qoniqarli;
+//   inglizcha- yomon, so'zlarni buzib o'qiydi.
+//
+// APOSTROF ATAYLAB YO'Q. "to'rt" yoki "o'n" deb yozilsa, chet tilidagi
+// ovoz apostrofda to'xtab, so'zni ikkiga bo'lib o'qiydi. "tort", "on"
+// shaklida esa ravon chiqadi va o'zbekchaga yaqinroq eshitiladi.
+// ---------------------------------------------------------------------------
+
+const UZ_ONES = ['', 'bir', 'ikki', 'uch', 'tort', 'besh', 'olti', 'yetti', 'sakkiz', 'tokkiz'];
+const UZ_TENS = ['', 'on', 'yigirma', 'ottiz', 'qirq', 'ellik', 'oltmish'];
+
+export const uzbekNumber = (n) => {
+    const v = Math.max(0, Math.round(Number(n) || 0));
+    if (v === 0) return 'nol';
+    if (v < 10) return UZ_ONES[v];
+    if (v <= 60) {
+        const tens = Math.floor(v / 10);
+        const ones = v % 10;
+        const head = UZ_TENS[tens] || String(tens * 10);
+        return ones ? `${head} ${UZ_ONES[ones]}` : head;
+    }
+    return String(v);
 };
